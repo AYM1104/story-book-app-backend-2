@@ -1,0 +1,10 @@
+Copy this file to .env and fill in values
+
+# Google / Gemini API Keys
+GEMINI_API_KEY=
+GOOGLE_API_KEY=
+
+# Database (if used)
+DATABASE_URL=sqlite:///./app.db
+
+

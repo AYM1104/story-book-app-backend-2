@@ -1,3 +1,40 @@
+# Python / FastAPI backend ignore rules
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Virtual environments
+venv/
+.venv/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment / Secrets
+.env
+.env.*
+app/secrets/**
+!app/secrets/README.md
+
+# Uploads and generated artifacts (do not track user data)
+app/uploads/**
+!app/uploads/README.md
+generated_images/**
+
+# Logs
+*.log
+logs/**
+
+# Coverage / test artifacts
+.pytest_cache/
+.coverage*
+htmlcov/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
