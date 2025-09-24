@@ -43,3 +43,4 @@ class StoryPlot(Base):
     # リレーションシップ
     story_setting = relationship("StorySetting")
     user = relationship("Users")
+    generated_storybooks = relationship("GeneratedStoryBook", back_populates="story_plot")

@@ -267,5 +267,75 @@ class StoryGeneratorService:
             ]
         }
 
+    def generate_story_setting_from_analysis(self, meta_data: Dict[str, Any], upload_image_id: int) -> Dict[str, Any]:
+        """画像解析結果（labels/objects/text）から物語設定を推定して返す"""
+        # ラベル群
+        labels: List[str] = []
+        raw_labels = meta_data.get("labels")
+        if isinstance(raw_labels, list):
+            # Visionの形式に幅を持たせる（文字列配列 or {description: str} 配列）
+            for item in raw_labels:
+                if isinstance(item, str):
+                    labels.append(item)
+                elif isinstance(item, dict) and "description" in item:
+                    labels.append(str(item["description"]))
+
+        # オブジェクト群
+        objects: List[str] = []
+        raw_objects = meta_data.get("objects")
+        if isinstance(raw_objects, list):
+            for item in raw_objects:
+                if isinstance(item, str):
+                    objects.append(item)
+                elif isinstance(item, dict) and "name" in item:
+                    objects.append(str(item["name"]))
+
+        # テキスト群
+        texts: List[str] = []
+        raw_text = meta_data.get("text")
+        if isinstance(raw_text, list):
+            for t in raw_text:
+                if isinstance(t, str):
+                    texts.append(t)
+                elif isinstance(t, dict) and "description" in t:
+                    texts.append(str(t["description"]))
+
+        # 推定ロジック（単純ヒューリスティック）
+        protagonist_type = "子供"
+        lower_labels = [l.lower() for l in labels]
+        if any(k in lower_labels for k in ["cat", "dog", "animal"]):
+            protagonist_type = "動物"
+        elif any(k in lower_labels for k in ["robot", "machine"]):
+            protagonist_type = "ロボット"
+
+        setting_place = "公園"
+        lower_objects = [o.lower() for o in objects]
+        if any(k in lower_objects for k in ["house", "home"]):
+            setting_place = "家"
+        elif any(k in lower_objects for k in ["forest", "tree"]):
+            setting_place = "森"
+        elif any(k in lower_objects for k in ["sea", "ocean"]):
+            setting_place = "海"
+        elif any(k in lower_objects for k in ["mountain", "hill"]):
+            setting_place = "山"
+
+        protagonist_name = "主人公"
+        if texts:
+            cand = texts[0]
+            if isinstance(cand, str) and 1 <= len(cand) <= 12:
+                protagonist_name = cand
+
+        return {
+            "title_suggestion": f"{protagonist_name}の冒険",
+            "protagonist_name": protagonist_name,
+            "protagonist_type": protagonist_type,
+            "setting_place": setting_place,
+            "tone": "gentle",
+            "target_age": "preschool",
+            "language": "japanese",
+            "reading_level": "hiragana_only",
+            "style_guideline": "優しく温かい雰囲気で、子供が楽しめる内容にする"
+        }
+
 # シングルトンインスタンス
 story_generator_service = StoryGeneratorService()

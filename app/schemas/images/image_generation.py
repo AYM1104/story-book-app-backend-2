@@ -106,7 +106,8 @@ class StoryPlotImageToImageRequest(BaseModel):
 class StoryPlotAllPagesImageToImageRequest(BaseModel):
     """StoryPlot全ページImage-to-Image生成リクエスト"""
     story_plot_id: int
-    reference_image_path: str
+    # 省略可。未指定の場合は story_plot_id → story_setting → upload_image.file_path を自動解決
+    reference_image_path: Optional[str] = None
     strength: Optional[float] = 0.8
     prefix: Optional[str] = "storyplot_i2i_all"
 

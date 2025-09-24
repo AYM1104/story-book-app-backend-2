@@ -89,19 +89,33 @@ async def generate_storyplot_all_pages_image_to_image(
                 detail="強度は0.0-1.0の範囲で指定してください"
             )
         
-        # 参考画像の存在確認（絶対パスと相対パスの両方に対応）
+        # 参考画像の自動解決
         image_path = request.reference_image_path
+        if not image_path:
+            # request.reference_image_path が未指定の場合、story_plot_id から解決
+            from app.models.story.stroy_plot import StoryPlot
+            from app.models.story.story_setting import StorySetting
+            from app.models.images.images import UploadImages
+
+            story_plot = db.query(StoryPlot).filter(StoryPlot.id == request.story_plot_id).first()
+            if not story_plot:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StoryPlot ID {request.story_plot_id} が見つかりません")
+
+            story_setting = db.query(StorySetting).filter(StorySetting.id == story_plot.story_setting_id).first()
+            if not story_setting:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StorySetting ID {story_plot.story_setting_id} が見つかりません")
+
+            upload_image = story_setting.upload_image
+            if not upload_image or not upload_image.file_path:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="参照画像（upload_image）が見つかりません")
+
+            image_path = upload_image.file_path
+
+        # 絶対パス・存在確認（相対ならプロジェクトルート基準）
         if not os.path.isabs(image_path):
-            # 相対パスの場合は、プロジェクトルートからの相対パスとして扱う
             image_path = os.path.join(os.getcwd(), image_path)
-        
         if not os.path.exists(image_path):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"参考画像が見つかりません: {request.reference_image_path}"
-            )
-        
-        # 絶対パスに変換
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"参考画像が見つかりません: {image_path}")
         request.reference_image_path = os.path.abspath(image_path)
         
         images_info = image_generator_service.generate_storyplot_all_pages_i2i(

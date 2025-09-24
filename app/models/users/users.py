@@ -12,5 +12,6 @@ class Users(Base):
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
 
-    # 画像とのリレーションシップ
+    # リレーションシップ
     upload_images = relationship("UploadImages", back_populates="user")
+    generated_storybooks = relationship("GeneratedStoryBook", back_populates="user")

@@ -35,6 +35,7 @@ async def create_story_setting_from_image(
         )
     
     try:
+        action = "作成"  # デフォルト値（例外時のスコープエラー回避）
         # meta_dataをパース
         meta_data_json = json.loads(upload_image.meta_data)
 

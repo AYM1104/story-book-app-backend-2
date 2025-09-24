@@ -21,6 +21,12 @@ class ThemeSelectionRequest(BaseModel):
 # ストーリー生成サービス
 story_generator_service = StoryGeneratorService()
 
+# クエリ用スキーマ
+class StoryPlotQueryParams(BaseModel):
+    user_id: int
+    story_setting_id: int
+    limit: int = 3
+
 # 1. テーマ案と物語本文を生成して保存
 @router.post("/story_generator", response_model=Dict[str, Any])
 async def story_generator(
@@ -339,3 +345,48 @@ async def get_selected_story_legacy(
 ):
     """後方互換性のためのエンドポイント"""
     return await select_theme(request, db)
+
+# 6. ユーザーIDと設定IDで最新のタイトルを取得（デフォルト3件）
+@router.get("/story_plots", response_model=Dict[str, Any])
+async def list_story_plots(
+    user_id: int,
+    story_setting_id: int,
+    limit: int = 3,
+    db: Session = Depends(get_db)
+):
+    """ユーザーIDと設定IDで `story_plots` の最新タイトルを最大 `limit` 件返す"""
+
+    if limit <= 0:
+        limit = 1
+    if limit > 50:
+        limit = 50
+
+    plots = (
+        db.query(StoryPlot)
+        .filter(
+            StoryPlot.user_id == user_id,
+            StoryPlot.story_setting_id == story_setting_id,
+            StoryPlot.title.isnot(None)
+        )
+        .order_by(StoryPlot.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items = [
+        {
+            "story_plot_id": p.id,
+            "title": p.title,
+            "description": p.description,
+            "selected_theme": p.selected_theme,
+            "created_at": p.created_at,
+        }
+        for p in plots
+    ]
+
+    return {
+        "user_id": user_id,
+        "story_setting_id": story_setting_id,
+        "count": len(items),
+        "items": items,
+    }

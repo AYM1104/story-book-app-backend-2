@@ -25,12 +25,8 @@ async def upload_image(
             detail=f"サポートされていないファイル形式です。許可されている形式: {', '.join(ALLOWED_MIME)}"
         )
     
-    # ファイルサイズのチェック
-    if file.size > MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"ファイルサイズが大きすぎます。最大{MAX_UPLOAD_SIZE // (1024*1024)}MBまでです。"
-        )
+    # ファイルサイズのチェック（実データで検証）
+    # UploadFile.size は環境により入らない場合があるため、読み込み後に長さで判定
     
     try:
         # ファイルの保存先ディレクトリを作成
@@ -41,9 +37,16 @@ async def upload_image(
         file_name = f"{uuid.uuid4()}.{file_extension}"
         file_path = os.path.join(UPLOAD_DIR, file_name)
         
+        # ファイル内容を読み込み（サイズ検証を保存前に実施）
+        content = await file.read()
+        if len(content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"ファイルサイズが大きすぎます。最大{MAX_UPLOAD_SIZE // (1024*1024)}MBまでです。"
+            )
+
         # ファイルを保存
         with open(file_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
         
         # デバッグ情報
