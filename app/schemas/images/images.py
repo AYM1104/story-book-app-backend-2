@@ -15,4 +15,5 @@ class UploadImageResponse(BaseModel):
     size_bytes: int
     uploaded_at: datetime
     meta_data: Optional[str] = None  # JSON文字列として扱う
+    public_url: Optional[str] = None  # GCSの公開URL（ストレージタイプがGCSの場合）
 

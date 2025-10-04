@@ -104,6 +104,26 @@ async def get_storybook(
             detail=f"StoryBook ID {storybook_id} が見つかりません"
         )
     
+    # GCSの画像URLを公開URLに変換
+    from app.service.gcs_storage_service import GCSStorageService
+    gcs_service = GCSStorageService()
+    
+    # 各ページの画像URLをGCSの公開URLに変換
+    if storybook.page_1_image_url and not storybook.page_1_image_url.startswith('http'):
+        storybook.page_1_image_url = gcs_service.get_public_url(storybook.page_1_image_url)
+    
+    if storybook.page_2_image_url and not storybook.page_2_image_url.startswith('http'):
+        storybook.page_2_image_url = gcs_service.get_public_url(storybook.page_2_image_url)
+    
+    if storybook.page_3_image_url and not storybook.page_3_image_url.startswith('http'):
+        storybook.page_3_image_url = gcs_service.get_public_url(storybook.page_3_image_url)
+    
+    if storybook.page_4_image_url and not storybook.page_4_image_url.startswith('http'):
+        storybook.page_4_image_url = gcs_service.get_public_url(storybook.page_4_image_url)
+    
+    if storybook.page_5_image_url and not storybook.page_5_image_url.startswith('http'):
+        storybook.page_5_image_url = gcs_service.get_public_url(storybook.page_5_image_url)
+    
     return storybook
 
 @router.get("/user/{user_id}", response_model=list[GeneratedStoryBookResponse])

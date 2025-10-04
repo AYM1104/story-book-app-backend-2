@@ -300,16 +300,98 @@ class StoryGeneratorService:
                 elif isinstance(t, dict) and "description" in t:
                     texts.append(str(t["description"]))
 
-        # 推定ロジック（単純ヒューリスティック）
+        # 顔検出結果
+        faces: List[Dict[str, Any]] = []
+        raw_faces = meta_data.get("faces")
+        if isinstance(raw_faces, list):
+            faces = raw_faces
+
+        # 推定ロジック（より詳細な判定）
         protagonist_type = "子供"
-        lower_labels = [l.lower() for l in labels]
+        
+        # facesの情報を取得（人間の顔が検出されているかチェック）
+        has_human_face = len(faces) > 0
+        
+        # 人間の顔が検出されている場合、Gemini APIで性別を判定
+        if has_human_face:
+            try:
+                # 画像ファイルのパスを取得（upload_image_idから）
+                from sqlalchemy.orm import Session
+                from app.database.session import get_db
+                from app.models.images.images import UploadImages
+                
+                # データベースセッションを取得
+                db_gen = get_db()
+                db = next(db_gen)
+                try:
+                    upload_image = db.query(UploadImages).filter(UploadImages.id == upload_image_id).first()
+                    if upload_image and upload_image.file_path:
+                        gender_result = self._detect_gender_with_gemini(upload_image.file_path)
+                        if gender_result in ["男の子", "女の子"]:
+                            protagonist_type = gender_result
+                finally:
+                    db.close()
+            except Exception as e:
+                print(f"性別判定エラー: {e}")
+                # エラー時はデフォルトの「子供」のまま
+        else:
+            # 人間の顔が検出されない場合でも、子供が描いた絵の場合は性別判定を試行
+            # labelsから判定
+            lower_labels = [l.lower() for l in labels]
+            is_cartoon_character = any(k in lower_labels for k in ["cartoon", "animation", "animated cartoon", "fictional character", "toy"])
+            is_child_drawing = any(k in lower_labels for k in ["drawing", "art", "illustration", "sketch", "painting"])
+            
+            if is_cartoon_character or is_child_drawing:
+                try:
+                    # 画像ファイルのパスを取得（upload_image_idから）
+                    from sqlalchemy.orm import Session
+                    from app.database.session import get_db
+                    from app.models.images.images import UploadImages
+                    
+                    # データベースセッションを取得
+                    db_gen = get_db()
+                    db = next(db_gen)
+                    try:
+                        upload_image = db.query(UploadImages).filter(UploadImages.id == upload_image_id).first()
+                        if upload_image and upload_image.file_path:
+                            gender_result = self._detect_gender_from_drawing(upload_image.file_path)
+                            if gender_result in ["男の子", "女の子"]:
+                                protagonist_type = gender_result
+                    finally:
+                        db.close()
+                except Exception as e:
+                    print(f"絵からの性別判定エラー: {e}")
+                    # エラー時は従来のロジックにフォールバック
+        
+        # labelsから判定（従来のロジック）
         if any(k in lower_labels for k in ["cat", "dog", "animal"]):
             protagonist_type = "動物"
         elif any(k in lower_labels for k in ["robot", "machine"]):
             protagonist_type = "ロボット"
+        
+        # objectsからも判定（より正確な判定のため）
+        lower_objects = [o.lower() for o in objects]
+        
+        # 人間の顔が検出されている場合は、動物の着ぐるみでも「子供」として判定
+        if has_human_face:
+            # 人間の顔がある場合、動物の着ぐるみでも子供として扱う
+            if any(k in lower_objects for k in ["robot", "machine", "vehicle", "car", "truck", "airplane", "helicopter", "boat", "ship", "train", "bicycle", "motorcycle"]):
+                protagonist_type = "ロボット"
+            else:
+                protagonist_type = "子供"  # 動物の着ぐるみでも人間の顔があれば子供
+        else:
+            # 人間の顔がない場合の判定
+            # カートゥーン・アニメーション・架空キャラクターの場合は着ぐるみを着た子供の可能性が高い
+            is_cartoon_character = any(k in lower_labels for k in ["cartoon", "animation", "animated cartoon", "fictional character", "toy"])
+            
+            if is_cartoon_character and any(k in lower_objects for k in ["animal", "cat", "dog", "bird", "fish", "bear", "rabbit", "mouse", "lion", "tiger", "elephant", "monkey", "panda", "fox", "wolf", "deer", "horse", "cow", "pig", "sheep", "goat", "duck", "chicken", "frog", "turtle", "snake", "butterfly", "bee", "spider"]):
+                protagonist_type = "子供"  # カートゥーン + 動物 = 着ぐるみを着た子供
+            elif any(k in lower_objects for k in ["animal", "cat", "dog", "bird", "fish", "bear", "rabbit", "mouse", "lion", "tiger", "elephant", "monkey", "panda", "fox", "wolf", "deer", "horse", "cow", "pig", "sheep", "goat", "duck", "chicken", "frog", "turtle", "snake", "butterfly", "bee", "spider"]):
+                protagonist_type = "動物"  # リアルな動物
+            elif any(k in lower_objects for k in ["robot", "machine", "vehicle", "car", "truck", "airplane", "helicopter", "boat", "ship", "train", "bicycle", "motorcycle"]):
+                protagonist_type = "ロボット"
 
         setting_place = "公園"
-        lower_objects = [o.lower() for o in objects]
         if any(k in lower_objects for k in ["house", "home"]):
             setting_place = "家"
         elif any(k in lower_objects for k in ["forest", "tree"]):
@@ -336,6 +418,103 @@ class StoryGeneratorService:
             "reading_level": "hiragana_only",
             "style_guideline": "優しく温かい雰囲気で、子供が楽しめる内容にする"
         }
+
+    def _detect_gender_with_gemini(self, image_path: str) -> str:
+        """Gemini APIを使って画像から性別を判定（写真用）"""
+        try:
+            import base64
+            from PIL import Image
+            
+            # 画像を読み込んでbase64エンコード
+            with open(image_path, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # Gemini APIで性別判定
+            prompt = """
+            この画像に写っている子供の性別を判定してください。
+            以下のいずれかで回答してください：
+            - 男の子
+            - 女の子
+            - 判定不可
+            
+            顔の特徴、髪型、服装、表情などを総合的に判断してください。
+            """
+            
+            # Gemini APIで画像解析
+            response = self.model.generate_content([
+                prompt,
+                {
+                    "mime_type": "image/jpeg",
+                    "data": image_data
+                }
+            ])
+            
+            result = response.text.strip()
+            
+            # 結果を正規化
+            if "男の子" in result or "男" in result:
+                return "男の子"
+            elif "女の子" in result or "女" in result:
+                return "女の子"
+            else:
+                return "子供"  # 判定不可の場合はデフォルト
+                
+        except Exception as e:
+            print(f"Gemini性別判定エラー: {e}")
+            return "子供"  # エラー時はデフォルト
+
+    def _detect_gender_from_drawing(self, image_path: str) -> str:
+        """Gemini APIを使って子供が描いた絵から主人公の性別を判定"""
+        try:
+            import base64
+            from PIL import Image
+            
+            # 画像を読み込んでbase64エンコード
+            with open(image_path, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # Gemini APIで絵から性別判定
+            prompt = """
+            この画像は子供が描いた絵です。絵に描かれている主人公（人物）の性別を判定してください。
+            以下のいずれかで回答してください：
+            - 男の子
+            - 女の子
+            - 判定不可
+            
+            以下の要素を総合的に判断してください：
+            - 髪型（短髪、長髪、ポニーテールなど）
+            - 服装の色（青、ピンク、赤、緑など）
+            - 服装のスタイル（ズボン、スカート、ドレスなど）
+            - アクセサリー（リボン、帽子など）
+            - 全体的な色使いや雰囲気
+            - 絵の特徴（子供らしい描き方、色使いなど）
+            
+            子供が描いた絵なので、はっきりしない部分もありますが、できるだけ判定してください。
+            """
+            
+            # Gemini APIで画像解析
+            response = self.model.generate_content([
+                prompt,
+                {
+                    "mime_type": "image/jpeg",
+                    "data": image_data
+                }
+            ])
+            
+            result = response.text.strip()
+            print(f"絵からの性別判定結果: {result}")
+            
+            # 結果を正規化
+            if "男の子" in result or "男" in result:
+                return "男の子"
+            elif "女の子" in result or "女" in result:
+                return "女の子"
+            else:
+                return "子供"  # 判定不可の場合はデフォルト
+                
+        except Exception as e:
+            print(f"絵からの性別判定エラー: {e}")
+            return "子供"  # エラー時はデフォルト
 
 # シングルトンインスタンス
 story_generator_service = StoryGeneratorService()

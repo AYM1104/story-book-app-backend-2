@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from app.models.story.stroy_plot import StoryPlot
 from app.models.story.story_setting import StorySetting
+from app.core.config import STORAGE_TYPE
+from app.service.gcs_storage_service import GCSStorageService
 
 load_dotenv()
 
@@ -26,16 +28,29 @@ class ImageGeneratorService:
         # Gemini クライアントを初期化
         self.client = genai.Client(api_key=api_key)
         
-        # 画像保存用ディレクトリ
-        self.images_dir = "app/uploads/generated_images"
-        self.reference_images_dir = "app/uploads/reference_images"
-        self.upload_images_dir = "app/uploads/upload_images"
-        os.makedirs(self.images_dir, exist_ok=True)
-        os.makedirs(self.reference_images_dir, exist_ok=True)
-        os.makedirs(self.upload_images_dir, exist_ok=True)
+        # ストレージタイプに応じてディレクトリを設定
+        if STORAGE_TYPE == "gcs":
+            # GCSを使用する場合はローカルディレクトリは不要
+            self.images_dir = None
+            self.reference_images_dir = None
+            self.upload_images_dir = None
+            # GCSサービスを初期化
+            self.gcs_service = GCSStorageService()
+        else:
+            # ローカルストレージを使用
+            self.images_dir = "app/uploads/generated_images"
+            self.reference_images_dir = "app/uploads/reference_images"
+            self.upload_images_dir = "app/uploads/upload_images"
+            os.makedirs(self.images_dir, exist_ok=True)
+            os.makedirs(self.reference_images_dir, exist_ok=True)
+            os.makedirs(self.upload_images_dir, exist_ok=True)
+            self.gcs_service = None
 
     def create_save_directory(self, subdir: str = None):
-        """画像保存用ディレクトリを作成"""
+        """画像保存用ディレクトリを作成（ローカルストレージの場合のみ）"""
+        if STORAGE_TYPE == "gcs":
+            return None
+        
         if subdir:
             save_dir = os.path.join(self.images_dir, subdir)
         else:
@@ -49,24 +64,42 @@ class ImageGeneratorService:
         unique_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
+    def save_image_to_storage(self, image_data: bytes, filename: str, user_id: int = 1, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
+        """画像をストレージに保存（GCSまたはローカル）"""
+        if STORAGE_TYPE == "gcs":
+            # Google Cloud Storageに保存
+            return self.gcs_service.upload_generated_image(
+                file_content=image_data,
+                filename=filename,
+                user_id=user_id,
+                story_id=story_id,
+                content_type=content_type
+            )
+        else:
+            # ローカルストレージに保存
+            filepath = os.path.join(self.images_dir, filename)
+            with open(filepath, "wb") as f:
+                f.write(image_data)
+            
+            return {
+                "success": True,
+                "filename": filename,
+                "filepath": filepath,
+                "size_bytes": len(image_data),
+                "content_type": content_type,
+                "timestamp": datetime.now().isoformat()
+            }
+
     def generate_single_image(self, prompt: str, prefix: str = "storybook_image") -> Dict[str, Any]:
         """単一の画像を生成"""
         try:
-            # プロンプトに文字なしの指示を追加（強化版）
-            enhanced_prompt = (
-                f"{prompt}. "
-                f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
-                f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
-                f"NO written language of any kind. This must be a pure visual illustration only. "
-                f"The image should be completely text-free and contain only visual elements, characters, "
-                f"objects, and scenes without any written content whatsoever."
-            )
+            # プロンプトにアスペクト比を追加
+            enhanced_prompt = f"{prompt}. Image format: 4:3 aspect ratio (landscape orientation), horizontal composition."
+            print(f"画像生成開始: {enhanced_prompt}")
             
-            print(f"🎨 画像生成開始: {enhanced_prompt[:50]}...")
-            
-            # 画像生成を実行
+            # 画像生成のリクエストを作成
             response = self.client.models.generate_content(
-                model="gemini-2.5-flash-image-preview",
+                model="gemini-2.0-flash-exp",
                 contents=[enhanced_prompt]
             )
             
@@ -77,31 +110,53 @@ class ImageGeneratorService:
                     if hasattr(content, 'parts') and content.parts:
                         for part in content.parts:
                             if hasattr(part, 'inline_data') and part.inline_data is not None:
-                                # 画像を保存
-                                image = Image.open(BytesIO(part.inline_data.data))
+                                # 画像データを取得
+                                image_data = part.inline_data.data
+                                
+                                # 画像をPILで開いて情報を取得
+                                image = Image.open(BytesIO(image_data))
                                 filename = self.generate_unique_filename(prefix, "png")
-                                filepath = os.path.join(self.images_dir, filename)
-                                image.save(filepath)
                                 
-                                # 画像情報を返す
-                                image_info = {
-                                    "filename": filename,
-                                    "filepath": filepath,
-                                    "size_bytes": len(part.inline_data.data),
-                                    "image_size": image.size,
-                                    "format": image.format,
-                                    "timestamp": datetime.now().isoformat(),
-                                    "prompt": enhanced_prompt
-                                }
+                                # ストレージに保存
+                                save_result = self.save_image_to_storage(
+                                    image_data=image_data,
+                                    filename=filename,
+                                    user_id=1,  # デフォルトユーザーID
+                                    content_type="image/png"
+                                )
                                 
-                                print(f"✅ 画像生成成功: {filename}")
-                                return image_info
+                                if save_result["success"]:
+                                    # 成功時の情報を返す
+                                    image_info = {
+                                        "filename": filename,
+                                        "filepath": save_result.get("filepath", save_result.get("gcs_path")),
+                                        "public_url": save_result.get("public_url"),
+                                        "size_bytes": len(image_data),
+                                        "image_size": image.size,
+                                        "format": image.format,
+                                        "timestamp": datetime.now().isoformat(),
+                                        "prompt": prompt
+                                    }
+                                    print(f"画像生成成功: {filename}")
+                                    return image_info
+                                else:
+                                    print(f"画像保存失敗: {save_result.get('error')}")
+                                    return {
+                                        "error": f"画像保存に失敗しました: {save_result.get('error')}",
+                                        "filename": filename
+                                    }
             
-            raise Exception("画像データが見つかりませんでした")
+            return {
+                "error": "画像生成に失敗しました: レスポンスに画像データが含まれていません",
+                "filename": None
+            }
             
         except Exception as e:
-            print(f"❌ 画像生成エラー: {e}")
-            raise e
+            print(f"画像生成エラー: {str(e)}")
+            return {
+                "error": f"画像生成に失敗しました: {str(e)}",
+                "filename": None
+            }
 
     def generate_multiple_images(self, prompts: List[str], prefix: str = "storybook_page") -> List[Dict[str, Any]]:
         """複数の画像を一括生成"""
@@ -111,9 +166,10 @@ class ImageGeneratorService:
         
         for i, prompt in enumerate(prompts, 1):
             try:
-                # プロンプトに文字なしの指示を追加
+                # プロンプトに文字なしの指示とアスペクト比を追加
                 enhanced_prompt = (
                     f"{prompt}. "
+                    f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
                     f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                     f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                     f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -135,25 +191,39 @@ class ImageGeneratorService:
                         if hasattr(content, 'parts') and content.parts:
                             for part in content.parts:
                                 if hasattr(part, 'inline_data') and part.inline_data is not None:
-                                    image = Image.open(BytesIO(part.inline_data.data))
+                                    image_data = part.inline_data.data
                                     filename = self.generate_unique_filename(f"{prefix}_{i}", "png")
-                                    filepath = os.path.join(self.images_dir, filename)
-                                    image.save(filepath)
                                     
-                                    image_info = {
-                                        "prompt_index": i,
-                                        "filename": filename,
-                                        "filepath": filepath,
-                                        "size_bytes": len(part.inline_data.data),
-                                        "image_size": image.size,
-                                        "format": image.format,
-                                        "timestamp": datetime.now().isoformat(),
-                                        "prompt": enhanced_prompt
-                                    }
+                                    save_result = self.save_image_to_storage(
+                                        image_data=image_data,
+                                        filename=filename,
+                                        user_id=1,  # デフォルトユーザーID
+                                        content_type="image/png"
+                                    )
                                     
-                                    generated_images.append(image_info)
-                                    print(f"✅ 画像 {i} 生成成功: {filename}")
-                                    break
+                                    if save_result["success"]:
+                                        image_info = {
+                                            "prompt_index": i,
+                                            "filename": filename,
+                                            "filepath": save_result.get("filepath", save_result.get("gcs_path")),
+                                            "public_url": save_result.get("public_url"),
+                                            "size_bytes": len(image_data),
+                                            "image_size": Image.open(BytesIO(image_data)).size,
+                                            "format": "png", # Gemini APIはPNGを返すため
+                                            "timestamp": datetime.now().isoformat(),
+                                            "prompt": enhanced_prompt
+                                        }
+                                        generated_images.append(image_info)
+                                        print(f"✅ 画像 {i} 生成成功: {filename}")
+                                        break
+                                    else:
+                                        print(f"❌ プロンプト {i} 画像保存失敗: {save_result.get('error')}")
+                                        generated_images.append({
+                                            "prompt_index": i,
+                                            "filename": filename,
+                                            "error": f"画像保存に失敗しました: {save_result.get('error')}"
+                                        })
+                                        break
             except Exception as e:
                 print(f"❌ プロンプト {i} エラー: {e}")
         
@@ -167,11 +237,12 @@ class ImageGeneratorService:
         
         prompts = []
         for i, page_content in enumerate(story_pages, 1):
-            # 絵本風のプロンプトを作成
+            # 絵本風のプロンプトを作成（4:3アスペクト比指定）
             prompt = (
                 f"Create a beautiful children's book illustration for: {page_content}. "
                 f"Style: children's book illustration, warm and friendly, bright colors, "
                 f"simple and clean design, suitable for children. "
+                f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -196,26 +267,40 @@ class ImageGeneratorService:
                         if hasattr(content, 'parts') and content.parts:
                             for part in content.parts:
                                 if hasattr(part, 'inline_data') and part.inline_data is not None:
-                                    image = Image.open(BytesIO(part.inline_data.data))
+                                    image_data = part.inline_data.data
                                     filename = f"storybook_{storybook_id}_page_{i}.png"
-                                    filepath = os.path.join(storybook_dir, filename)
-                                    image.save(filepath)
                                     
-                                    image_info = {
-                                        "page_number": i,
-                                        "filename": filename,
-                                        "filepath": filepath,
-                                        "size_bytes": len(part.inline_data.data),
-                                        "image_size": image.size,
-                                        "format": image.format,
-                                        "timestamp": datetime.now().isoformat(),
-                                        "storybook_id": storybook_id,
-                                        "page_content": story_pages[i-1]
-                                    }
+                                    save_result = self.save_image_to_storage(
+                                        image_data=image_data,
+                                        filename=filename,
+                                        user_id=1,  # デフォルトユーザーID
+                                        content_type="image/png"
+                                    )
                                     
-                                    generated_images.append(image_info)
-                                    print(f"✅ 絵本ページ {i} 生成成功: {filename}")
-                                    break
+                                    if save_result["success"]:
+                                        image_info = {
+                                            "page_number": i,
+                                            "filename": filename,
+                                            "filepath": save_result.get("filepath", save_result.get("gcs_path")),
+                                            "public_url": save_result.get("public_url"),
+                                            "size_bytes": len(image_data),
+                                            "image_size": Image.open(BytesIO(image_data)).size,
+                                            "format": "png", # Gemini APIはPNGを返すため
+                                            "timestamp": datetime.now().isoformat(),
+                                            "storybook_id": storybook_id,
+                                            "page_content": story_pages[i-1]
+                                        }
+                                        generated_images.append(image_info)
+                                        print(f"✅ 絵本ページ {i} 生成成功: {filename}")
+                                        break
+                                    else:
+                                        print(f"❌ 絵本ページ {i} 画像保存失敗: {save_result.get('error')}")
+                                        generated_images.append({
+                                            "page_number": i,
+                                            "filename": filename,
+                                            "error": f"画像保存に失敗しました: {save_result.get('error')}"
+                                        })
+                                        break
             except Exception as e:
                 print(f"❌ 絵本ページ {i} エラー: {e}")
         
@@ -253,13 +338,14 @@ class ImageGeneratorService:
             protagonist_type = story_setting.protagonist_type if story_setting else "子供"
             setting_place = story_setting.setting_place if story_setting else "公園"
             
-            # 絵本風のプロンプトを作成
+            # 絵本風のプロンプトを作成（4:3アスペクト比指定）
             enhanced_prompt = (
                 f"Create a beautiful children's book illustration for: {page_content}. "
                 f"Character: {protagonist_name} (a {protagonist_type}), "
                 f"Setting: {setting_place}. "
                 f"Style: children's book illustration, warm and friendly, bright colors, "
                 f"simple and clean design, suitable for children, consistent character design. "
+                f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -283,33 +369,48 @@ class ImageGeneratorService:
                     if hasattr(content, 'parts') and content.parts:
                         for part in content.parts:
                             if hasattr(part, 'inline_data') and part.inline_data is not None:
-                                # 画像を保存
-                                image = Image.open(BytesIO(part.inline_data.data))
+                                # 画像データを取得
+                                image_data = part.inline_data.data
                                 filename = self.generate_unique_filename(
                                     f"storyplot_{story_plot_id}_page_{page_number}", 
                                     "png"
                                 )
-                                filepath = os.path.join(self.images_dir, filename)
-                                image.save(filepath)
                                 
-                                # 画像情報を返す
-                                image_info = {
-                                    "story_plot_id": story_plot_id,
-                                    "page_number": page_number,
-                                    "filename": filename,
-                                    "filepath": filepath,
-                                    "size_bytes": len(part.inline_data.data),
-                                    "image_size": image.size,
-                                    "format": image.format,
-                                    "timestamp": datetime.now().isoformat(),
-                                    "page_content": page_content,
-                                    "title": story_plot.title,
-                                    "protagonist_name": protagonist_name,
-                                    "setting_place": setting_place
-                                }
+                                save_result = self.save_image_to_storage(
+                                    image_data=image_data,
+                                    filename=filename,
+                                    user_id=story_plot.user_id,  # ストーリープロットのユーザーID
+                                    story_id=story_plot_id,  # ストーリープロットID
+                                    content_type="image/png"
+                                )
                                 
-                                print(f"✅ StoryPlot画像生成成功: {filename}")
-                                return image_info
+                                if save_result["success"]:
+                                    # 画像情報を返す
+                                    image_info = {
+                                        "story_plot_id": story_plot_id,
+                                        "page_number": page_number,
+                                        "filename": filename,
+                                        "filepath": save_result.get("filepath", save_result.get("gcs_path")),
+                                        "public_url": save_result.get("public_url"),
+                                        "size_bytes": len(image_data),
+                                        "image_size": Image.open(BytesIO(image_data)).size,
+                                        "format": "png", # Gemini APIはPNGを返すため
+                                        "timestamp": datetime.now().isoformat(),
+                                        "page_content": page_content,
+                                        "title": story_plot.title,
+                                        "protagonist_name": protagonist_name,
+                                        "setting_place": setting_place
+                                    }
+                                    print(f"✅ StoryPlot画像生成成功: {filename}")
+                                    return image_info
+                                else:
+                                    print(f"❌ StoryPlot画像保存失敗: {save_result.get('error')}")
+                                    return {
+                                        "error": f"画像保存に失敗しました: {save_result.get('error')}",
+                                        "story_plot_id": story_plot_id,
+                                        "page_number": page_number,
+                                        "filename": filename
+                                    }
             
             raise Exception("画像データが見つかりませんでした")
             
@@ -361,10 +462,18 @@ class ImageGeneratorService:
             raise e
 
     def encode_image_to_base64(self, image_path: str) -> str:
-        """画像ファイルをBase64エンコード"""
+        """画像ファイルをBase64エンコード（GCSのURLとローカルパスの両方に対応）"""
         try:
-            with open(image_path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode('utf-8')
+            if image_path.startswith("https://") or image_path.startswith("http://"):
+                # GCSのURLの場合はHTTPリクエストで取得
+                import requests
+                response = requests.get(image_path)
+                response.raise_for_status()
+                return base64.b64encode(response.content).decode('utf-8')
+            else:
+                # ローカルファイルの場合
+                with open(image_path, "rb") as image_file:
+                    return base64.b64encode(image_file.read()).decode('utf-8')
         except Exception as e:
             print(f"❌ 画像エンコードエラー: {e}")
             raise e
@@ -379,9 +488,10 @@ class ImageGeneratorService:
         """Image-to-Image生成"""
         try:
             
-            # プロンプトに文字なしの指示を追加（強化版）
+            # プロンプトに文字なしの指示とアスペクト比を追加（強化版）
             enhanced_prompt = (
                 f"{prompt}. "
+                f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -398,7 +508,13 @@ class ImageGeneratorService:
             reference_image_base64 = self.encode_image_to_base64(reference_image_path)
             
             # 画像のMIMEタイプを自動検出
-            file_extension = os.path.splitext(reference_image_path)[1].lower()
+            if reference_image_path.startswith("https://") or reference_image_path.startswith("http://"):
+                # GCSのURLの場合は拡張子から判定
+                file_extension = os.path.splitext(reference_image_path.split('?')[0])[1].lower()
+            else:
+                # ローカルファイルの場合
+                file_extension = os.path.splitext(reference_image_path)[1].lower()
+            
             mime_type_map = {
                 '.jpg': 'image/jpeg',
                 '.jpeg': 'image/jpeg',
@@ -435,27 +551,39 @@ class ImageGeneratorService:
                     if hasattr(content, 'parts') and content.parts:
                         for part in content.parts:
                             if hasattr(part, 'inline_data') and part.inline_data is not None:
-                                # 画像を保存
-                                image = Image.open(BytesIO(part.inline_data.data))
+                                # 画像データを取得
+                                image_data = part.inline_data.data
                                 filename = self.generate_unique_filename(prefix, "png")
-                                filepath = os.path.join(self.images_dir, filename)
-                                image.save(filepath)
                                 
-                                # 画像情報を返す
-                                image_info = {
-                                    "filename": filename,
-                                    "filepath": filepath,
-                                    "size_bytes": len(part.inline_data.data),
-                                    "image_size": image.size,
-                                    "format": image.format,
-                                    "timestamp": datetime.now().isoformat(),
-                                    "prompt": enhanced_prompt,
-                                    "reference_image_path": reference_image_path,
-                                    "strength": strength
-                                }
+                                save_result = self.save_image_to_storage(
+                                    image_data=image_data,
+                                    filename=filename,
+                                    user_id=1,  # デフォルトユーザーID
+                                    content_type="image/png"
+                                )
                                 
-                                print(f"✅ Image-to-Image生成成功: {filename}")
-                                return image_info
+                                if save_result["success"]:
+                                    # 画像情報を返す
+                                    image_info = {
+                                        "filename": filename,
+                                        "filepath": save_result.get("filepath", save_result.get("gcs_path")),
+                                        "public_url": save_result.get("public_url"),
+                                        "size_bytes": len(image_data),
+                                        "image_size": Image.open(BytesIO(image_data)).size,
+                                        "format": "png", # Gemini APIはPNGを返すため
+                                        "timestamp": datetime.now().isoformat(),
+                                        "prompt": enhanced_prompt,
+                                        "reference_image_path": reference_image_path,
+                                        "strength": strength
+                                    }
+                                    print(f"✅ Image-to-Image生成成功: {filename}")
+                                    return image_info
+                                else:
+                                    print(f"❌ Image-to-Image画像保存失敗: {save_result.get('error')}")
+                                    return {
+                                        "error": f"画像保存に失敗しました: {save_result.get('error')}",
+                                        "filename": filename
+                                    }
             
             raise Exception("画像データが見つかりませんでした")
             
@@ -676,29 +804,47 @@ class ImageGeneratorService:
         try:
             uploaded_images = []
             
-            if os.path.exists(self.upload_images_dir):
-                for filename in os.listdir(self.upload_images_dir):
-                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                        filepath = os.path.join(self.upload_images_dir, filename)
-                        file_stats = os.stat(filepath)
-                        
-                        try:
-                            image = Image.open(filepath)
-                            image_size = image.size
-                            image_format = image.format
-                        except Exception:
-                            image_size = (0, 0)
-                            image_format = filename.split(".")[-1].upper()
-                        
+            if STORAGE_TYPE == "gcs":
+                # GCSから画像を取得
+                bucket = self.gcs_service.client.bucket(self.gcs_service.bucket_name)
+                blobs = bucket.list_blobs(prefix="uploads/")
+                
+                for blob in blobs:
+                    if blob.name.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                         image_info = {
-                            "filename": filename,
-                            "filepath": filepath,
-                            "size_bytes": file_stats.st_size,
-                            "image_size": image_size,
-                            "format": image_format,
-                            "timestamp": datetime.fromtimestamp(file_stats.st_mtime).isoformat()
+                            "filename": os.path.basename(blob.name),
+                            "filepath": blob.name,
+                            "size_bytes": blob.size,
+                            "image_size": (0, 0), # GCSからは直接サイズを取得できないため
+                            "format": "unknown",
+                            "timestamp": datetime.fromtimestamp(blob.updated).isoformat(),
+                            "public_url": self.gcs_service.get_public_url(blob.name)
                         }
                         uploaded_images.append(image_info)
+            else:
+                if os.path.exists(self.upload_images_dir):
+                    for filename in os.listdir(self.upload_images_dir):
+                        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                            filepath = os.path.join(self.upload_images_dir, filename)
+                            file_stats = os.stat(filepath)
+                            
+                            try:
+                                image = Image.open(filepath)
+                                image_size = image.size
+                                image_format = image.format
+                            except Exception:
+                                image_size = (0, 0)
+                                image_format = filename.split(".")[-1].upper()
+                            
+                            image_info = {
+                                "filename": filename,
+                                "filepath": filepath,
+                                "size_bytes": file_stats.st_size,
+                                "image_size": image_size,
+                                "format": image_format,
+                                "timestamp": datetime.fromtimestamp(file_stats.st_mtime).isoformat()
+                            }
+                            uploaded_images.append(image_info)
             
             # タイムスタンプでソート（新しい順）
             uploaded_images.sort(key=lambda x: x["timestamp"], reverse=True)

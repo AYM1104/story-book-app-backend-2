@@ -13,6 +13,7 @@ class UploadImages(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     uploaded_at = Column(DateTime, nullable=False, default=func.now())
     meta_data = Column(Text, nullable=True)     # 画像解析結果を入れる
+    public_url = Column(String(1024), nullable=True)     # GCSの公開URL（ストレージタイプがGCSの場合）
 
     user = relationship("Users", back_populates="upload_images")
     story_settings = relationship("StorySetting", back_populates="upload_image")

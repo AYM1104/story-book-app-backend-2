@@ -25,6 +25,8 @@ app/secrets/**
 app/uploads/**
 !app/uploads/README.md
 generated_images/**
+app/images/**
+uploads/**
 
 # Logs
 *.log

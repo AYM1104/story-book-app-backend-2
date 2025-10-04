@@ -9,6 +9,7 @@ from app.api.story.story_generator import router as story_generator_router
 from app.api.story.generated_story_book import router as generated_storybook_router
 # nanobanana関連のインポートを削除
 from app.api.images.image_generation import router as image_generation_router
+from app.api.books.books_view import router as books_view_router
 from app.database.base import Base
 from app.database.session import engine
 from dotenv import load_dotenv
@@ -61,3 +62,6 @@ app.include_router(generated_storybook_router)
 
 # 画像生成関連のエンドポイント
 app.include_router(image_generation_router)
+
+# 絵本ビュー関連のエンドポイント
+app.include_router(books_view_router)

@@ -106,17 +106,28 @@ async def generate_storyplot_all_pages_image_to_image(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StorySetting ID {story_plot.story_setting_id} が見つかりません")
 
             upload_image = story_setting.upload_image
-            if not upload_image or not upload_image.file_path:
+            if not upload_image:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="参照画像（upload_image）が見つかりません")
 
-            image_path = upload_image.file_path
+            # GCSのpublic_urlを優先的に使用
+            if upload_image.public_url:
+                image_path = upload_image.public_url
+            elif upload_image.file_path:
+                image_path = upload_image.file_path
+            else:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="参照画像のパスが見つかりません")
 
-        # 絶対パス・存在確認（相対ならプロジェクトルート基準）
-        if not os.path.isabs(image_path):
-            image_path = os.path.join(os.getcwd(), image_path)
-        if not os.path.exists(image_path):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"参考画像が見つかりません: {image_path}")
-        request.reference_image_path = os.path.abspath(image_path)
+        # GCSのURLかローカルパスかを判定
+        if image_path.startswith("https://") or image_path.startswith("http://"):
+            # GCSのURLの場合はそのまま使用
+            request.reference_image_path = image_path
+        else:
+            # ローカルパスの場合のみ絶対パス・存在確認
+            if not os.path.isabs(image_path):
+                image_path = os.path.join(os.getcwd(), image_path)
+            if not os.path.exists(image_path):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"参考画像が見つかりません: {image_path}")
+            request.reference_image_path = os.path.abspath(image_path)
         
         images_info = image_generator_service.generate_storyplot_all_pages_i2i(
             db=db,
