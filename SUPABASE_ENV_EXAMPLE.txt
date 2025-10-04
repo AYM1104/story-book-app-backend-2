@@ -1,0 +1,24 @@
+# Supabase設定用の環境変数例
+# このファイルを.envにコピーして、実際の値を設定してください
+
+# SupabaseプロジェクトのURL
+SUPABASE_URL=https://your-project-id.supabase.co
+
+# Supabase匿名キー（公開可能）
+SUPABASE_ANON_KEY=your-anon-key-here
+
+# Supabaseサービスロールキー（管理者権限、秘密に保持）
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# Supabase PostgreSQLデータベース接続URL
+SUPABASE_DB_URL=postgresql://postgres:your-password@db.your-project-id.supabase.co:5432/postgres
+
+# Supabaseストレージバケット名
+SUPABASE_STORAGE_BUCKET=storybook-images
+
+# JWT秘密鍵（認証用）
+SUPABASE_JWT_SECRET=your-jwt-secret-here
+
+# 既存の設定（必要に応じて）
+DATABASE_URL=postgresql://postgres:your-password@db.your-project-id.supabase.co:5432/postgres
+STORAGE_TYPE=supabase

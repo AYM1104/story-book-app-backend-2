@@ -11,3 +11,6 @@ Pillow==10.1.0
 google-generativeai==0.3.2
 httpx==0.25.2
 requests==2.31.0
+# Supabase関連
+supabase==2.3.4
+postgrest==0.13.2
