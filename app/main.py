@@ -1,15 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.api.users.users import router as users_router
-from app.api.images.upload_images import router as images_router
-from app.api.story.story_setting import router as story_setting_router
-from app.api.story.questions import router as story_questions_router
-from app.api.story.story_generator import router as story_generator_router
-from app.api.story.generated_story_book import router as generated_storybook_router
-# nanobanana関連のインポートを削除
-from app.api.images.image_generation import router as image_generation_router
-from app.api.books.books_view import router as books_view_router
+# Supabase用APIルーターのみを使用
+from app.api.users.supabase_users import router as supabase_users_router
+from app.api.images.supabase_upload_images import router as supabase_images_router
+from app.api.story.supabase_story_setting import router as supabase_story_setting_router
+from app.api.story.supabase_questions import router as supabase_story_questions_router
+from app.api.story.supabase_story_generator import router as supabase_story_generator_router
+from app.api.story.supabase_generated_story_book import router as supabase_generated_storybook_router
+from app.api.images.supabase_image_generation import router as supabase_image_generation_router
+from app.api.books.supabase_books_view import router as supabase_books_view_router
 from app.database.base import Base
 from app.database.session import engine
 from dotenv import load_dotenv
@@ -41,27 +41,27 @@ def read_root():
     return {"message": "Hello, World!"}
 
 
-""" ルーターの設定 """
+""" Supabase用ルーターの設定 """
 # ユーザー関連のエンドポイント
-app.include_router(users_router)
+app.include_router(supabase_users_router)
 
 # 画像関連のエンドポイント
-app.include_router(images_router)
+app.include_router(supabase_images_router)
 
 # 物語設定関連のエンドポイント
-app.include_router(story_setting_router)
+app.include_router(supabase_story_setting_router)
 
 # 物語質問関連のエンドポイント
-app.include_router(story_questions_router)
+app.include_router(supabase_story_questions_router)
 
 # テーマ生成関連のエンドポイント
-app.include_router(story_generator_router)
+app.include_router(supabase_story_generator_router)
 
 # 生成されたストーリーブック関連のエンドポイント
-app.include_router(generated_storybook_router)
+app.include_router(supabase_generated_storybook_router)
 
 # 画像生成関連のエンドポイント
-app.include_router(image_generation_router)
+app.include_router(supabase_image_generation_router)
 
 # 絵本ビュー関連のエンドポイント
-app.include_router(books_view_router)
+app.include_router(supabase_books_view_router)

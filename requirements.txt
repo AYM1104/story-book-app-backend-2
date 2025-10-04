@@ -14,3 +14,4 @@ requests==2.31.0
 # Supabase関連
 supabase==2.3.4
 postgrest==0.13.2
+websockets==12.0

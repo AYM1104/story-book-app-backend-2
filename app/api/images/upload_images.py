@@ -8,6 +8,12 @@ from app.schemas.images.images import UploadImageResponse
 from app.core.config import UPLOAD_DIR, MAX_UPLOAD_SIZE, ALLOWED_MIME, VISION_API_ENABLED, STORAGE_TYPE
 from app.service.vision_api_service import vision_service
 from app.service.gcs_storage_service import GCSStorageService
+from app.utils.image_utils import resize_image_to_aspect_ratio, get_image_info
+
+# ファイル読み込み確認用のテスト出力
+print("=" * 100)
+print("📁 UPLOAD_IMAGES.PY FILE LOADED - NEW VERSION")
+print("=" * 100)
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -56,6 +62,13 @@ async def upload_image(
 ):
     """画像ファイルをアップロードしてVision APIで解析するエンドポイント"""
     
+    # サーバー再起動確認用のテスト出力
+    print("🔥🔥🔥 サーバーが更新されたコードを使用しています！ 🔥🔥🔥")
+    print("🚀🚀🚀 このメッセージが見えていれば、新しいコードが実行されています！ 🚀🚀🚀")
+    print("=" * 80)
+    print("UPLOAD FUNCTION CALLED - NEW CODE IS RUNNING")
+    print("=" * 80)
+    
     # ファイルのバリデーションチェック
     if not file.content_type or file.content_type not in ALLOWED_MIME:
         raise HTTPException(
@@ -64,13 +77,54 @@ async def upload_image(
         )
     
     try:
+        print("=== アップロード処理開始 ===")
+        print(f"ファイル名: {file.filename}")
+        print(f"コンテンツタイプ: {file.content_type}")
+        print(f"ユーザーID: {user_id}")
+        
         # ファイル内容を読み込み（サイズ検証を保存前に実施）
         content = await file.read()
+        print(f"読み込んだファイルサイズ: {len(content)} bytes")
+        
         if len(content) > MAX_UPLOAD_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"ファイルサイズが大きすぎます。最大{MAX_UPLOAD_SIZE // (1024*1024)}MBまでです。"
             )
+
+        print("=== 画像リサイズ処理開始 ===")
+        # 画像を16:9のアスペクト比にリサイズ
+        print("=" * 50)
+        print("画像リサイズ処理開始")
+        print("=" * 50)
+        
+        # インポート確認
+        try:
+            from app.utils.image_utils import get_image_info, resize_image_to_aspect_ratio
+            print("画像ユーティリティのインポート成功")
+        except ImportError as e:
+            print(f"画像ユーティリティのインポートエラー: {e}")
+            raise
+        
+        original_info = get_image_info(content)
+        print(f"元画像情報: {original_info}")
+        print(f"元画像サイズ: {len(content)} bytes")
+        
+        resized_content = resize_image_to_aspect_ratio(content, "16:9")
+        resized_info = get_image_info(resized_content)
+        print(f"リサイズ後情報: {resized_info}")
+        print(f"リサイズ後サイズ: {len(resized_content)} bytes")
+        
+        # リサイズ前後のサイズを比較
+        size_change = len(resized_content) - len(content)
+        print(f"サイズ変化: {size_change} bytes ({'増加' if size_change > 0 else '減少' if size_change < 0 else '変化なし'})")
+        
+        # リサイズ後のコンテンツを使用
+        content = resized_content
+        
+        print("=" * 50)
+        print("画像リサイズ処理完了")
+        print("=" * 50)
 
         # ファイル拡張子を最初に決定（共通で使用）
         file_extension = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
@@ -79,6 +133,12 @@ async def upload_image(
         if STORAGE_TYPE == "gcs":
 
             try:
+                print("GCSアップロード開始")
+                print(f"アップロードするコンテンツサイズ: {len(content)} bytes")
+                print(f"ファイル名: {file.filename}")
+                print(f"ユーザーID: {user_id}")
+                print(f"コンテンツタイプ: {file.content_type}")
+                
                 # GCSサービスを使用（user_idが必要）
                 upload_result = gcs_storage_service.upload_image(
                     file_content=content,
@@ -86,6 +146,8 @@ async def upload_image(
                     user_id=user_id,  # これが重要！
                     content_type=file.content_type
                 )
+                
+                print(f"GCSアップロード結果: {upload_result}")
                 
                 if not upload_result["success"]:
                     print(f"GCSアップロード失敗: {upload_result['error']}")

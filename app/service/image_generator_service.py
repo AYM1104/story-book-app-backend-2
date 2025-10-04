@@ -64,7 +64,8 @@ class ImageGeneratorService:
         unique_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
-    def save_image_to_storage(self, image_data: bytes, filename: str, user_id: int = 1, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
+
+    def save_image_to_storage(self, image_data: bytes, filename: str, user_id: int = 2, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
         """画像をストレージに保存（GCSまたはローカル）"""
         if STORAGE_TYPE == "gcs":
             # Google Cloud Storageに保存
@@ -94,7 +95,7 @@ class ImageGeneratorService:
         """単一の画像を生成"""
         try:
             # プロンプトにアスペクト比を追加
-            enhanced_prompt = f"{prompt}. Image format: 4:3 aspect ratio (landscape orientation), horizontal composition."
+            enhanced_prompt = f"{prompt}. Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. The composition should be horizontal with elements spread across the width."
             print(f"画像生成開始: {enhanced_prompt}")
             
             # 画像生成のリクエストを作成
@@ -121,7 +122,7 @@ class ImageGeneratorService:
                                 save_result = self.save_image_to_storage(
                                     image_data=image_data,
                                     filename=filename,
-                                    user_id=1,  # デフォルトユーザーID
+                                    user_id=2,  # デフォルトユーザーID
                                     content_type="image/png"
                                 )
                                 
@@ -169,7 +170,9 @@ class ImageGeneratorService:
                 # プロンプトに文字なしの指示とアスペクト比を追加
                 enhanced_prompt = (
                     f"{prompt}. "
-                    f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
+                    f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
+                    f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
+                    f"The composition should be horizontal with elements spread across the width. "
                     f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                     f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                     f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -197,7 +200,7 @@ class ImageGeneratorService:
                                     save_result = self.save_image_to_storage(
                                         image_data=image_data,
                                         filename=filename,
-                                        user_id=1,  # デフォルトユーザーID
+                                        user_id=2,  # デフォルトユーザーID
                                         content_type="image/png"
                                     )
                                     
@@ -237,12 +240,14 @@ class ImageGeneratorService:
         
         prompts = []
         for i, page_content in enumerate(story_pages, 1):
-            # 絵本風のプロンプトを作成（4:3アスペクト比指定）
+            # 絵本風のプロンプトを作成（16:9アスペクト比指定）
             prompt = (
                 f"Create a beautiful children's book illustration for: {page_content}. "
                 f"Style: children's book illustration, warm and friendly, bright colors, "
                 f"simple and clean design, suitable for children. "
-                f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
+                f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
+                f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
+                f"The composition should be horizontal with elements spread across the width. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -273,7 +278,7 @@ class ImageGeneratorService:
                                     save_result = self.save_image_to_storage(
                                         image_data=image_data,
                                         filename=filename,
-                                        user_id=1,  # デフォルトユーザーID
+                                        user_id=2,  # デフォルトユーザーID
                                         content_type="image/png"
                                     )
                                     
@@ -338,14 +343,16 @@ class ImageGeneratorService:
             protagonist_type = story_setting.protagonist_type if story_setting else "子供"
             setting_place = story_setting.setting_place if story_setting else "公園"
             
-            # 絵本風のプロンプトを作成（4:3アスペクト比指定）
+            # 絵本風のプロンプトを作成（16:9アスペクト比指定）
             enhanced_prompt = (
                 f"Create a beautiful children's book illustration for: {page_content}. "
                 f"Character: {protagonist_name} (a {protagonist_type}), "
                 f"Setting: {setting_place}. "
                 f"Style: children's book illustration, warm and friendly, bright colors, "
                 f"simple and clean design, suitable for children, consistent character design. "
-                f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
+                f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
+                f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
+                f"The composition should be horizontal with elements spread across the width. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -491,7 +498,9 @@ class ImageGeneratorService:
             # プロンプトに文字なしの指示とアスペクト比を追加（強化版）
             enhanced_prompt = (
                 f"{prompt}. "
-                f"Image format: 4:3 aspect ratio (landscape orientation), horizontal composition. "
+                f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
+                f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
+                f"The composition should be horizontal with elements spread across the width. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -558,7 +567,7 @@ class ImageGeneratorService:
                                 save_result = self.save_image_to_storage(
                                     image_data=image_data,
                                     filename=filename,
-                                    user_id=1,  # デフォルトユーザーID
+                                    user_id=2,  # デフォルトユーザーID
                                     content_type="image/png"
                                 )
                                 
@@ -616,9 +625,9 @@ class ImageGeneratorService:
             protagonist_type = story_setting.protagonist_type if story_setting else "子供"
             setting_place = story_setting.setting_place if story_setting else "公園"
             
-            # 絵本風のプロンプトを作成（story_plotsデータを活用）
+            # 絵本風のプロンプトを作成（story_plotsデータを活用、アップロード画像の特徴を反映）
             enhanced_prompt = self._create_storyplot_prompt(
-                page_content, protagonist_name, protagonist_type, setting_place, story_plot
+                page_content, protagonist_name, protagonist_type, setting_place, story_plot, reference_image_path
             )
             
             print(f"🎨 StoryPlot Image-to-Image生成開始 (ID: {story_plot_id}, ページ: {page_number})")
@@ -674,9 +683,10 @@ class ImageGeneratorService:
         protagonist_name: str, 
         protagonist_type: str, 
         setting_place: str,
-        story_plot: StoryPlot
+        story_plot: StoryPlot,
+        reference_image_path: str = None
     ) -> str:
-        """StoryPlotデータを活用したプロンプトを作成"""
+        """StoryPlotデータを活用したプロンプトを作成（アップロード画像の特徴を反映）"""
         
         # テーマ情報を取得
         theme_info = ""
@@ -690,6 +700,16 @@ class ImageGeneratorService:
             if keywords:
                 keywords_info = f"Keywords: {', '.join(keywords)}. "
         
+        # アップロード画像の特徴をプロンプトに追加
+        reference_style_info = ""
+        if reference_image_path:
+            reference_style_info = (
+                f"IMPORTANT: Maintain the visual style, color palette, and artistic characteristics "
+                f"from the reference image. The reference image shows the desired art style, "
+                f"color scheme, and visual approach that should be consistently applied. "
+                f"Preserve the artistic elements, composition style, and visual mood from the reference. "
+            )
+        
         # 強化されたプロンプトを作成
         enhanced_prompt = (
             f"Create a beautiful children's book illustration for: {page_content}. "
@@ -697,6 +717,7 @@ class ImageGeneratorService:
             f"Setting: {setting_place}. "
             f"{theme_info}"
             f"{keywords_info}"
+            f"{reference_style_info}"
             f"Style: children's book illustration, warm and friendly, bright colors, "
             f"simple and clean design, suitable for children, consistent character design. "
             f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
@@ -729,22 +750,30 @@ class ImageGeneratorService:
             
             generated_images = []
             
-            # 各ページの画像を生成
+            # 各ページの画像を生成（ページごとに強度を調整）
             for page_num in range(1, 6):  # 1-5ページ
                 page_content = self._get_page_content(story_plot, page_num)
                 
                 if page_content:  # 内容があるページのみ生成
                     try:
+                        # ページごとに強度を調整（1ページ目は高め、2-4ページ目は中程度、5ページ目は高め）
+                        if page_num == 1:
+                            page_strength = min(strength + 0.1, 1.0)  # 1ページ目は参考画像の影響を強く
+                        elif page_num in [2, 3, 4]:
+                            page_strength = max(strength  + 0.1, 1.0)  # 2-4ページ目は中程度の強度
+                        else:  # page_num == 5
+                            page_strength = min(strength  + 0.1, 1.0)  # 5ページ目は少し高め
+                        
                         image_info = self.generate_storyplot_image_to_image(
                             db=db,
                             story_plot_id=story_plot_id,
                             page_number=page_num,
                             reference_image_path=reference_image_path,
-                            strength=strength,
+                            strength=page_strength,
                             prefix=f"{prefix}_{story_plot_id}"
                         )
                         generated_images.append(image_info)
-                        print(f"✅ ページ {page_num} i2i生成成功")
+                        print(f"✅ ページ {page_num} i2i生成成功 (強度: {page_strength})")
                     except Exception as e:
                         print(f"❌ ページ {page_num} i2i生成エラー: {e}")
                 else:

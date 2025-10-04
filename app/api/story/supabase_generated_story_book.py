@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 import json
 from sqlalchemy.orm import Session
-from app.database.session import get_db
-from app.models.story.stroy_plot import StoryPlot
-from app.models.story.generated_story_book import GeneratedStoryBook
+from app.database.supabase_session import get_supabase_db
+from app.models.story.supabase_story_plot import SupabaseStoryPlot
+from app.models.story.supabase_generated_story_book import SupabaseGeneratedStoryBook
 from app.schemas.story.generated_story_book import (
     ThemeConfirmationRequest,
     ThemeConfirmationResponse,
@@ -17,15 +17,15 @@ from app.schemas.story.generated_story_book import (
 router = APIRouter(prefix="/storybook", tags=["generated-storybook"])
 
 @router.post("/confirm-theme-and-create", response_model=ThemeConfirmationResponse)
-async def confirm_theme_and_create_storybook(
+async def supabase_confirm_theme_and_create_storybook(
     request: ThemeConfirmationRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_supabase_db)
 ):
-    """テーマ選択後にストーリーブックを作成するエンドポイント"""
+    """Supabase用のテーマ選択後にストーリーブックを作成するエンドポイント"""
     
     try:
         # 1. StoryPlotから選択されたテーマの情報を取得
-        story_plot = db.query(StoryPlot).filter(StoryPlot.id == request.story_plot_id).first()
+        story_plot = db.query(SupabaseStoryPlot).filter(SupabaseStoryPlot.id == request.story_plot_id).first()
         if not story_plot:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -52,7 +52,7 @@ async def confirm_theme_and_create_storybook(
         selected_story_content = json.dumps(selected_story_content_dict, ensure_ascii=False)
         
         # 4. GeneratedStoryBookレコードを作成
-        new_storybook = GeneratedStoryBook(
+        new_storybook = SupabaseGeneratedStoryBook(
             story_plot_id=story_plot.id,
             user_id=story_plot.user_id,
             title=story_plot.title or "無題のえほん",
@@ -88,14 +88,14 @@ async def confirm_theme_and_create_storybook(
         )
 
 @router.get("/{storybook_id}", response_model=GeneratedStoryBookResponse)
-async def get_storybook(
+async def get_supabase_storybook(
     storybook_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_supabase_db)
 ):
-    """ストーリーブック詳細を取得するエンドポイント"""
+    """Supabase用のストーリーブック詳細を取得するエンドポイント"""
     
-    storybook = db.query(GeneratedStoryBook).filter(
-        GeneratedStoryBook.id == storybook_id
+    storybook = db.query(SupabaseGeneratedStoryBook).filter(
+        SupabaseGeneratedStoryBook.id == storybook_id
     ).first()
     
     if not storybook:
@@ -103,20 +103,6 @@ async def get_storybook(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"StoryBook ID {storybook_id} が見つかりません"
         )
-    
-    # アップロード画像の情報を取得
-    uploaded_image_info = None
-    if storybook.story_plot and storybook.story_plot.story_setting:
-        story_setting = storybook.story_plot.story_setting
-        if story_setting.upload_image:
-            uploaded_image = story_setting.upload_image
-            uploaded_image_info = {
-                "id": uploaded_image.id,
-                "filename": uploaded_image.file_name,
-                "file_path": uploaded_image.file_path,
-                "public_url": uploaded_image.public_url,
-                "uploaded_at": uploaded_image.uploaded_at
-            }
     
     # GCSの画像URLを公開URLに変換
     from app.service.gcs_storage_service import GCSStorageService
@@ -138,36 +124,76 @@ async def get_storybook(
     if storybook.page_5_image_url and not storybook.page_5_image_url.startswith('http'):
         storybook.page_5_image_url = gcs_service.get_public_url(storybook.page_5_image_url)
     
-    # アップロード画像の情報をレスポンスに追加
-    storybook_dict = storybook.__dict__.copy()
-    if uploaded_image_info:
-        storybook_dict['uploaded_image'] = uploaded_image_info
-    
-    return storybook_dict
+    return {
+        "id": storybook.id,
+        "story_plot_id": storybook.story_plot_id,
+        "user_id": storybook.user_id,
+        "title": storybook.title,
+        "description": storybook.description,
+        "keywords": storybook.keywords,
+        "story_content": storybook.story_content,
+        "page_1": storybook.page_1,
+        "page_2": storybook.page_2,
+        "page_3": storybook.page_3,
+        "page_4": storybook.page_4,
+        "page_5": storybook.page_5,
+        "page_1_image_url": storybook.page_1_image_url,
+        "page_2_image_url": storybook.page_2_image_url,
+        "page_3_image_url": storybook.page_3_image_url,
+        "page_4_image_url": storybook.page_4_image_url,
+        "page_5_image_url": storybook.page_5_image_url,
+        "image_generation_status": storybook.image_generation_status,
+        "created_at": storybook.created_at,
+        "updated_at": storybook.updated_at
+    }
 
 @router.get("/user/{user_id}", response_model=list[GeneratedStoryBookResponse])
-async def get_user_storybooks(
+async def get_supabase_user_storybooks(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_supabase_db)
 ):
-    """ユーザーのストーリーブック一覧を取得するエンドポイント"""
+    """Supabase用のユーザーのストーリーブック一覧を取得するエンドポイント"""
     
-    storybooks = db.query(GeneratedStoryBook).filter(
-        GeneratedStoryBook.user_id == user_id
-    ).order_by(GeneratedStoryBook.created_at.desc()).all()
+    storybooks = db.query(SupabaseGeneratedStoryBook).filter(
+        SupabaseGeneratedStoryBook.user_id == user_id
+    ).order_by(SupabaseGeneratedStoryBook.created_at.desc()).all()
     
-    return storybooks
+    return [
+        {
+            "id": storybook.id,
+            "story_plot_id": storybook.story_plot_id,
+            "user_id": storybook.user_id,
+            "title": storybook.title,
+            "description": storybook.description,
+            "keywords": storybook.keywords,
+            "story_content": storybook.story_content,
+            "page_1": storybook.page_1,
+            "page_2": storybook.page_2,
+            "page_3": storybook.page_3,
+            "page_4": storybook.page_4,
+            "page_5": storybook.page_5,
+            "page_1_image_url": storybook.page_1_image_url,
+            "page_2_image_url": storybook.page_2_image_url,
+            "page_3_image_url": storybook.page_3_image_url,
+            "page_4_image_url": storybook.page_4_image_url,
+            "page_5_image_url": storybook.page_5_image_url,
+            "image_generation_status": storybook.image_generation_status,
+            "created_at": storybook.created_at,
+            "updated_at": storybook.updated_at
+        }
+        for storybook in storybooks
+    ]
 
 @router.post("/update-image-urls", response_model=StorybookImageUrlUpdateResponse)
-async def update_storybook_image_urls(
+async def update_supabase_storybook_image_urls(
     request: StorybookImageUrlUpdateRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_supabase_db)
 ):
-    """生成された画像のURLをストーリーブックに紐づけるエンドポイント"""
+    """Supabase用の生成された画像のURLをストーリーブックに紐づけるエンドポイント"""
     
     try:
-        storybook = db.query(GeneratedStoryBook).filter(
-            GeneratedStoryBook.id == request.storybook_id
+        storybook = db.query(SupabaseGeneratedStoryBook).filter(
+            SupabaseGeneratedStoryBook.id == request.storybook_id
         ).first()
         
         if not storybook:
@@ -223,15 +249,15 @@ async def update_storybook_image_urls(
         )
 
 @router.put("/{storybook_id}/image-generation-status")
-async def update_image_generation_status(
+async def update_supabase_image_generation_status(
     storybook_id: int,
     status: ImageGenerationStatus,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_supabase_db)
 ):
-    """画像生成状態を更新するエンドポイント"""
+    """Supabase用の画像生成状態を更新するエンドポイント"""
     
-    storybook = db.query(GeneratedStoryBook).filter(
-        GeneratedStoryBook.id == storybook_id
+    storybook = db.query(SupabaseGeneratedStoryBook).filter(
+        SupabaseGeneratedStoryBook.id == storybook_id
     ).first()
     
     if not storybook:
@@ -244,3 +270,58 @@ async def update_image_generation_status(
     db.commit()
     
     return {"message": f"画像生成状態が '{status}' に更新されました"}
+
+# ストーリーブック一覧取得エンドポイント（Supabase用）
+@router.get("/", response_model=list[GeneratedStoryBookResponse])
+def get_supabase_storybooks(db: Session = Depends(get_supabase_db)):
+    """Supabase用のストーリーブック一覧取得エンドポイント"""
+    
+    storybooks = db.query(SupabaseGeneratedStoryBook).order_by(
+        SupabaseGeneratedStoryBook.created_at.desc()
+    ).all()
+    
+    return [
+        {
+            "id": storybook.id,
+            "story_plot_id": storybook.story_plot_id,
+            "user_id": storybook.user_id,
+            "title": storybook.title,
+            "description": storybook.description,
+            "keywords": storybook.keywords,
+            "story_content": storybook.story_content,
+            "page_1": storybook.page_1,
+            "page_2": storybook.page_2,
+            "page_3": storybook.page_3,
+            "page_4": storybook.page_4,
+            "page_5": storybook.page_5,
+            "page_1_image_url": storybook.page_1_image_url,
+            "page_2_image_url": storybook.page_2_image_url,
+            "page_3_image_url": storybook.page_3_image_url,
+            "page_4_image_url": storybook.page_4_image_url,
+            "page_5_image_url": storybook.page_5_image_url,
+            "image_generation_status": storybook.image_generation_status,
+            "created_at": storybook.created_at,
+            "updated_at": storybook.updated_at
+        }
+        for storybook in storybooks
+    ]
+
+# ストーリーブック削除エンドポイント（Supabase用）
+@router.delete("/{storybook_id}")
+def delete_supabase_storybook(storybook_id: int, db: Session = Depends(get_supabase_db)):
+    """Supabase用のストーリーブック削除エンドポイント"""
+    
+    storybook = db.query(SupabaseGeneratedStoryBook).filter(
+        SupabaseGeneratedStoryBook.id == storybook_id
+    ).first()
+    
+    if not storybook:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"StoryBook ID {storybook_id} が見つかりません"
+        )
+    
+    db.delete(storybook)
+    db.commit()
+    
+    return {"message": "ストーリーブックが削除されました"}

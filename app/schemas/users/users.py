@@ -5,7 +5,7 @@ from datetime import datetime
 class UserCreate(BaseModel):
     user_name: str
     email: EmailStr
-    password: str
+    # password: str  # Supabase認証を使用するため、パスワードは不要
 
 # ユーザー情報取得時に使うスキーマ
 class UserRead(BaseModel):

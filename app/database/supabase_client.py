@@ -67,8 +67,8 @@ def test_supabase_connection():
         client = get_supabase_client()
         # 簡単なクエリで接続をテスト
         result = client.table("_test").select("*").limit(1).execute()
-        print("✅ Supabase接続成功")
+        print("Supabase接続成功")
         return True
     except Exception as e:
-        print(f"❌ Supabase接続エラー: {e}")
+        print(f"Supabase接続エラー: {e}")
         return False

@@ -43,10 +43,11 @@ def test_supabase_connection():
     try:
         db = SessionLocal()
         # 簡単なクエリで接続をテスト
-        result = db.execute("SELECT 1")
+        from sqlalchemy import text
+        result = db.execute(text("SELECT 1"))
         db.close()
-        print("✅ Supabaseデータベース接続成功")
+        print("Supabaseデータベース接続成功")
         return True
     except Exception as e:
-        print(f"❌ Supabaseデータベース接続エラー: {e}")
+        print(f"Supabaseデータベース接続エラー: {e}")
         return False
