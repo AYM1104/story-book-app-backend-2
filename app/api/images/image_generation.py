@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 import os
 from app.database.session import get_db
-from app.service.image_generator_service import image_generator_service
 from app.schemas.images.image_generation import (
     StoryPlotImageToImageRequest,
     StoryPlotAllPagesImageToImageRequest,
@@ -22,6 +21,9 @@ async def generate_storyplot_image_to_image(
 ):
     """StoryPlot用Image-to-Image生成エンドポイント（メイン機能）"""
     try:
+        # 遅延インポート
+        from app.service.image_generator_service import image_generator_service
+        
         # バリデーション
         if not (1 <= request.page_number <= 5):
             raise HTTPException(
@@ -83,6 +85,9 @@ async def generate_storyplot_all_pages_image_to_image(
 ):
     """StoryPlot全ページImage-to-Image生成エンドポイント"""
     try:
+        # 遅延インポート
+        from app.service.image_generator_service import image_generator_service
+        
         if not (0.0 <= request.strength <= 1.0):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

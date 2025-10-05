@@ -3,8 +3,8 @@ import uuid
 import base64
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 from PIL import Image
 from io import BytesIO
 from dotenv import load_dotenv
@@ -21,12 +21,14 @@ class ImageGeneratorService:
 
     def __init__(self):
         # APIキーを設定
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEYまたはGOOGLE_API_KEYが設定されていません")
+            raise ValueError("GEMINI_API_KEYが設定されていません")
         
         # Gemini クライアントを初期化
-        self.client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        self.client = genai
+        self.model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
         
         # ストレージタイプに応じてディレクトリを設定
         if STORAGE_TYPE == "gcs":
@@ -99,10 +101,7 @@ class ImageGeneratorService:
             print(f"画像生成開始: {enhanced_prompt}")
             
             # 画像生成のリクエストを作成
-            response = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=[enhanced_prompt]
-            )
+            response = self.model.generate_content(enhanced_prompt)
             
             if hasattr(response, 'candidates') and response.candidates:
                 candidate = response.candidates[0]
@@ -260,10 +259,7 @@ class ImageGeneratorService:
         
         for i, prompt in enumerate(prompts, 1):
             try:
-                response = self.client.models.generate_content(
-                    model="gemini-2.5-flash-image-preview",
-                    contents=[prompt]
-                )
+                response = self.model.generate_content(prompt)
                 
                 if hasattr(response, 'candidates') and response.candidates:
                     candidate = response.candidates[0]
@@ -364,10 +360,7 @@ class ImageGeneratorService:
             print(f"📝 プロンプト: {enhanced_prompt[:100]}...")
             
             # 画像生成を実行
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash-image-preview",
-                contents=[enhanced_prompt]
-            )
+            response = self.model.generate_content(enhanced_prompt)
             
             if hasattr(response, 'candidates') and response.candidates:
                 candidate = response.candidates[0]
@@ -472,17 +465,42 @@ class ImageGeneratorService:
         """画像ファイルをBase64エンコード（GCSのURLとローカルパスの両方に対応）"""
         try:
             if image_path.startswith("https://") or image_path.startswith("http://"):
+                # 古いURL形式を新しい形式に変換
+                if "storage.cloud.google.com" in image_path:
+                    image_path = image_path.replace("storage.cloud.google.com", "storage.googleapis.com")
+                    print(f"🔄 URL形式を変換: {image_path}")
+                
                 # GCSのURLの場合はHTTPリクエストで取得
                 import requests
-                response = requests.get(image_path)
+                print(f"📥 GCS画像を取得中: {image_path}")
+                response = requests.get(image_path, timeout=30)
                 response.raise_for_status()
-                return base64.b64encode(response.content).decode('utf-8')
+                
+                # レスポンスの内容タイプを確認
+                content_type = response.headers.get('content-type', '')
+                print(f"📋 取得した画像のContent-Type: {content_type}")
+                
+                # 画像データのサイズを確認
+                image_data = response.content
+                print(f"📏 画像データサイズ: {len(image_data)} bytes")
+                
+                # 画像データの先頭部分を確認（デバッグ用）
+                if len(image_data) > 0:
+                    print(f"🔍 画像データ先頭: {image_data[:20].hex()}")
+                else:
+                    raise Exception("画像データが空です")
+                
+                return base64.b64encode(image_data).decode('utf-8')
             else:
                 # ローカルファイルの場合
+                print(f"📁 ローカル画像を読み込み中: {image_path}")
                 with open(image_path, "rb") as image_file:
-                    return base64.b64encode(image_file.read()).decode('utf-8')
+                    image_data = image_file.read()
+                    print(f"📏 ローカル画像データサイズ: {len(image_data)} bytes")
+                    return base64.b64encode(image_data).decode('utf-8')
         except Exception as e:
             print(f"❌ 画像エンコードエラー: {e}")
+            print(f"画像パス: {image_path}")
             raise e
 
     def generate_image_to_image(
@@ -513,6 +531,9 @@ class ImageGeneratorService:
             print(f"🖼️ 参考画像: {reference_image_path}")
             print(f"💪 強度: {strength}")
             
+            # 参考画像のURLを確認
+            print(f"🔗 使用する画像URL: {reference_image_path}")
+            
             # 参考画像をBase64エンコード
             reference_image_base64 = self.encode_image_to_base64(reference_image_path)
             
@@ -536,22 +557,54 @@ class ImageGeneratorService:
             
             # Gemini APIでImage-to-Image生成
             # 参考画像をBase64エンコードしてAPIに送信
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash-image-preview",
-                contents=[
-                    {
-                        "text": f"Based on this reference image, create a new illustration with the following description: {enhanced_prompt}. "
-                               f"Maintain the style and composition similar to the reference image with {strength*100}% similarity. "
-                               f"Reference image characteristics should be preserved while adapting to the new scene."
-                    },
-                    {
-                        "inline_data": {
-                            "mime_type": mime_type,
-                            "data": reference_image_base64
-                        }
-                    }
-                ]
-            )
+            # Image-to-Image生成のためのプロンプトを作成
+            i2i_prompt = f"Based on this reference image, create a new illustration with the following description: {enhanced_prompt}. " \
+                        f"Maintain the style and composition similar to the reference image with {strength*100}% similarity. " \
+                        f"Reference image characteristics should be preserved while adapting to the new scene."
+            
+            
+            response = self.model.generate_content([
+                i2i_prompt,
+                {
+                    "mime_type": mime_type,
+                    "data": reference_image_base64
+                }
+            ])
+            
+            # 詳細なレスポンスログ
+            print(f"🔍 Gemini API レスポンス詳細:")
+            print(f"📋 レスポンス型: {type(response)}")
+            print(f"📋 レスポンス属性: {dir(response)}")
+            
+            if hasattr(response, 'candidates'):
+                print(f"📋 candidates 数: {len(response.candidates) if response.candidates else 0}")
+                if response.candidates:
+                    for i, candidate in enumerate(response.candidates):
+                        print(f"📋 candidate[{i}] 型: {type(candidate)}")
+                        print(f"📋 candidate[{i}] 属性: {dir(candidate)}")
+                        
+                        if hasattr(candidate, 'content'):
+                            content = candidate.content
+                            print(f"📋 candidate[{i}].content 型: {type(content)}")
+                            print(f"📋 candidate[{i}].content 属性: {dir(content)}")
+                            
+                            if hasattr(content, 'parts'):
+                                print(f"📋 candidate[{i}].content.parts 数: {len(content.parts) if content.parts else 0}")
+                                if content.parts:
+                                    for j, part in enumerate(content.parts):
+                                        print(f"📋 candidate[{i}].content.parts[{j}] 型: {type(part)}")
+                                        print(f"📋 candidate[{i}].content.parts[{j}] 属性: {dir(part)}")
+                                        
+                                        if hasattr(part, 'inline_data'):
+                                            print(f"📋 candidate[{i}].content.parts[{j}].inline_data: {part.inline_data}")
+                                        if hasattr(part, 'text'):
+                                            print(f"📋 candidate[{i}].content.parts[{j}].text: {part.text}")
+                        else:
+                            print(f"📋 candidate[{i}] に content 属性がありません")
+                else:
+                    print(f"📋 candidates が空です")
+            else:
+                print(f"📋 レスポンスに candidates 属性がありません")
             
             if hasattr(response, 'candidates') and response.candidates:
                 candidate = response.candidates[0]

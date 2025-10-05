@@ -15,6 +15,9 @@ router = APIRouter(prefix="/images", tags=["images"])
 # GCSサービスのインスタンス化
 gcs_storage_service = GCSStorageService()
 
+# Cloud Run環境ではサービスアカウントのメタデータ認証を自動使用
+# 明示的な認証設定は不要
+
 # 既存の画像用の認証済みURLを生成するエンドポイント（Supabase用）
 @router.get("/signed-url/{image_id}")
 async def get_supabase_signed_url(image_id: int, db: Session = Depends(get_supabase_db)):
@@ -232,8 +235,21 @@ def get_supabase_images(db: Session = Depends(get_supabase_db)):
     """Supabase用の画像一覧取得エンドポイント"""
     
     images = db.query(SupabaseUploadImages).all()
-    return [
-        {
+    result = []
+    for img in images:
+        # GCSの場合はstorage.googleapis.com形式のURLを使用
+        public_url = img.public_url
+        if img.public_url and img.public_url.startswith("https://storage.cloud.google.com/"):
+            try:
+                from app.service.gcs_storage_service import GCSStorageService
+                gcs_service = GCSStorageService()
+                public_url = gcs_service.get_public_url(img.file_path)
+            except Exception as e:
+                print(f"公開URL生成エラー: {e}")
+                # エラーの場合は元のURLをstorage.googleapis.com形式に変換
+                public_url = img.public_url.replace('https://storage.cloud.google.com/', 'https://storage.googleapis.com/')
+        
+        result.append({
             "id": img.id,
             "file_name": img.file_name,
             "file_path": img.file_path,
@@ -241,10 +257,10 @@ def get_supabase_images(db: Session = Depends(get_supabase_db)):
             "size_bytes": img.size_bytes,
             "uploaded_at": img.created_at.isoformat(),
             "meta_data": img.meta_data,
-            "public_url": img.public_url
-        }
-        for img in images
-    ]
+            "public_url": public_url
+        })
+    
+    return result
 
 # 画像詳細取得エンドポイント（Supabase用）
 @router.get("/{image_id}", response_model=UploadImageResponse)
@@ -255,6 +271,18 @@ def get_supabase_image(image_id: int, db: Session = Depends(get_supabase_db)):
     if not image:
         raise HTTPException(status_code=404, detail="画像が見つかりません")
     
+    # GCSの場合はstorage.googleapis.com形式のURLを使用
+    public_url = image.public_url
+    if image.public_url and image.public_url.startswith("https://storage.cloud.google.com/"):
+        try:
+            from app.service.gcs_storage_service import GCSStorageService
+            gcs_service = GCSStorageService()
+            public_url = gcs_service.get_public_url(image.file_path)
+        except Exception as e:
+            print(f"公開URL生成エラー: {e}")
+            # エラーの場合は元のURLをstorage.googleapis.com形式に変換
+            public_url = image.public_url.replace('https://storage.cloud.google.com/', 'https://storage.googleapis.com/')
+    
     return {
         "id": image.id,
         "file_name": image.file_name,
@@ -263,5 +291,28 @@ def get_supabase_image(image_id: int, db: Session = Depends(get_supabase_db)):
         "size_bytes": image.size_bytes,
         "uploaded_at": image.created_at.isoformat(),
         "meta_data": image.meta_data,
-        "public_url": image.public_url
+        "public_url": public_url
     }
+
+# 署名付きURL生成エンドポイント
+@router.get("/{image_id}/signed-url")
+def get_signed_url_for_image(image_id: int, db: Session = Depends(get_supabase_db)):
+    """既存の画像に対して署名付きURLを生成するエンドポイント"""
+    
+    image = db.query(SupabaseUploadImages).filter(SupabaseUploadImages.id == image_id).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="画像が見つかりません")
+    
+    try:
+        from app.service.gcs_storage_service import GCSStorageService
+        gcs_service = GCSStorageService()
+        public_url = gcs_service.get_public_url(image.file_path)
+        
+        return {
+            "id": image.id,
+            "file_path": image.file_path,
+            "public_url": public_url
+        }
+    except Exception as e:
+        print(f"公開URL生成エラー: {e}")
+        raise HTTPException(status_code=500, detail=f"公開URLの生成に失敗しました: {str(e)}")

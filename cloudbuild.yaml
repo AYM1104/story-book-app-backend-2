@@ -1,0 +1,39 @@
+# Cloud Build設定ファイル
+steps:
+  # Dockerイメージをビルド
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID', '.']
+  
+  # DockerイメージをGoogle Container Registryにプッシュ
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID']
+  
+  # Cloud Runにデプロイ
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'story-book-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID'
+      - '--region'
+      - 'asia-northeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--max-instances'
+      - '10'
+
+# 使用するイメージ
+images:
+  - 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID'
+
+# タイムアウト設定（20分）
+timeout: '1200s'

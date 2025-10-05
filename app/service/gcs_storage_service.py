@@ -14,20 +14,14 @@ class GCSStorageService:
 
     def __init__(self):
         self.bucket_name = os.getenv("GCS_BUCKET_NAME")
-        self.credentials_path = os.getenv("GCS_CREDENTIALS_PATH")
         
         if not self.bucket_name:
             raise ValueError("GCS_BUCKET_NAMEが設定されていません")
         
-        # 認証情報を設定
-        if self.credentials_path and os.path.exists(self.credentials_path):
-            self.credentials = service_account.Credentials.from_service_account_file(
-                self.credentials_path
-            )
-        else:
-            self.credentials = None
-        
-        self.client = storage.Client(credentials=self.credentials)
+        # Cloud Run環境ではサービスアカウントのメタデータ認証を使用
+        # 明示的な認証情報設定は不要
+        print("✅ GCS認証: Cloud Runサービスアカウントを使用")
+        self.client = storage.Client()
         self.bucket = self.client.bucket(self.bucket_name)
 
     def generate_unique_filename(self, prefix: str = "uploaded_image", extension: str = "jpg") -> str:
@@ -61,18 +55,14 @@ class GCSStorageService:
                 content_type=content_type
             )
             
-            # 認証済みURL（Signed URL）を生成（有効期限1時間）
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(hours=1),
-                method="GET"
-            )
+            # storage.googleapis.com形式のURLを生成（正しいGCSの公開URL形式）
+            public_url = f"https://storage.googleapis.com/{self.bucket_name}/{gcs_path}"
             
             return {
                 "success": True,
                 "filename": unique_filename,
                 "gcs_path": gcs_path,
-                "public_url": signed_url,  # 認証済みURLを使用
+                "public_url": public_url,  # storage.googleapis.com形式のURLを使用
                 "size_bytes": len(file_content),
                 "content_type": content_type,
                 "timestamp": datetime.now().isoformat(),
@@ -104,19 +94,14 @@ class GCSStorageService:
                 content_type=content_type
             )
             
-            # 認証済みURL（Signed URL）を生成（有効期限1時間）
-            public_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(hours=1),
-                method="GET"
-
-            )
+            # storage.googleapis.com形式のURLを生成（正しいGCSの公開URL形式）
+            public_url = f"https://storage.googleapis.com/{self.bucket_name}/{gcs_path}"
             
             return {
                 "success": True,
                 "filename": filename,
                 "gcs_path": gcs_path,
-                "public_url": public_url,
+                "public_url": public_url,  # storage.googleapis.com形式のURLを使用
                 "size_bytes": len(file_content),
                 "content_type": content_type,
                 "timestamp": datetime.now().isoformat(),
@@ -173,26 +158,16 @@ class GCSStorageService:
             return []
 
     def get_public_url(self, file_path: str) -> str:
-        """ファイルパスからGCSの署名付きURLを生成"""
+        """ファイルパスからGCSのstorage.googleapis.com形式URLを生成"""
         try:
             # ファイルパスが既にURLの場合はそのまま返す
             if file_path.startswith('http'):
+                # 既存のURLをそのまま返す（storage.googleapis.com形式を維持）
                 return file_path
             
-            # ファイルが存在するかチェック
-            blob = self.bucket.blob(file_path)
-            if not blob.exists():
-                print(f"ファイルが存在しません: {file_path}")
-                return file_path
-            
-            # 署名付きURLを生成（1時間有効）
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=datetime.now() + timedelta(hours=1),
-                method="GET"
-            )
-            
-            return signed_url
+            # storage.googleapis.com形式のURLを生成
+            public_url = f"https://storage.googleapis.com/{self.bucket_name}/{file_path}"
+            return public_url
         except Exception as e:
-            print(f"署名付きURL生成エラー: {str(e)}")
+            print(f"公開URL生成エラー: {str(e)}")
             return file_path

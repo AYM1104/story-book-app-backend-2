@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 import json
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.database.session import get_db
 from app.models.story.stroy_plot import StoryPlot
 from app.models.story.generated_story_book import GeneratedStoryBook
+from app.models.story.story_setting import StorySetting
 from app.schemas.story.generated_story_book import (
     ThemeConfirmationRequest,
     ThemeConfirmationResponse,
@@ -94,7 +95,9 @@ async def get_storybook(
 ):
     """ストーリーブック詳細を取得するエンドポイント"""
     
-    storybook = db.query(GeneratedStoryBook).filter(
+    storybook = db.query(GeneratedStoryBook).options(
+        joinedload(GeneratedStoryBook.story_plot).joinedload(StoryPlot.story_setting).joinedload(StorySetting.upload_image)
+    ).filter(
         GeneratedStoryBook.id == storybook_id
     ).first()
     
@@ -115,7 +118,7 @@ async def get_storybook(
                 "filename": uploaded_image.file_name,
                 "file_path": uploaded_image.file_path,
                 "public_url": uploaded_image.public_url,
-                "uploaded_at": uploaded_image.uploaded_at
+                "uploaded_at": uploaded_image.created_at
             }
     
     # GCSの画像URLを公開URLに変換

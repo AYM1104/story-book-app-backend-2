@@ -104,6 +104,20 @@ async def get_supabase_storybook(
             detail=f"StoryBook ID {storybook_id} が見つかりません"
         )
     
+    # アップロード画像の情報を取得
+    uploaded_image_info = None
+    if storybook.story_plot and storybook.story_plot.story_setting:
+        story_setting = storybook.story_plot.story_setting
+        if story_setting.upload_image:
+            uploaded_image = story_setting.upload_image
+            uploaded_image_info = {
+                "id": uploaded_image.id,
+                "filename": uploaded_image.file_name,
+                "file_path": uploaded_image.file_path,
+                "public_url": uploaded_image.public_url,
+                "uploaded_at": uploaded_image.created_at
+            }
+    
     # GCSの画像URLを公開URLに変換
     from app.service.gcs_storage_service import GCSStorageService
     gcs_service = GCSStorageService()
@@ -124,7 +138,8 @@ async def get_supabase_storybook(
     if storybook.page_5_image_url and not storybook.page_5_image_url.startswith('http'):
         storybook.page_5_image_url = gcs_service.get_public_url(storybook.page_5_image_url)
     
-    return {
+    # アップロード画像の情報をレスポンスに追加
+    response_data = {
         "id": storybook.id,
         "story_plot_id": storybook.story_plot_id,
         "user_id": storybook.user_id,
@@ -146,6 +161,11 @@ async def get_supabase_storybook(
         "created_at": storybook.created_at,
         "updated_at": storybook.updated_at
     }
+    
+    if uploaded_image_info:
+        response_data['uploaded_image'] = uploaded_image_info
+    
+    return response_data
 
 @router.get("/user/{user_id}", response_model=list[GeneratedStoryBookResponse])
 async def get_supabase_user_storybooks(
