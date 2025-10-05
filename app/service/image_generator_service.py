@@ -1,6 +1,8 @@
 import os
 import uuid
 import base64
+import time
+import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import google.generativeai as genai
@@ -159,77 +161,114 @@ class ImageGeneratorService:
             }
 
     def generate_multiple_images(self, prompts: List[str], prefix: str = "storybook_page") -> List[Dict[str, Any]]:
-        """複数の画像を一括生成"""
+        """複数の画像を一括生成（リトライ機能付き）"""
         print(f"🚀 複数画像生成開始... (プロンプト数: {len(prompts)})")
         
         generated_images = []
+        max_retries = 3  # 最大リトライ回数
         
         for i, prompt in enumerate(prompts, 1):
-            try:
-                # プロンプトに文字なしの指示とアスペクト比を追加
-                enhanced_prompt = (
-                    f"{prompt}. "
-                    f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
-                    f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
-                    f"The composition should be horizontal with elements spread across the width. "
-                    f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
-                    f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
-                    f"NO written language of any kind. This must be a pure visual illustration only. "
-                    f"The image should be completely text-free and contain only visual elements, characters, "
-                    f"objects, and scenes without any written content whatsoever."
-                )
+            success = False
+            for attempt in range(max_retries):
+                try:
+                    # プロンプトに文字なしの指示とアスペクト比を追加
+                    enhanced_prompt = (
+                        f"{prompt}. "
+                        f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
+                        f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
+                        f"The composition should be horizontal with elements spread across the width. "
+                        f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
+                        f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
+                        f"NO written language of any kind. This must be a pure visual illustration only. "
+                        f"The image should be completely text-free and contain only visual elements, characters, "
+                        f"objects, and scenes without any written content whatsoever."
+                    )
+                    
+                    print(f"\n📝 プロンプト {i}/{len(prompts)} (試行 {attempt + 1}/{max_retries}): {enhanced_prompt[:50]}...")
+                    
+                    response = self.client.models.generate_content(
+                        model="gemini-2.5-flash-image-preview",
+                        contents=[enhanced_prompt]
+                    )
+                    
+                    if hasattr(response, 'candidates') and response.candidates:
+                        candidate = response.candidates[0]
+                        if hasattr(candidate, 'content') and candidate.content:
+                            content = candidate.content
+                            if hasattr(content, 'parts') and content.parts:
+                                for part in content.parts:
+                                    if hasattr(part, 'inline_data') and part.inline_data is not None:
+                                        image_data = part.inline_data.data
+                                        filename = self.generate_unique_filename(f"{prefix}_{i}", "png")
+                                        
+                                        save_result = self.save_image_to_storage(
+                                            image_data=image_data,
+                                            filename=filename,
+                                            user_id=2,  # デフォルトユーザーID
+                                            content_type="image/png"
+                                        )
+                                        
+                                        if save_result["success"]:
+                                            image_info = {
+                                                "prompt_index": i,
+                                                "filename": filename,
+                                                "filepath": save_result.get("filepath", save_result.get("gcs_path")),
+                                                "public_url": save_result.get("public_url"),
+                                                "size_bytes": len(image_data),
+                                                "image_size": Image.open(BytesIO(image_data)).size,
+                                                "format": "png", # Gemini APIはPNGを返すため
+                                                "timestamp": datetime.now().isoformat(),
+                                                "prompt": enhanced_prompt
+                                            }
+                                            generated_images.append(image_info)
+                                            print(f"✅ 画像 {i} 生成成功: {filename}")
+                                            success = True
+                                            break
+                                        else:
+                                            print(f"❌ プロンプト {i} 画像保存失敗: {save_result.get('error')}")
+                                            if attempt < max_retries - 1:
+                                                wait_time = (attempt + 1) * 2
+                                                print(f"⏳ {wait_time}秒待機後にリトライします...")
+                                                time.sleep(wait_time)
+                                            else:
+                                                generated_images.append({
+                                                    "prompt_index": i,
+                                                    "filename": filename,
+                                                    "error": f"画像保存に失敗しました: {save_result.get('error')}"
+                                                })
+                                            break
+                    else:
+                        print(f"❌ プロンプト {i} レスポンスエラー (試行 {attempt + 1})")
+                        if attempt < max_retries - 1:
+                            wait_time = (attempt + 1) * 2
+                            print(f"⏳ {wait_time}秒待機後にリトライします...")
+                            time.sleep(wait_time)
+                        
+                except Exception as e:
+                    print(f"❌ プロンプト {i} エラー (試行 {attempt + 1}): {e}")
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 2
+                        print(f"⏳ {wait_time}秒待機後にリトライします...")
+                        time.sleep(wait_time)
                 
-                print(f"\n📝 プロンプト {i}/{len(prompts)}: {enhanced_prompt[:50]}...")
-                
-                response = self.client.models.generate_content(
-                    model="gemini-2.5-flash-image-preview",
-                    contents=[enhanced_prompt]
-                )
-                
-                if hasattr(response, 'candidates') and response.candidates:
-                    candidate = response.candidates[0]
-                    if hasattr(candidate, 'content') and candidate.content:
-                        content = candidate.content
-                        if hasattr(content, 'parts') and content.parts:
-                            for part in content.parts:
-                                if hasattr(part, 'inline_data') and part.inline_data is not None:
-                                    image_data = part.inline_data.data
-                                    filename = self.generate_unique_filename(f"{prefix}_{i}", "png")
-                                    
-                                    save_result = self.save_image_to_storage(
-                                        image_data=image_data,
-                                        filename=filename,
-                                        user_id=2,  # デフォルトユーザーID
-                                        content_type="image/png"
-                                    )
-                                    
-                                    if save_result["success"]:
-                                        image_info = {
-                                            "prompt_index": i,
-                                            "filename": filename,
-                                            "filepath": save_result.get("filepath", save_result.get("gcs_path")),
-                                            "public_url": save_result.get("public_url"),
-                                            "size_bytes": len(image_data),
-                                            "image_size": Image.open(BytesIO(image_data)).size,
-                                            "format": "png", # Gemini APIはPNGを返すため
-                                            "timestamp": datetime.now().isoformat(),
-                                            "prompt": enhanced_prompt
-                                        }
-                                        generated_images.append(image_info)
-                                        print(f"✅ 画像 {i} 生成成功: {filename}")
-                                        break
-                                    else:
-                                        print(f"❌ プロンプト {i} 画像保存失敗: {save_result.get('error')}")
-                                        generated_images.append({
-                                            "prompt_index": i,
-                                            "filename": filename,
-                                            "error": f"画像保存に失敗しました: {save_result.get('error')}"
-                                        })
-                                        break
-            except Exception as e:
-                print(f"❌ プロンプト {i} エラー: {e}")
+                if success:
+                    break
+            
+            if not success:
+                print(f"❌ プロンプト {i} の生成に失敗しました（{max_retries}回試行後）")
+                generated_images.append({
+                    "prompt_index": i,
+                    "error": f"プロンプト {i} の生成に失敗しました（{max_retries}回試行後）",
+                    "filename": None
+                })
+            
+            # API制限を避けるため、各画像生成後に少し待機
+            if i < len(prompts):  # 最後のプロンプト以外は待機
+                print(f"⏳ API制限を避けるため2秒待機...")
+                time.sleep(2)
         
-        print(f"\n🎉 画像生成完了! 成功: {len(generated_images)}/{len(prompts)}")
+        successful_count = len([img for img in generated_images if "error" not in img])
+        print(f"\n🎉 画像生成完了! 成功: {successful_count}/{len(prompts)}")
         return generated_images
 
     def generate_storybook_images(self, story_pages: List[str], storybook_id: str) -> List[Dict[str, Any]]:
@@ -419,7 +458,7 @@ class ImageGeneratorService:
             raise e
 
     def generate_all_pages_for_story_plot(self, db: Session, story_plot_id: int) -> List[Dict[str, Any]]:
-        """story_plotsテーブルの全ページの画像を生成"""
+        """story_plotsテーブルの全ページの画像を生成（リトライ機能付き）"""
         try:
             # story_plotを取得
             story_plot = db.query(StoryPlot).filter(StoryPlot.id == story_plot_id).first()
@@ -429,6 +468,7 @@ class ImageGeneratorService:
             print(f"🚀 StoryPlot全ページ画像生成開始 (ID: {story_plot_id})")
             
             generated_images = []
+            max_retries = 3  # 最大リトライ回数
             
             # 各ページの画像を生成
             for page_num in range(1, 6):  # 1-5ページ
@@ -445,16 +485,42 @@ class ImageGeneratorService:
                     page_content = story_plot.page_5
                 
                 if page_content:  # 内容があるページのみ生成
-                    try:
-                        image_info = self.generate_image_for_story_plot_page(db, story_plot_id, page_num)
-                        generated_images.append(image_info)
-                        print(f"✅ ページ {page_num} 生成成功")
-                    except Exception as e:
-                        print(f"❌ ページ {page_num} 生成エラー: {e}")
+                    success = False
+                    for attempt in range(max_retries):
+                        try:
+                            print(f"🔄 ページ {page_num} 生成試行 {attempt + 1}/{max_retries}")
+                            image_info = self.generate_image_for_story_plot_page(db, story_plot_id, page_num)
+                            generated_images.append(image_info)
+                            print(f"✅ ページ {page_num} 生成成功")
+                            success = True
+                            break
+                        except Exception as e:
+                            print(f"❌ ページ {page_num} 生成エラー (試行 {attempt + 1}): {e}")
+                            if attempt < max_retries - 1:  # 最後の試行でない場合
+                                wait_time = (attempt + 1) * 2  # 2秒、4秒、6秒と段階的に待機
+                                print(f"⏳ {wait_time}秒待機後にリトライします...")
+                                time.sleep(wait_time)
+                    
+                    if not success:
+                        print(f"❌ ページ {page_num} の生成に失敗しました（{max_retries}回試行後）")
+                        # 失敗した場合もエラー情報を含めて記録
+                        generated_images.append({
+                            "story_plot_id": story_plot_id,
+                            "page_number": page_num,
+                            "error": f"ページ {page_num} の生成に失敗しました（{max_retries}回試行後）",
+                            "filename": None
+                        })
+                    
+                    # API制限を避けるため、各画像生成後に少し待機
+                    if page_num < 5:  # 最後のページ以外は待機
+                        print(f"⏳ API制限を避けるため2秒待機...")
+                        time.sleep(2)
+                        
                 else:
                     print(f"⚠️ ページ {page_num} は内容が空のためスキップ")
             
-            print(f"🎉 StoryPlot全ページ画像生成完了! 成功: {len(generated_images)}/5")
+            successful_count = len([img for img in generated_images if "error" not in img])
+            print(f"🎉 StoryPlot全ページ画像生成完了! 成功: {successful_count}/5")
             return generated_images
             
         except Exception as e:
