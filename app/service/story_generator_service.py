@@ -26,9 +26,6 @@ class StoryGeneratorService:
             "max_output_tokens": 8192,
         }
         
-        # リクエストオプションでタイムアウトを設定
-        self.request_options = {"timeout": 120}  # 120秒
-        
         self.model = genai.GenerativeModel(
             'gemini-2.5-flash',
             generation_config=generation_config
@@ -60,10 +57,7 @@ class StoryGeneratorService:
                 start_time = time.time()
                 
                 # Gemini 2.5 Flashで完全なストーリーを生成
-                response = self.model.generate_content(
-                    prompt,
-                    request_options=self.request_options
-                )
+                response = self.model.generate_content(prompt)
                 
                 elapsed_time = time.time() - start_time
                 print(f"Gemini API応答時間: {elapsed_time:.2f}秒")
@@ -119,10 +113,7 @@ class StoryGeneratorService:
                 start_time = time.time()
                 
                 # Gemini 2.5 Flashで単一ストーリーを生成
-                response = self.model.generate_content(
-                    prompt,
-                    request_options=self.request_options
-                )
+                response = self.model.generate_content(prompt)
                 
                 elapsed_time = time.time() - start_time
                 print(f"Gemini API応答時間: {elapsed_time:.2f}秒")
@@ -507,16 +498,13 @@ class StoryGeneratorService:
             """
             
             # Gemini APIで画像解析
-            response = self.model.generate_content(
-                [
-                    prompt,
-                    {
-                        "mime_type": "image/jpeg",
-                        "data": image_data
-                    }
-                ],
-                request_options=self.request_options
-            )
+            response = self.model.generate_content([
+                prompt,
+                {
+                    "mime_type": "image/jpeg",
+                    "data": image_data
+                }
+            ])
             
             result = response.text.strip()
             
@@ -562,16 +550,13 @@ class StoryGeneratorService:
             """
             
             # Gemini APIで画像解析
-            response = self.model.generate_content(
-                [
-                    prompt,
-                    {
-                        "mime_type": "image/jpeg",
-                        "data": image_data
-                    }
-                ],
-                request_options=self.request_options
-            )
+            response = self.model.generate_content([
+                prompt,
+                {
+                    "mime_type": "image/jpeg",
+                    "data": image_data
+                }
+            ])
             
             result = response.text.strip()
             print(f"絵からの性別判定結果: {result}")
