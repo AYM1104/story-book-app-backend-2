@@ -31,8 +31,7 @@ jobs:
 
       - name: Build and Deploy to Cloud Run
         run: |
-          cd backend
-          gcloud builds submit --config cloudbuild.yaml .
+          gcloud builds submit --config=backend/cloudbuild.yaml backend/
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
