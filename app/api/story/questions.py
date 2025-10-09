@@ -4,6 +4,7 @@ from app.database.session import get_db
 from app.models.story.story_setting import StorySetting
 from app.service.question_generator_service import question_generator_service
 from app.schemas.story.question import QuestionResponse, AnswerRequest, AnswerResponse
+import time
 
 router = APIRouter(prefix="/story", tags=["story-questions"])
 
@@ -57,10 +58,19 @@ async def submit_answer(
 ):
     """ユーザーの回答を受け取って物語設定を更新するエンドポイント"""
     
+    # 処理時間計測開始
+    start_time = time.time()
+    print(f"=== 質問回答処理開始 ===")
+    print(f"Story Setting ID: {story_setting_id}")
+    print(f"Field: {answer_request.field}, Answer: {answer_request.answer}")
+    
     # 物語設定を取得
+    db_start = time.time()
     story_setting = db.query(StorySetting).filter(
         StorySetting.id == story_setting_id
     ).first()
+    db_fetch_time = time.time() - db_start
+    print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
     
     if not story_setting:
         raise HTTPException(
@@ -70,11 +80,14 @@ async def submit_answer(
     
     try:
         # 回答に応じて物語設定を更新
+        update_start = time.time()
         field = answer_request.field
         answer = answer_request.answer
         
         if field == "protagonist_name":
             story_setting.protagonist_name = answer
+        elif field == "protagonist_type":
+            story_setting.protagonist_type = answer
         elif field == "setting_place":
             story_setting.setting_place = answer
         elif field == "tone":
@@ -84,8 +97,20 @@ async def submit_answer(
         elif field == "reading_level":
             story_setting.reading_level = answer
         
+        update_time = time.time() - update_start
+        print(f"⏱️ データ更新時間: {update_time:.3f}秒")
+        
+        # データベースに保存
+        commit_start = time.time()
         db.commit()
         db.refresh(story_setting)
+        commit_time = time.time() - commit_start
+        print(f"⏱️ DB保存時間: {commit_time:.3f}秒")
+        
+        # 全体の処理時間
+        total_time = time.time() - start_time
+        print(f"⏱️ 質問回答処理の合計時間: {total_time:.3f}秒")
+        print(f"=== 質問回答処理完了 ===")
         
         return AnswerResponse(
             story_setting_id=story_setting_id,
@@ -96,6 +121,8 @@ async def submit_answer(
         
     except Exception as e:
         db.rollback()
+        error_time = time.time() - start_time
+        print(f"❌ 質問回答処理エラー（処理時間: {error_time:.3f}秒）: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"回答の保存に失敗しました: {str(e)}"
