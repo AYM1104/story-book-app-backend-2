@@ -312,56 +312,42 @@ class StoryGeneratorService:
         # facesの情報を取得（人間の顔が検出されているかチェック）
         has_human_face = len(faces) > 0
         
-        # 人間の顔が検出されている場合、Gemini APIで性別を判定
-        if has_human_face:
+        # 性別判定を試みる（失敗しても「子供」のままで問題なし）
+        # 人間の顔が検出されている場合、または子供の絵の場合
+        lower_labels = [l.lower() for l in labels]
+        has_human_face_or_drawing = (
+            has_human_face or 
+            any(k in lower_labels for k in ["cartoon", "animation", "animated cartoon", "fictional character", "toy", "drawing", "art", "illustration"])
+        )
+        
+        if has_human_face_or_drawing:
             try:
-                # 画像ファイルのパスを取得（upload_image_idから）
+                print(f"性別判定を試行（失敗してもOK）: upload_image_id={upload_image_id}")
+                # Note: Cloud Run環境ではfile_pathが存在しないため、この処理は失敗します
+                # 失敗した場合は「子供」のままとし、後でユーザーに質問で聞きます
                 from sqlalchemy.orm import Session
                 from app.database.session import get_db
                 from app.models.images.images import UploadImages
                 
-                # データベースセッションを取得
                 db_gen = get_db()
                 db = next(db_gen)
                 try:
                     upload_image = db.query(UploadImages).filter(UploadImages.id == upload_image_id).first()
                     if upload_image and upload_image.file_path:
-                        gender_result = self._detect_gender_with_gemini(upload_image.file_path)
+                        # 顔検出がある場合は写真用、ない場合は絵用のメソッドを使用
+                        if has_human_face:
+                            gender_result = self._detect_gender_with_gemini(upload_image.file_path)
+                        else:
+                            gender_result = self._detect_gender_from_drawing(upload_image.file_path)
+                        
                         if gender_result in ["男の子", "女の子"]:
                             protagonist_type = gender_result
+                            print(f"性別判定成功: {gender_result}")
                 finally:
                     db.close()
             except Exception as e:
-                print(f"性別判定エラー: {e}")
-                # エラー時はデフォルトの「子供」のまま
-        else:
-            # 人間の顔が検出されない場合でも、子供が描いた絵の場合は性別判定を試行
-            # labelsから判定
-            lower_labels = [l.lower() for l in labels]
-            is_cartoon_character = any(k in lower_labels for k in ["cartoon", "animation", "animated cartoon", "fictional character", "toy"])
-            is_child_drawing = any(k in lower_labels for k in ["drawing", "art", "illustration", "sketch", "painting"])
-            
-            if is_cartoon_character or is_child_drawing:
-                try:
-                    # 画像ファイルのパスを取得（upload_image_idから）
-                    from sqlalchemy.orm import Session
-                    from app.database.session import get_db
-                    from app.models.images.images import UploadImages
-                    
-                    # データベースセッションを取得
-                    db_gen = get_db()
-                    db = next(db_gen)
-                    try:
-                        upload_image = db.query(UploadImages).filter(UploadImages.id == upload_image_id).first()
-                        if upload_image and upload_image.file_path:
-                            gender_result = self._detect_gender_from_drawing(upload_image.file_path)
-                            if gender_result in ["男の子", "女の子"]:
-                                protagonist_type = gender_result
-                    finally:
-                        db.close()
-                except Exception as e:
-                    print(f"絵からの性別判定エラー: {e}")
-                    # エラー時は従来のロジックにフォールバック
+                print(f"性別判定スキップ（エラー）: {e}")
+                print("→ デフォルト「子供」を使用し、後でユーザーに質問します")
         
         # labelsから判定（従来のロジック）
         if any(k in lower_labels for k in ["cat", "dog", "animal"]):

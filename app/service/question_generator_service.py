@@ -8,8 +8,23 @@ class QuestionGeneratorService:
         
         questions = []
         
-        # 主人公の名前（常に質問）
+        # 主人公のタイプを取得
         protagonist_type = story_setting.get("protagonist_type", "主人公")
+        
+        # 主人公の性別（protagonist_typeが「子供」の場合のみ質問）
+        if protagonist_type == "子供":
+            questions.append({
+                "field": "protagonist_type",
+                "question": "主人公の性別を選んでください：",
+                "type": "select",
+                "options": [
+                    {"value": "男の子", "label": "男の子"},
+                    {"value": "女の子", "label": "女の子"}
+                ],
+                "required": True
+            })
+        
+        # 主人公の名前（常に質問）
         name_suggestion = self._get_name_suggestion(protagonist_type)
         questions.append({
             "field": "protagonist_name",
@@ -83,6 +98,9 @@ class QuestionGeneratorService:
     def _get_name_suggestion(self, protagonist_type: str) -> str:
         """主人公タイプに応じた名前の提案"""
         suggestions = {
+            "女の子": "（例: あおいちゃん、みどりちゃん、はなちゃん）",
+            "男の子": "（例: たろうくん、けんたくん、ゆうとくん）",
+            "子供": "（例: たろうくん、はなちゃん）",
             "girl": "（例: あおいちゃん、みどりちゃん、はなちゃん）",
             "boy": "（例: たろうくん、けんたくん、ゆうとくん）",
             "animal": "（例: こねこちゃん、わんちゃん、うさちゃん）",
