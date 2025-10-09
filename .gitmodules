@@ -1,0 +1,5 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/AYM1104/story-book-app-backend-2.git
+	branch = main
+
