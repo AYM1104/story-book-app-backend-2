@@ -3,7 +3,6 @@ import google.generativeai as genai
 from typing import Dict, Any, Optional, List
 import os
 from dotenv import load_dotenv
-import time
 
 load_dotenv()
 
@@ -17,19 +16,7 @@ class StoryGeneratorService:
             raise ValueError("GEMINI_API_KEYまたはGOOGLE_API_KEYが設定されていません")
         
         genai.configure(api_key=api_key)
-        
-        # GenerationConfigでタイムアウトを設定
-        generation_config = {
-            "temperature": 0.9,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 8192,
-        }
-        
-        self.model = genai.GenerativeModel(
-            'gemini-2.5-flash',
-            generation_config=generation_config
-        )
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
 
     def generate_complete_story(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
         """テーマ案と物語本文を一緒に生成"""
@@ -47,45 +34,16 @@ class StoryGeneratorService:
             tone, target_age, reading_level
         )
 
-        # リトライ設定
-        max_retries = 3
-        retry_delay = 2  # 秒
-        
-        for attempt in range(max_retries):
-            try:
-                print(f"Gemini API呼び出し試行 {attempt + 1}/{max_retries}")
-                start_time = time.time()
-                
-                # Gemini 2.5 Flashで完全なストーリーを生成
-                response = self.model.generate_content(prompt)
-                
-                elapsed_time = time.time() - start_time
-                print(f"Gemini API応答時間: {elapsed_time:.2f}秒")
-                
-                story_data = self._parse_complete_story_response(response.text)
-                print(f"Gemini APIストーリー生成成功")
-                return story_data
+        try:
+            # Gemini 2.5 Flashで完全なストーリーを生成
+            response = self.model.generate_content(prompt)
+            story_data = self._parse_complete_story_response(response.text)
+            return story_data
 
-            except Exception as e:
-                error_type = type(e).__name__
-                error_message = str(e)
-                print(f"Gemini API エラー (試行 {attempt + 1}/{max_retries}): {error_type} - {error_message}")
-                
-                # タイムアウトエラーの場合は再試行
-                if "timeout" in error_message.lower() or "504" in error_message:
-                    if attempt < max_retries - 1:
-                        print(f"{retry_delay}秒後に再試行します...")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2  # 指数バックオフ
-                        continue
-                
-                # 最後の試行または致命的なエラーの場合はフォールバック
-                if attempt == max_retries - 1:
-                    print(f"全ての試行が失敗しました。フォールバックデータを使用します。")
-                    return self._generate_fallback_complete_story(protagonist_name, protagonist_type, setting_place, tone)
-                
-        # ここには到達しないはずだが、念のため
-        return self._generate_fallback_complete_story(protagonist_name, protagonist_type, setting_place, tone)
+        except Exception as e:
+            print(f"Gemini API エラー: {e}")
+            # エラー時はフォールバック
+            return self._generate_fallback_complete_story(protagonist_name, protagonist_type, setting_place, tone)
 
     def generate_single_story(self, story_setting: Dict[str, Any], selected_theme: str) -> Dict[str, Any]:
         """選択されたテーマの物語本文を生成"""
@@ -103,45 +61,16 @@ class StoryGeneratorService:
             tone, target_age, reading_level, selected_theme
         )
 
-        # リトライ設定
-        max_retries = 3
-        retry_delay = 2  # 秒
-        
-        for attempt in range(max_retries):
-            try:
-                print(f"Gemini API呼び出し試行 {attempt + 1}/{max_retries}")
-                start_time = time.time()
-                
-                # Gemini 2.5 Flashで単一ストーリーを生成
-                response = self.model.generate_content(prompt)
-                
-                elapsed_time = time.time() - start_time
-                print(f"Gemini API応答時間: {elapsed_time:.2f}秒")
-                
-                story_data = self._parse_single_story_response(response.text)
-                print(f"Gemini API単一ストーリー生成成功")
-                return story_data
+        try:
+            # Gemini 2.5 Flashで単一ストーリーを生成
+            response = self.model.generate_content(prompt)
+            story_data = self._parse_single_story_response(response.text)
+            return story_data
 
-            except Exception as e:
-                error_type = type(e).__name__
-                error_message = str(e)
-                print(f"Gemini API エラー (試行 {attempt + 1}/{max_retries}): {error_type} - {error_message}")
-                
-                # タイムアウトエラーの場合は再試行
-                if "timeout" in error_message.lower() or "504" in error_message:
-                    if attempt < max_retries - 1:
-                        print(f"{retry_delay}秒後に再試行します...")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2  # 指数バックオフ
-                        continue
-                
-                # 最後の試行または致命的なエラーの場合はフォールバック
-                if attempt == max_retries - 1:
-                    print(f"全ての試行が失敗しました。フォールバックデータを使用します。")
-                    return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme)
-                
-        # ここには到達しないはずだが、念のため
-        return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme)
+        except Exception as e:
+            print(f"Gemini API エラー: {e}")
+            # エラー時はフォールバック
+            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme)
 
     def _create_complete_story_prompt(self, protagonist_name: str, protagonist_type: str, 
                                     setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
