@@ -13,7 +13,7 @@ class UploadImageResponse(BaseModel):
     file_path: str
     content_type: str
     size_bytes: int
-    uploaded_at: datetime
+    uploaded_at: datetime  # created_atのエイリアス（フロントエンド互換性のため）
     meta_data: Optional[str] = None  # JSON文字列として扱う
     public_url: Optional[str] = None  # GCSの公開URL（ストレージタイプがGCSの場合）
 

@@ -282,7 +282,7 @@ async def upload_image(
             "content_type": new_image.content_type,
             "size_bytes": new_image.size_bytes,
             "user_id": new_image.user_id,
-            "uploaded_at": new_image.uploaded_at.isoformat(),
+            "uploaded_at": new_image.created_at.isoformat(),
             "meta_data": new_image.meta_data,
             "public_url": new_image.public_url  # データベースから取得
         }

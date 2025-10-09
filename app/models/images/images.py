@@ -11,7 +11,8 @@ class UploadImages(Base):
     content_type = Column(String(100), nullable=False)
     size_bytes = Column(Integer, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    uploaded_at = Column(DateTime, nullable=False, default=func.now())
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     meta_data = Column(Text, nullable=True)     # 画像解析結果を入れる
     public_url = Column(String(1024), nullable=True)     # GCSの公開URL（ストレージタイプがGCSの場合）
 
