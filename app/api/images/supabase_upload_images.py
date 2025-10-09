@@ -1,4 +1,4 @@
-import os, uuid, json, tempfile
+import os, uuid, json, tempfile, time
 from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
@@ -68,11 +68,17 @@ async def upload_supabase_image(
         )
     
     try:
+        # ⏱️ 全体の処理時間計測開始
+        total_start_time = time.time()
+        
         print("🔥🔥🔥 SUPABASE UPLOAD - 新しいコードが実行されています！ 🔥🔥🔥")
         print("=== Supabaseアップロード処理開始 ===")
         
-        # ファイル内容を読み込み（サイズ検証を保存前に実施）
+        # ⏱️ ファイル読み込み時間計測
+        read_start_time = time.time()
         content = await file.read()
+        read_time = time.time() - read_start_time
+        print(f"⏱️ ファイル読み込み時間: {read_time:.3f}秒")
         print(f"読み込んだファイルサイズ: {len(content)} bytes")
         
         if len(content) > MAX_UPLOAD_SIZE:
@@ -81,6 +87,8 @@ async def upload_supabase_image(
                 detail=f"ファイルサイズが大きすぎます。最大{MAX_UPLOAD_SIZE // (1024*1024)}MBまでです。"
             )
 
+        # ⏱️ リサイズ処理時間計測
+        resize_start_time = time.time()
         print("=== 画像リサイズ処理開始 ===")
         # 画像を1920x1080の固定サイズにリサイズ（縦横比保持、透明背景）
         try:
@@ -97,11 +105,17 @@ async def upload_supabase_image(
             
             # リサイズ後のコンテンツを使用
             content = resized_content
+            resize_time = time.time() - resize_start_time
+            print(f"⏱️ 画像リサイズ時間: {resize_time:.3f}秒")
             print("=== 画像リサイズ処理完了 ===")
         except ImportError as e:
+            resize_time = time.time() - resize_start_time
+            print(f"⏱️ 画像リサイズ時間（スキップ）: {resize_time:.3f}秒")
             print(f"画像ユーティリティのインポートエラー: {e}")
             print("リサイズ処理をスキップして元の画像を使用します")
         except Exception as e:
+            resize_time = time.time() - resize_start_time
+            print(f"⏱️ 画像リサイズ時間（エラー）: {resize_time:.3f}秒")
             print(f"画像リサイズ処理エラー: {e}")
             print("リサイズ処理をスキップして元の画像を使用します")
 
@@ -115,6 +129,8 @@ async def upload_supabase_image(
             file_extension = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
             print(f"ファイル拡張子を元のまま設定: {file_extension}")
         
+        # ⏱️ GCSアップロード時間計測
+        upload_start_time = time.time()
         # ストレージタイプに応じて保存先を決定
         # 現在はGCSを使用（将来的にSupabaseストレージに移行可能）
         try:
@@ -133,8 +149,12 @@ async def upload_supabase_image(
             
             file_path = upload_result["gcs_path"]
             public_url = upload_result["public_url"]
+            upload_time = time.time() - upload_start_time
+            print(f"⏱️ GCSアップロード時間: {upload_time:.3f}秒")
                 
         except Exception as gcs_error:
+            upload_time = time.time() - upload_start_time
+            print(f"⏱️ GCSアップロード時間（エラー）: {upload_time:.3f}秒")
             print(f"GCSエラー: {str(gcs_error)}")
             raise HTTPException(status_code=500, detail=f"画像のアップロードに失敗しました: {str(gcs_error)}")
         
@@ -142,6 +162,8 @@ async def upload_supabase_image(
         print(f"ファイルパス: {file_path}")
         print(f"GCS public_url: {public_url}")
         
+        # ⏱️ Vision API解析時間計測
+        vision_start_time = time.time()
         # Vision API解析
         analysis_result = None
         temp_file_path = None
@@ -153,8 +175,12 @@ async def upload_supabase_image(
                 temp_file_path = temp_file.name
             
             analysis_result = await vision_service.analyze_image(temp_file_path)
+            vision_time = time.time() - vision_start_time
+            print(f"⏱️ Vision API解析時間: {vision_time:.3f}秒")
             print(f"Vision API解析結果: {analysis_result}")
         except Exception as e:
+            vision_time = time.time() - vision_start_time
+            print(f"⏱️ Vision API解析時間（エラー）: {vision_time:.3f}秒")
             print(f"Vision API解析エラー: {str(e)}")
             # Vision API解析に失敗してもアップロードは続行
             analysis_result = {
