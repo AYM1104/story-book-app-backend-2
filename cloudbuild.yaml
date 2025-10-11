@@ -30,8 +30,6 @@ steps:
       - '2'
       - '--max-instances'
       - '10'
-      - '--tag'
-      - 'build-$BUILD_ID'
 
 # 使用するイメージ
 images:
