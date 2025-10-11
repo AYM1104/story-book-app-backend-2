@@ -11,7 +11,7 @@ class VisionApiService:
     def __init__(self):
         # ADC（Application Default Credentials）フォールバック対応
         self.credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        self.project_id = os.getenv("GOOGLE_PROJECT_ID")
+        self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
 
         # クライアント初期化（ADCフォールバック対応）
         if self.credentials_path and os.path.exists(self.credentials_path):

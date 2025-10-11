@@ -13,16 +13,43 @@ class GCSStorageService:
     """Google Cloud Storageを使用して画像を保存・取得するサービス（改善版）"""
 
     def __init__(self):
+        # 環境変数チェック
         self.bucket_name = os.getenv("GCS_BUCKET_NAME")
+        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
         
+        # 必須環境変数のチェック
+        missing_vars = []
         if not self.bucket_name:
-            raise ValueError("GCS_BUCKET_NAMEが設定されていません")
+            missing_vars.append("GCS_BUCKET_NAME")
+        if not project_id:
+            missing_vars.append("GOOGLE_CLOUD_PROJECT")
         
-        # Cloud Run環境ではサービスアカウントのメタデータ認証を使用
-        # 明示的な認証情報設定は不要
-        print("✅ GCS認証: Cloud Runサービスアカウントを使用")
-        self.client = storage.Client()
-        self.bucket = self.client.bucket(self.bucket_name)
+        if missing_vars:
+            error_msg = (
+                f"❌ GCS初期化エラー: 以下の環境変数が設定されていません: {', '.join(missing_vars)}\n"
+                f"設定方法:\n"
+                f"  export GCS_BUCKET_NAME=your-bucket-name\n"
+                f"  export GOOGLE_CLOUD_PROJECT=your-project-id"
+            )
+            raise ValueError(error_msg)
+        
+        # GCSクライアント初期化
+        try:
+            print(f"✅ GCS初期化開始")
+            print(f"  - プロジェクトID: {project_id}")
+            print(f"  - バケット名: {self.bucket_name}")
+            
+            self.client = storage.Client(project=project_id)
+            self.bucket = self.client.bucket(self.bucket_name)
+            
+            print(f"✅ GCS初期化完了")
+        except Exception as e:
+            error_msg = (
+                f"❌ GCSクライアント初期化エラー: {str(e)}\n"
+                f"プロジェクトID: {project_id}\n"
+                f"バケット名: {self.bucket_name}"
+            )
+            raise ValueError(error_msg)
 
     def generate_unique_filename(self, prefix: str = "uploaded_image", extension: str = "jpg") -> str:
         """ユニークなファイル名を生成"""

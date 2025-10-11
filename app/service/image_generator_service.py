@@ -32,35 +32,22 @@ class ImageGeneratorService:
         self.client = genai
         self.model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
         
-        # ストレージタイプに応じてディレクトリを設定
-        if STORAGE_TYPE == "gcs":
-            # GCSを使用する場合はローカルディレクトリは不要
-            self.images_dir = None
-            self.reference_images_dir = None
-            self.upload_images_dir = None
-            # GCSサービスを初期化
+        # GCS固定設定
+        # ローカルディレクトリは不要
+        self.images_dir = None
+        self.reference_images_dir = None
+        self.upload_images_dir = None
+        
+        # GCSサービスを初期化
+        try:
             self.gcs_service = GCSStorageService()
-        else:
-            # ローカルストレージを使用
-            self.images_dir = "app/uploads/generated_images"
-            self.reference_images_dir = "app/uploads/reference_images"
-            self.upload_images_dir = "app/uploads/upload_images"
-            os.makedirs(self.images_dir, exist_ok=True)
-            os.makedirs(self.reference_images_dir, exist_ok=True)
-            os.makedirs(self.upload_images_dir, exist_ok=True)
-            self.gcs_service = None
+        except Exception as e:
+            print(f"❌ GCS初期化エラー: {e}")
+            raise e
 
     def create_save_directory(self, subdir: str = None):
-        """画像保存用ディレクトリを作成（ローカルストレージの場合のみ）"""
-        if STORAGE_TYPE == "gcs":
-            return None
-        
-        if subdir:
-            save_dir = os.path.join(self.images_dir, subdir)
-        else:
-            save_dir = self.images_dir
-        os.makedirs(save_dir, exist_ok=True)
-        return save_dir
+        """画像保存用ディレクトリを作成（GCS使用のため不要）"""
+        return None
 
     def generate_unique_filename(self, prefix: str = "generated_image", extension: str = "png"):
         """ユニークなファイル名を生成"""
@@ -70,30 +57,14 @@ class ImageGeneratorService:
 
 
     def save_image_to_storage(self, image_data: bytes, filename: str, user_id: int = 2, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
-        """画像をストレージに保存（GCSまたはローカル）"""
-        if STORAGE_TYPE == "gcs":
-            # Google Cloud Storageに保存
-            return self.gcs_service.upload_generated_image(
-                file_content=image_data,
-                filename=filename,
-                user_id=user_id,
-                story_id=story_id,
-                content_type=content_type
-            )
-        else:
-            # ローカルストレージに保存
-            filepath = os.path.join(self.images_dir, filename)
-            with open(filepath, "wb") as f:
-                f.write(image_data)
-            
-            return {
-                "success": True,
-                "filename": filename,
-                "filepath": filepath,
-                "size_bytes": len(image_data),
-                "content_type": content_type,
-                "timestamp": datetime.now().isoformat()
-            }
+        """画像をGoogle Cloud Storageに保存"""
+        return self.gcs_service.upload_generated_image(
+            file_content=image_data,
+            filename=filename,
+            user_id=user_id,
+            story_id=story_id,
+            content_type=content_type
+        )
 
     def generate_single_image(self, prompt: str, prefix: str = "storybook_image") -> Dict[str, Any]:
         """単一の画像を生成"""
@@ -948,51 +919,26 @@ class ImageGeneratorService:
             raise e
 
     def get_uploaded_images_list(self) -> List[Dict[str, Any]]:
-        """アップロードされた画像のリストを取得"""
+        """GCSからアップロードされた画像のリストを取得"""
         try:
             uploaded_images = []
             
-            if STORAGE_TYPE == "gcs":
-                # GCSから画像を取得
-                bucket = self.gcs_service.client.bucket(self.gcs_service.bucket_name)
-                blobs = bucket.list_blobs(prefix="uploads/")
-                
-                for blob in blobs:
-                    if blob.name.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                        image_info = {
-                            "filename": os.path.basename(blob.name),
-                            "filepath": blob.name,
-                            "size_bytes": blob.size,
-                            "image_size": (0, 0), # GCSからは直接サイズを取得できないため
-                            "format": "unknown",
-                            "timestamp": datetime.fromtimestamp(blob.updated).isoformat(),
-                            "public_url": self.gcs_service.get_public_url(blob.name)
-                        }
-                        uploaded_images.append(image_info)
-            else:
-                if os.path.exists(self.upload_images_dir):
-                    for filename in os.listdir(self.upload_images_dir):
-                        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                            filepath = os.path.join(self.upload_images_dir, filename)
-                            file_stats = os.stat(filepath)
-                            
-                            try:
-                                image = Image.open(filepath)
-                                image_size = image.size
-                                image_format = image.format
-                            except Exception:
-                                image_size = (0, 0)
-                                image_format = filename.split(".")[-1].upper()
-                            
-                            image_info = {
-                                "filename": filename,
-                                "filepath": filepath,
-                                "size_bytes": file_stats.st_size,
-                                "image_size": image_size,
-                                "format": image_format,
-                                "timestamp": datetime.fromtimestamp(file_stats.st_mtime).isoformat()
-                            }
-                            uploaded_images.append(image_info)
+            # GCSから画像を取得
+            bucket = self.gcs_service.client.bucket(self.gcs_service.bucket_name)
+            blobs = bucket.list_blobs(prefix="uploads/")
+            
+            for blob in blobs:
+                if blob.name.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                    image_info = {
+                        "filename": os.path.basename(blob.name),
+                        "filepath": blob.name,
+                        "size_bytes": blob.size,
+                        "image_size": (0, 0), # GCSからは直接サイズを取得できないため
+                        "format": "unknown",
+                        "timestamp": datetime.fromtimestamp(blob.updated).isoformat(),
+                        "public_url": self.gcs_service.get_public_url(blob.name)
+                    }
+                    uploaded_images.append(image_info)
             
             # タイムスタンプでソート（新しい順）
             uploaded_images.sort(key=lambda x: x["timestamp"], reverse=True)

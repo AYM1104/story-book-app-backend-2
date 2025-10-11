@@ -7,6 +7,7 @@ from app.service.story_generator_service import StoryGeneratorService
 from pydantic import BaseModel
 from typing import Dict, Any
 import traceback
+import time
 
 router = APIRouter(prefix="/story", tags=["story-generation"])
 
@@ -35,8 +36,14 @@ async def supabase_story_generator(
 ):
     """Supabase用のストーリー設定を元に3つのテーマ案と物語本文をAIで生成して保存するエンドポイント"""
     
+    # 処理時間計測開始
+    start_time = time.time()
+    print(f"=== テーマ生成処理開始 (Supabase) ===")
+    print(f"Story Setting ID: {request.story_setting_id}")
+    
     try:
-        print(f"デバッグ: story_setting_id = {request.story_setting_id}")
+        # DB取得時間を計測
+        db_start = time.time()
         
         # ストーリー設定を取得（upload_imageとuserの情報も一緒に取得）
         story_setting = db.query(SupabaseStorySetting).options(
@@ -45,7 +52,8 @@ async def supabase_story_generator(
             SupabaseStorySetting.id == request.story_setting_id
         ).first()
         
-        print(f"デバッグ: story_setting = {story_setting}")
+        db_fetch_time = time.time() - db_start
+        print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
         
         if not story_setting:
             raise HTTPException(
@@ -53,11 +61,12 @@ async def supabase_story_generator(
                 detail=f"ストーリー設定ID {request.story_setting_id} が見つかりません"
             )
         
-        print(f"デバッグ: upload_image = {story_setting.upload_image}")
-        
         # user_idを自動取得
         user_id = story_setting.upload_image.user_id
-        print(f"デバッグ: user_id = {user_id}")
+        print(f"User ID: {user_id}")
+        
+        # データ変換時間を計測
+        convert_start = time.time()
         
         # ストーリー設定を辞書形式に変換
         story_setting_dict = {
@@ -69,91 +78,52 @@ async def supabase_story_generator(
             "reading_level": story_setting.reading_level
         }
         
-        print(f"デバッグ: story_setting_dict = {story_setting_dict}")
+        convert_time = time.time() - convert_start
+        print(f"⏱️ データ変換時間: {convert_time:.3f}秒")
         
         # Gemini 2.5 Flashでテーマ案と物語本文を生成
-        print("デバッグ: Gemini API呼び出し開始")
+        print("🤖 Gemini API呼び出し開始（3つのテーマ生成）")
+        gemini_start = time.time()
+        
         story_data = story_generator_service.generate_complete_story(story_setting_dict)
-        print(f"デバッグ: story_data = {story_data}")
+        
+        gemini_time = time.time() - gemini_start
+        print(f"⏱️ Gemini API処理時間: {gemini_time:.3f}秒")
         
         # データベースに保存
+        print("💾 データベース保存処理開始")
+        db_save_start = time.time()
+        
         # 3つのレコードを作成してそれぞれに異なるテーマを保存
         generated_stories = story_data.get("generated_stories", {})
         theme_options = story_data.get("theme_options", {})
 
         story_plots = []
 
-        # theme1のレコードを作成
-        theme1_story = generated_stories.get("theme1", {})
-        theme1_pages = theme1_story.get("story_pages", [])
-        theme1_info = theme_options.get("theme1", {})
+        # 3つのテーマをループで処理
+        for theme_key in ["theme1", "theme2", "theme3"]:
+            theme_story = generated_stories.get(theme_key, {})
+            theme_pages = theme_story.get("story_pages", [])
+            theme_info = theme_options.get(theme_key, {})
 
-        story_plot1 = SupabaseStoryPlot(
-            story_setting_id=request.story_setting_id,
-            user_id=user_id,
-            title=theme1_story.get("title", ""),
-            description=theme1_info.get("description", ""),
-            theme_options=theme_options,
-            selected_theme="theme1",
-            keywords=theme1_info.get("keywords", []),
-            generated_stories=generated_stories,
-            page_1=theme1_pages[0].get("page_1", "") if len(theme1_pages) > 0 else "",
-            page_2=theme1_pages[1].get("page_2", "") if len(theme1_pages) > 1 else "",
-            page_3=theme1_pages[2].get("page_3", "") if len(theme1_pages) > 2 else "",
-            page_4=theme1_pages[3].get("page_4", "") if len(theme1_pages) > 3 else "",
-            page_5=theme1_pages[4].get("page_5", "") if len(theme1_pages) > 4 else "",
-            current_page=1,
-            conversation_context={}
-        )
-        story_plots.append(story_plot1)
-
-        # theme2のレコードを作成
-        theme2_story = generated_stories.get("theme2", {})
-        theme2_pages = theme2_story.get("story_pages", [])
-        theme2_info = theme_options.get("theme2", {})
-
-        story_plot2 = SupabaseStoryPlot(
-            story_setting_id=request.story_setting_id,
-            user_id=user_id,
-            title=theme2_story.get("title", ""),
-            description=theme2_info.get("description", ""),
-            theme_options=theme_options,
-            selected_theme="theme2",
-            keywords=theme2_info.get("keywords", []),
-            generated_stories=generated_stories,
-            page_1=theme2_pages[0].get("page_1", "") if len(theme2_pages) > 0 else "",
-            page_2=theme2_pages[1].get("page_2", "") if len(theme2_pages) > 1 else "",
-            page_3=theme2_pages[2].get("page_3", "") if len(theme2_pages) > 2 else "",
-            page_4=theme2_pages[3].get("page_4", "") if len(theme2_pages) > 3 else "",
-            page_5=theme2_pages[4].get("page_5", "") if len(theme2_pages) > 4 else "",
-            current_page=1,
-            conversation_context={}
-        )
-        story_plots.append(story_plot2)
-
-        # theme3のレコードを作成
-        theme3_story = generated_stories.get("theme3", {})
-        theme3_pages = theme3_story.get("story_pages", [])
-        theme3_info = theme_options.get("theme3", {})
-
-        story_plot3 = SupabaseStoryPlot(
-            story_setting_id=request.story_setting_id,
-            user_id=user_id,
-            title=theme3_story.get("title", ""),
-            description=theme3_info.get("description", ""),
-            theme_options=theme_options,
-            selected_theme="theme3",
-            keywords=theme3_info.get("keywords", []),
-            generated_stories=generated_stories,
-            page_1=theme3_pages[0].get("page_1", "") if len(theme3_pages) > 0 else "",
-            page_2=theme3_pages[1].get("page_2", "") if len(theme3_pages) > 1 else "",
-            page_3=theme3_pages[2].get("page_3", "") if len(theme3_pages) > 2 else "",
-            page_4=theme3_pages[3].get("page_4", "") if len(theme3_pages) > 3 else "",
-            page_5=theme3_pages[4].get("page_5", "") if len(theme3_pages) > 4 else "",
-            current_page=1,
-            conversation_context={}
-        )
-        story_plots.append(story_plot3)
+            story_plot = SupabaseStoryPlot(
+                story_setting_id=request.story_setting_id,
+                user_id=user_id,
+                title=theme_story.get("title", ""),
+                description=theme_info.get("description", ""),
+                theme_options=theme_options,
+                selected_theme=theme_key,
+                keywords=theme_info.get("keywords", []),
+                generated_stories=generated_stories,
+                page_1=theme_pages[0].get("page_1", "") if len(theme_pages) > 0 else "",
+                page_2=theme_pages[1].get("page_2", "") if len(theme_pages) > 1 else "",
+                page_3=theme_pages[2].get("page_3", "") if len(theme_pages) > 2 else "",
+                page_4=theme_pages[3].get("page_4", "") if len(theme_pages) > 3 else "",
+                page_5=theme_pages[4].get("page_5", "") if len(theme_pages) > 4 else "",
+                current_page=1,
+                conversation_context={}
+            )
+            story_plots.append(story_plot)
 
         # データベースに保存
         for story_plot in story_plots:
@@ -163,7 +133,19 @@ async def supabase_story_generator(
         for story_plot in story_plots:
             db.refresh(story_plot)
 
-        print(f"デバッグ: 3つのレコード保存完了 story_plot_ids = {[sp.id for sp in story_plots]}")
+        db_save_time = time.time() - db_save_start
+        print(f"⏱️ DB保存時間: {db_save_time:.3f}秒")
+        print(f"✅ 3つのレコード保存完了 story_plot_ids = {[sp.id for sp in story_plots]}")
+        
+        # 全体の処理時間
+        total_time = time.time() - start_time
+        processing_time_ms = total_time * 1000
+        print(f"⏱️ テーマ生成処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
+        print(f"  - DB取得: {db_fetch_time:.3f}秒")
+        print(f"  - データ変換: {convert_time:.3f}秒")
+        print(f"  - Gemini API: {gemini_time:.3f}秒")
+        print(f"  - DB保存: {db_save_time:.3f}秒")
+        print(f"=== テーマ生成処理完了 ===")
         
         return {
             "story_plot_id": story_plot.id,
@@ -172,12 +154,21 @@ async def supabase_story_generator(
             "message": "3つのテーマ案と物語本文を生成して保存しました。お好きなテーマを選択してください。",
             "theme_options": story_data.get("theme_options", {}),
             "generated_stories": story_data.get("generated_stories", {}),
-            "next_step": "theme_selection"
+            "next_step": "theme_selection",
+            "processing_time_ms": processing_time_ms,
+            "timing_details": {
+                "db_fetch": round(db_fetch_time * 1000, 0),
+                "data_conversion": round(convert_time * 1000, 0),
+                "gemini_api": round(gemini_time * 1000, 0),
+                "db_save": round(db_save_time * 1000, 0),
+                "total": round(total_time * 1000, 0)
+            }
         }
         
     except Exception as e:
         db.rollback()
-        print(f"エラーの詳細: {str(e)}")
+        error_time = time.time() - start_time
+        print(f"❌ テーマ生成処理エラー（処理時間: {error_time:.3f}秒）: {str(e)}")
         print(f"エラーのトレースバック: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

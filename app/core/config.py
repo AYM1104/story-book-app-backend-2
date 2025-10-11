@@ -22,5 +22,5 @@ VISION_API_ENABLED = os.getenv("VISION_API_ENABLED", "true").lower() == "true"
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 GCS_CREDENTIALS_PATH = os.getenv("GCS_CREDENTIALS_PATH", "app/secrets/ayu1104-9462987945cd.json")
 
-# ストレージ設定（localまたはgcs）
-STORAGE_TYPE = os.getenv("STORAGE_TYPE", "gcs")  # デフォルトはGCS
+# ストレージ設定（GCS固定）
+STORAGE_TYPE = "gcs"  # GCS固定
