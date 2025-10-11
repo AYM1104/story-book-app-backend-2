@@ -60,13 +60,15 @@ async def get_supabase_questions_for_story_setting(
     
     # 全体の処理時間
     total_time = time.time() - start_time
-    print(f"⏱️ 質問取得処理の合計時間: {total_time:.3f}秒")
+    processing_time_ms = total_time * 1000  # ミリ秒に変換
+    print(f"⏱️ 質問取得処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
     print(f"=== 質問取得処理完了 ===")
     
     return QuestionResponse(
         questions=questions,
         story_setting_id=story_setting_id,
-        message=f"物語設定を完成させるために{len(questions)}つの質問があります"
+        message=f"物語設定を完成させるために{len(questions)}つの質問があります",
+        processing_time_ms=processing_time_ms
     )
 
 @router.post("/story_settings/{story_setting_id}/answers", response_model=AnswerResponse)
@@ -128,14 +130,16 @@ async def submit_supabase_answer(
         
         # 全体の処理時間
         total_time = time.time() - start_time
-        print(f"⏱️ 質問回答処理の合計時間: {total_time:.3f}秒")
+        processing_time_ms = total_time * 1000  # ミリ秒に変換
+        print(f"⏱️ 質問回答処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
         print(f"=== 質問回答処理完了 ===")
         
         return AnswerResponse(
             story_setting_id=story_setting_id,
             field=field,
             answer=answer,
-            message=f"{field}が正常に更新されました"
+            message=f"{field}が正常に更新されました",
+            processing_time_ms=processing_time_ms
         )
         
     except Exception as e:

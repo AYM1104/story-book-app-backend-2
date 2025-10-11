@@ -17,6 +17,7 @@ class QuestionResponse(BaseModel):
     questions: List[Question]
     story_setting_id: int
     message: str
+    processing_time_ms: Optional[float] = None  # 処理時間（ミリ秒）
 
 class AnswerRequest(BaseModel):
     field: str
@@ -27,3 +28,4 @@ class AnswerResponse(BaseModel):
     field: str
     answer: str
     message: str
+    processing_time_ms: Optional[float] = None  # 処理時間（ミリ秒）
