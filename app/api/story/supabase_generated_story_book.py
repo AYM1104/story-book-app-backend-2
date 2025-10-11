@@ -32,22 +32,19 @@ async def supabase_confirm_theme_and_create_storybook(
                 detail=f"StoryPlot ID {request.story_plot_id} が見つかりません"
             )
         
-        # 2. 選択されたテーマが存在するかチェック
-        if not story_plot.generated_stories:
+        # 2. 物語本文が生成されているかチェック（page_1が空でないことを確認）
+        if not story_plot.page_1 or story_plot.page_1.strip() == "":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="生成されたストーリーが見つかりません"
+                detail="物語本文が生成されていません。先に /story/select_theme で物語を生成してください。"
             )
         
-        if request.selected_theme not in story_plot.generated_stories:
-            available_themes = list(story_plot.generated_stories.keys())
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"選択されたテーマ '{request.selected_theme}' が見つかりません。利用可能なテーマ: {available_themes}"
-            )
+        # 3. 選択されたテーマのストーリー内容を取得
+        # 新しい実装では generated_stories は空なので、空の辞書を使用
+        selected_story_content_dict = {}
+        if story_plot.generated_stories and request.selected_theme in story_plot.generated_stories:
+            selected_story_content_dict = story_plot.generated_stories[request.selected_theme]
         
-        # 3. 選択されたテーマのストーリー内容を取得（辞書 → JSON文字列に変換）
-        selected_story_content_dict = story_plot.generated_stories[request.selected_theme]
         # Textカラムに保存可能なようJSON文字列化
         selected_story_content = json.dumps(selected_story_content_dict, ensure_ascii=False)
         
