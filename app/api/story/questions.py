@@ -15,10 +15,18 @@ async def get_questions_for_story_setting(
 ):
     """物語設定の不足情報に対して質問を生成するエンドポイント"""
     
+    # 処理時間計測開始
+    start_time = time.time()
+    print(f"=== 質問取得処理開始 ===")
+    print(f"Story Setting ID: {story_setting_id}")
+    
     # 物語設定を取得
+    db_start = time.time()
     story_setting = db.query(StorySetting).filter(
         StorySetting.id == story_setting_id
     ).first()
+    db_fetch_time = time.time() - db_start
+    print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
     
     if not story_setting:
         raise HTTPException(
@@ -27,6 +35,7 @@ async def get_questions_for_story_setting(
         )
     
     # 物語設定を辞書形式に変換
+    convert_start = time.time()
     story_setting_dict = {
         "id": story_setting.id,
         "upload_image_id": story_setting.upload_image_id,
@@ -40,9 +49,19 @@ async def get_questions_for_story_setting(
         "reading_level": story_setting.reading_level,
         "style_guideline": story_setting.style_guideline
     }
+    convert_time = time.time() - convert_start
+    print(f"⏱️ データ変換時間: {convert_time:.3f}秒")
     
     # 質問を生成
+    question_start = time.time()
     questions = question_generator_service.generate_questions_for_missing_info(story_setting_dict)
+    question_time = time.time() - question_start
+    print(f"⏱️ 質問生成時間: {question_time:.3f}秒")
+    
+    # 全体の処理時間
+    total_time = time.time() - start_time
+    print(f"⏱️ 質問取得処理の合計時間: {total_time:.3f}秒")
+    print(f"=== 質問取得処理完了 ===")
     
     return QuestionResponse(
         questions=questions,
