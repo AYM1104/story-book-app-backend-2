@@ -18,8 +18,35 @@ class StoryGeneratorService:
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
 
+    def generate_theme_options_only(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
+        """3つのテーマ案のみを生成（物語本文は生成しない）- 高速化版"""
+        
+        protagonist_name = story_setting.get("protagonist_name", "主人公")
+        protagonist_type = story_setting.get("protagonist_type", "子供")
+        setting_place = story_setting.get("setting_place", "公園")
+        tone = story_setting.get("tone", "gentle")
+        target_age = story_setting.get("target_age", "preschool")
+        reading_level = story_setting.get("reading_level", "hiragana_only")
+
+        # プロンプトを作成
+        prompt = self._create_theme_options_prompt(
+            protagonist_name, protagonist_type, setting_place, 
+            tone, target_age, reading_level
+        )
+
+        try:
+            # Gemini 2.5 Flashでテーマ案のみを生成
+            response = self.model.generate_content(prompt)
+            theme_data = self._parse_theme_options_response(response.text)
+            return theme_data
+
+        except Exception as e:
+            print(f"Gemini API エラー: {e}")
+            # エラー時はフォールバック
+            return self._generate_fallback_theme_options(protagonist_name, protagonist_type, setting_place, tone)
+
     def generate_complete_story(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
-        """テーマ案と物語本文を一緒に生成"""
+        """テーマ案と物語本文を一緒に生成（非推奨 - 遅い）"""
         
         protagonist_name = story_setting.get("protagonist_name", "主人公")
         protagonist_type = story_setting.get("protagonist_type", "子供")
@@ -71,6 +98,69 @@ class StoryGeneratorService:
             print(f"Gemini API エラー: {e}")
             # エラー時はフォールバック
             return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme)
+
+    def _create_theme_options_prompt(self, protagonist_name: str, protagonist_type: str, 
+                                    setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
+        """テーマ案のみ生成用のプロンプトを作成（物語本文は生成しない）"""
+        
+        tone_descriptions = {
+            "gentle": "優しく温かい雰囲気",
+            "fun": "楽しく明るい雰囲気", 
+            "adventure": "冒険的でワクワクする雰囲気",
+            "mystery": "謎解きでドキドキする雰囲気"
+        }
+        
+        age_descriptions = {
+            "preschool": "3-6歳の未就学児向け",
+            "elementary_low": "7-9歳の小学生低学年向け"
+        }
+
+        prompt = f"""
+あなたは子供向けの絵本のストーリー企画者です。
+以下の設定を元に、3つの異なるテーマの物語案を提案してください。
+
+【基本設定】
+- 主人公: {protagonist_name}（{protagonist_type}）
+- 舞台: {setting_place}
+- 雰囲気: {tone_descriptions.get(tone, '優しく温かい雰囲気')}
+- 対象年齢: {age_descriptions.get(target_age, '3-6歳の未就学児向け')}
+- 読みやすさ: {reading_level}
+
+【要求事項】
+1. 3つの異なるテーマ（冒険、友情、発見など）
+2. 各テーマのタイトル、概要説明、キーワード
+3. 子供が楽しめる内容
+4. 教育的な要素を含む
+
+【出力形式】
+以下のJSON形式で出力してください：
+{{
+  "theme_options": {{
+    "theme1": {{
+      "theme_id": "adventure",
+      "title": "タイトル",
+      "description": "物語の概要（2-3文）",
+      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
+    }},
+    "theme2": {{
+      "theme_id": "friendship",
+      "title": "タイトル",
+      "description": "物語の概要（2-3文）",
+      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
+    }},
+    "theme3": {{
+      "theme_id": "discovery",
+      "title": "タイトル",
+      "description": "物語の概要（2-3文）",
+      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
+    }}
+  }}
+}}
+
+必ずJSON形式で出力し、他の説明文は含めないでください。
+"""
+
+        return prompt
 
     def _create_complete_story_prompt(self, protagonist_name: str, protagonist_type: str, 
                                     setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
@@ -170,6 +260,29 @@ class StoryGeneratorService:
 
         return prompt
 
+    def _parse_theme_options_response(self, response_text: str) -> Dict[str, Any]:
+        """テーマ案のみのレスポンスをパース"""
+        try:
+            # JSON部分を抽出
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                json_text = response_text[json_start:json_end].strip()
+            elif "```" in response_text:
+                json_start = response_text.find("```") + 3
+                json_end = response_text.rfind("```")
+                json_text = response_text[json_start:json_end].strip()
+            else:
+                json_text = response_text.strip()
+
+            theme_data = json.loads(json_text)
+            return theme_data
+
+        except json.JSONDecodeError as e:
+            print(f"JSON解析エラー: {e}")
+            print(f"レスポンステキスト: {response_text}")
+            raise ValueError("Geminiからのレスポンスが正しいJSON形式ではありません")
+
     def _parse_complete_story_response(self, response_text: str) -> Dict[str, Any]:
         """完全なストーリー生成のレスポンスをパース"""
         try:
@@ -196,6 +309,31 @@ class StoryGeneratorService:
     def _parse_single_story_response(self, response_text: str) -> Dict[str, Any]:
         """単一ストーリー生成のレスポンスをパース"""
         return self._parse_complete_story_response(response_text)
+
+    def _generate_fallback_theme_options(self, protagonist_name: str, protagonist_type: str, setting_place: str, tone: str) -> Dict[str, Any]:
+        """エラー時のフォールバック用テーマ案のみ"""
+        return {
+            "theme_options": {
+                "theme1": {
+                    "theme_id": "adventure",
+                    "title": f"{protagonist_name}の冒険",
+                    "description": f"{protagonist_name}が{setting_place}で冒険に出かける物語。勇気を出して新しいことに挑戦します。",
+                    "keywords": ["冒険", "勇気", "挑戦"]
+                },
+                "theme2": {
+                    "theme_id": "friendship",
+                    "title": f"{protagonist_name}の新しい友達",
+                    "description": f"{protagonist_name}が{setting_place}で新しい友達と出会う物語。友情の大切さを学びます。",
+                    "keywords": ["友情", "優しさ", "協力"]
+                },
+                "theme3": {
+                    "theme_id": "discovery",
+                    "title": f"{protagonist_name}の不思議な発見",
+                    "description": f"{protagonist_name}が{setting_place}で不思議なものを見つける物語。好奇心を持って探求します。",
+                    "keywords": ["発見", "探求", "好奇心"]
+                }
+            }
+        }
 
     def _generate_fallback_complete_story(self, protagonist_name: str, protagonist_type: str, setting_place: str, tone: str) -> Dict[str, Any]:
         """エラー時のフォールバック用完全ストーリー"""
