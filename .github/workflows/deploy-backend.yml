@@ -28,5 +28,5 @@ jobs:
 
       - name: Build and Deploy to Cloud Run
         run: |
-          gcloud builds submit --config cloudbuild.yaml --project=${{ secrets.GCP_PROJECT_ID }} .
+          gcloud builds submit --config cloudbuild.yaml .
 
