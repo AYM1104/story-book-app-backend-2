@@ -9,6 +9,8 @@ steps:
     args: ['push', 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID']
   
   # Cloud Runにデプロイ
+  # 注意: 環境変数は事前に `./set-cloudrun-env.sh` で設定しておくか、
+  # 初回デプロイ後に `gcloud run services update` で設定してください
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:

@@ -26,15 +26,56 @@ gcloud services enable run.googleapis.com
 gcloud services enable containerregistry.googleapis.com
 ```
 
-### 2. 環境変数の設定
+### 2. Secret Managerへの環境変数の設定
 
-`cloud-run-env-example.txt`を参考に、必要な環境変数を設定します：
+機密情報を安全に管理するため、Google Cloud Secret Managerを使用します。
+
+#### 方法1: スクリプトを使用（推奨）
 
 ```bash
-# Cloud Runサービスに環境変数を設定
-gcloud run services update story-book-backend \
-  --region=asia-northeast1 \
-  --set-env-vars="GEMINI_API_KEY=your_key,GOOGLE_API_KEY=your_key,GCS_BUCKET_NAME=your_bucket,SUPABASE_URL=your_url,SUPABASE_KEY=your_key,STORAGE_TYPE=gcs"
+# スクリプトに実行権限を付与
+chmod +x setup-secrets.sh
+
+# スクリプトを実行して対話形式で設定
+./setup-secrets.sh
+```
+
+#### 方法2: 手動で設定
+
+```bash
+# Secret Manager APIを有効化
+gcloud services enable secretmanager.googleapis.com
+
+# 各シークレットを作成
+echo "YOUR_SUPABASE_URL" | gcloud secrets create SUPABASE_URL --data-file=-
+echo "YOUR_SUPABASE_ANON_KEY" | gcloud secrets create SUPABASE_ANON_KEY --data-file=-
+echo "YOUR_SUPABASE_SERVICE_ROLE_KEY" | gcloud secrets create SUPABASE_SERVICE_ROLE_KEY --data-file=-
+echo "YOUR_SUPABASE_DB_URL" | gcloud secrets create SUPABASE_DB_URL --data-file=-
+echo "storybook-images" | gcloud secrets create SUPABASE_STORAGE_BUCKET --data-file=-
+echo "YOUR_SUPABASE_JWT_SECRET" | gcloud secrets create SUPABASE_JWT_SECRET --data-file=-
+echo "YOUR_GEMINI_API_KEY" | gcloud secrets create GEMINI_API_KEY --data-file=-
+echo "YOUR_GOOGLE_API_KEY" | gcloud secrets create GOOGLE_API_KEY --data-file=-
+echo "YOUR_GCS_BUCKET_NAME" | gcloud secrets create GCS_BUCKET_NAME --data-file=-
+```
+
+### 2.5. サービスアカウントへの権限付与
+
+Secret Managerへのアクセス権限を付与します：
+
+```bash
+# プロジェクト番号を取得
+PROJECT_ID=$(gcloud config get-value project)
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+# Cloud Build サービスアカウントに権限を付与
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member=serviceAccount:$PROJECT_NUMBER@cloudbuild.gserviceaccount.com \
+  --role=roles/secretmanager.secretAccessor
+
+# Cloud Run サービスアカウントに権限を付与
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member=serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+  --role=roles/secretmanager.secretAccessor
 ```
 
 ### 3. デプロイ方法
@@ -111,16 +152,39 @@ gcloud run domain-mappings create \
 
 ### よくある問題
 
-1. **メモリ不足エラー**
+1. **Supabase設定エラー: 環境変数が設定されていません**
+   ```
+   Supabase設定エラー: 以下の環境変数が設定されていません: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_DB_URL
+   ```
+   
+   **解決方法:**
+   - Secret Managerにシークレットが正しく登録されているか確認:
+     ```bash
+     gcloud secrets list
+     ```
+   - サービスアカウントに`secretmanager.secretAccessor`ロールが付与されているか確認:
+     ```bash
+     PROJECT_ID=$(gcloud config get-value project)
+     PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+     gcloud projects get-iam-policy $PROJECT_ID \
+       --flatten="bindings[].members" \
+       --filter="bindings.members:serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com"
+     ```
+   - Cloud Runサービスの環境変数を確認:
+     ```bash
+     gcloud run services describe story-book-backend --region=asia-northeast1 --format=yaml
+     ```
+
+2. **メモリ不足エラー**
    - `--memory`パラメータを増やす（例：4Gi）
 
-2. **タイムアウトエラー**
+3. **タイムアウトエラー**
    - `--timeout`パラメータを増やす（例：300s）
 
-3. **環境変数の設定漏れ**
+4. **環境変数の設定漏れ**
    - 必要な環境変数がすべて設定されているか確認
 
-4. **権限エラー**
+5. **権限エラー**
    - サービスアカウントに適切な権限が付与されているか確認
 
 ### ログの確認

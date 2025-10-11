@@ -1,5 +1,5 @@
-# Python 3.12の公式イメージを使用
-FROM python:3.12-slim
+# Python 3.11の公式イメージを使用
+FROM python:3.11-slim
 
 # 作業ディレクトリを設定
 WORKDIR /app
