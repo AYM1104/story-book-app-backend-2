@@ -2,7 +2,7 @@
 steps:
   # Dockerイメージをビルド
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID', '.']
+    args: ['build', '--no-cache', '-t', 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID', '.']
   
   # DockerイメージをGoogle Container Registryにプッシュ
   - name: 'gcr.io/cloud-builders/docker'
@@ -30,6 +30,8 @@ steps:
       - '2'
       - '--max-instances'
       - '10'
+      - '--tag'
+      - 'build-$BUILD_ID'
 
 # 使用するイメージ
 images:
