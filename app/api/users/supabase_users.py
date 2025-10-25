@@ -16,8 +16,9 @@ def create_supabase_user(user: UserCreate, db: Session = Depends(get_supabase_db
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # ユーザーを作成
+    # ユーザーを作成（Auth0のユーザーIDを主キーとして使用）
     new_user = SupabaseUsers(
+        id=user.id,  # Auth0のユーザーID
         user_name=user.user_name, 
         email=user.email
         # passwordはSupabase認証で管理されるため不要
@@ -38,7 +39,7 @@ def get_supabase_users(db: Session = Depends(get_supabase_db)):
 
 # ユーザー詳細取得エンドポイント（Supabase用）
 @router.get("/{user_id}", response_model=UserRead)
-def get_supabase_user(user_id: int, db: Session = Depends(get_supabase_db)):
+def get_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
     """Supabase用のユーザー詳細取得エンドポイント"""
     
     user = db.query(SupabaseUsers).filter(SupabaseUsers.id == user_id).first()
@@ -49,7 +50,7 @@ def get_supabase_user(user_id: int, db: Session = Depends(get_supabase_db)):
 
 # ユーザー削除エンドポイント（Supabase用）
 @router.delete("/{user_id}")
-def delete_supabase_user(user_id: int, db: Session = Depends(get_supabase_db)):
+def delete_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
     """Supabase用のユーザー削除エンドポイント"""
     
     user = db.query(SupabaseUsers).filter(SupabaseUsers.id == user_id).first()

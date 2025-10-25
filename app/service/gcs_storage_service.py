@@ -57,14 +57,14 @@ class GCSStorageService:
         unique_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
-    def _get_user_path(self, user_id: int, file_type: str = "uploads") -> str:
+    def _get_user_path(self, user_id: str, file_type: str = "uploads") -> str:
         """ユーザー別パスを生成"""
         now = datetime.now()
         year = now.strftime("%Y")
         month = now.strftime("%m")
         return f"users/{user_id}/{file_type}/{year}/{month}"
 
-    def upload_image(self, file_content: bytes, filename: str, user_id: int, content_type: str = "image/jpeg") -> Dict[str, Any]:
+    def upload_image(self, file_content: bytes, filename: str, user_id: str, content_type: str = "image/jpeg") -> Dict[str, Any]:
         """画像をGoogle Cloud Storageにアップロード（改善版）"""
         try:
             # ファイル名を生成
@@ -103,7 +103,7 @@ class GCSStorageService:
                 "filename": filename
             }
 
-    def upload_generated_image(self, file_content: bytes, filename: str, user_id: int, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
+    def upload_generated_image(self, file_content: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
         """生成された画像をGoogle Cloud Storageにアップロード（改善版）"""
         try:
             # ストーリー別パスを生成
@@ -143,7 +143,7 @@ class GCSStorageService:
                 "filename": filename
             }
 
-    def delete_user_images(self, user_id: int, file_type: str = "uploads") -> bool:
+    def delete_user_images(self, user_id: str, file_type: str = "uploads") -> bool:
         """ユーザーの画像を一括削除"""
         try:
             user_path = f"users/{user_id}/{file_type}"
@@ -157,7 +157,7 @@ class GCSStorageService:
             print(f"ユーザー画像削除エラー: {str(e)}")
             return False
 
-    def get_user_images(self, user_id: int, file_type: str = "uploads") -> List[Dict[str, Any]]:
+    def get_user_images(self, user_id: str, file_type: str = "uploads") -> List[Dict[str, Any]]:
         """ユーザーの画像一覧を取得"""
         try:
             user_path = f"users/{user_id}/{file_type}"

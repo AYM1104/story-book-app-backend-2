@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # すべてのモデルをインポートしてSQLAlchemyに認識させる
-from app.models import *
+# Supabaseを使用しているため、従来のSQLAlchemyモデルのインポートは不要
+# from app.models import *
 
 app = FastAPI(title="Story Book Backend - Progressive Version")
 
@@ -50,6 +51,22 @@ def env_check():
     }
     return {"environment_variables": env_vars}
 
+# 認証ルーター
+try:
+    from app.api.auth.auth import router as auth_router
+    app.include_router(auth_router)
+    print("✅ Auth router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load auth_router: {e}")
+
+# Auth0認証ルーター
+try:
+    from app.api.auth.auth0_auth import router as auth0_router
+    app.include_router(auth0_router)
+    print("✅ Auth0 router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load auth0_router: {e}")
+
 # Supabaseの基本機能を追加
 try:
     from app.api.users.supabase_users import router as supabase_users_router
@@ -81,25 +98,27 @@ except Exception as e:
     def story_generator_test():
         return {"message": "Story generator router not available", "error": str(e)}
 
-try:
-    from app.api.images.supabase_upload_images import router as supabase_images_router
-    app.include_router(supabase_images_router)
-    print("✅ Supabase images router loaded successfully")
-except Exception as e:
-    print(f"❌ Failed to load supabase_images_router: {e}")
-    @app.get("/api/images/test")
-    def images_test():
-        return {"message": "Images router not available", "error": str(e)}
+# Supabase版の画像アップロードルーター（無効化）
+# try:
+#     from app.api.images.supabase_upload_images import router as supabase_images_router
+#     app.include_router(supabase_images_router)
+#     print("✅ Supabase images router loaded successfully")
+# except Exception as e:
+#     print(f"❌ Failed to load supabase_images_router: {e}")
+#     @app.get("/api/images/test")
+#     def images_test():
+#         return {"message": "Images router not available", "error": str(e)}
 
+# 従来のGCSアップロードルーター（フロントエンド用）
 try:
-    from app.api.images.supabase_image_generation import router as supabase_image_generation_router
-    app.include_router(supabase_image_generation_router)
-    print("✅ Supabase image generation router loaded successfully")
+    from app.api.images.upload_images import router as upload_images_router
+    app.include_router(upload_images_router)
+    print("✅ Upload images router loaded successfully")
 except Exception as e:
-    print(f"❌ Failed to load supabase_image_generation_router: {e}")
-    @app.get("/api/images/generation/test")
-    def image_generation_test():
-        return {"message": "Image generation router not available", "error": str(e)}
+    print(f"❌ Failed to load upload_images_router: {e}")
+    @app.get("/api/images/upload/test")
+    def upload_images_test():
+        return {"message": "Upload images router not available", "error": str(e)}
 
 try:
     from app.api.images.image_generation import router as image_generation_router
@@ -107,9 +126,9 @@ try:
     print("✅ Image generation router loaded successfully")
 except Exception as e:
     print(f"❌ Failed to load image_generation_router: {e}")
-    @app.get("/api/images/generation/fallback-test")
-    def image_generation_fallback_test():
-        return {"message": "Image generation fallback router not available", "error": str(e)}
+    @app.get("/api/images/generation/test")
+    def image_generation_test():
+        return {"message": "Image generation router not available", "error": str(e)}
 
 try:
     from app.api.story.supabase_story_setting import router as supabase_story_setting_router

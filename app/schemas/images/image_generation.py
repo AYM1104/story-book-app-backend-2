@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from fastapi import UploadFile
 
@@ -100,16 +100,33 @@ class StoryPlotImageToImageRequest(BaseModel):
     story_plot_id: int
     page_number: int
     reference_image_path: str
-    strength: Optional[float] = 0.8
+    strength: Optional[float] = Field(default=0.8, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
     prefix: Optional[str] = "storyplot_i2i"
 
 class StoryPlotAllPagesImageToImageRequest(BaseModel):
     """StoryPlot全ページImage-to-Image生成リクエスト"""
-    story_plot_id: int
+    # story_plot_idまたはstorybook_idのどちらか一方を指定
+    story_plot_id: Optional[int] = None
+    storybook_id: Optional[int] = None
     # 省略可。未指定の場合は story_plot_id → story_setting → upload_image.file_path を自動解決
     reference_image_path: Optional[str] = None
-    strength: Optional[float] = 0.8
+    strength: Optional[float] = Field(default=0.8, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
     prefix: Optional[str] = "storyplot_i2i_all"
+
+class StorybookAllPagesImageToImageRequest(BaseModel):
+    """ストーリーブック全ページImage-to-Image生成リクエスト"""
+    storybook_id: int
+    # 省略可。未指定の場合は storybook_id → story_plot_id → story_setting → upload_image.file_path を自動解決
+    reference_image_path: Optional[str] = None
+    strength: Optional[float] = Field(default=0.8, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
+    prefix: Optional[str] = "storybook_i2i_all"
+
+class StorybookAllPagesGenerationResponse(BaseModel):
+    """ストーリーブック全ページ画像生成レスポンス"""
+    success: bool
+    message: str
+    images: List[StoryPlotImageInfo]
+    total_generated: int
 
 class ImageUploadResponse(BaseModel):
     """画像アップロードレスポンス"""

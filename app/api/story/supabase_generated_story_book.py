@@ -40,10 +40,29 @@ async def supabase_confirm_theme_and_create_storybook(
             )
         
         # 3. 選択されたテーマのストーリー内容を取得
-        # 新しい実装では generated_stories は空なので、空の辞書を使用
+        # 新しい実装では generated_stories は空なので、ページ内容を結合してストーリー内容を作成
         selected_story_content_dict = {}
         if story_plot.generated_stories and request.selected_theme in story_plot.generated_stories:
             selected_story_content_dict = story_plot.generated_stories[request.selected_theme]
+        else:
+            # generated_storiesが空の場合は、ページ内容を結合してストーリー内容を作成
+            pages_content = []
+            if story_plot.page_1:
+                pages_content.append(f"1ページ目: {story_plot.page_1}")
+            if story_plot.page_2:
+                pages_content.append(f"2ページ目: {story_plot.page_2}")
+            if story_plot.page_3:
+                pages_content.append(f"3ページ目: {story_plot.page_3}")
+            if story_plot.page_4:
+                pages_content.append(f"4ページ目: {story_plot.page_4}")
+            if story_plot.page_5:
+                pages_content.append(f"5ページ目: {story_plot.page_5}")
+            
+            selected_story_content_dict = {
+                "title": story_plot.title or "無題のえほん",
+                "content": "\n\n".join(pages_content),
+                "selected_theme": request.selected_theme
+            }
         
         # Textカラムに保存可能なようJSON文字列化
         selected_story_content = json.dumps(selected_story_content_dict, ensure_ascii=False)
@@ -55,7 +74,8 @@ async def supabase_confirm_theme_and_create_storybook(
             title=story_plot.title or "無題のえほん",
             description=story_plot.description,
             keywords=story_plot.keywords,
-            story_content=selected_story_content,
+            content=selected_story_content_dict.get("content", ""),  # contentカラムに設定
+            story_content=selected_story_content,  # story_contentカラムにJSON文字列を設定
             page_1=story_plot.page_1 or "",
             page_2=story_plot.page_2 or "",
             page_3=story_plot.page_3 or "",
@@ -166,7 +186,7 @@ async def get_supabase_storybook(
 
 @router.get("/user/{user_id}", response_model=list[GeneratedStoryBookResponse])
 async def get_supabase_user_storybooks(
-    user_id: int,
+    user_id: str,
     db: Session = Depends(get_supabase_db)
 ):
     """Supabase用のユーザーのストーリーブック一覧を取得するエンドポイント"""

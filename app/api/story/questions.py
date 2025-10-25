@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.models.story.story_setting import StorySetting
 from app.service.question_generator_service import question_generator_service
-from app.schemas.story.question import QuestionResponse, AnswerRequest, AnswerResponse
+from app.schemas.story.question import QuestionResponse, AnswerRequest, AnswerResponse, BulkAnswerRequest, BulkAnswerResponse
 import time
 
 router = APIRouter(prefix="/story", tags=["story-questions"])
@@ -197,3 +197,90 @@ async def get_story_setting_completion_status(
         "is_complete": len(missing_fields) == 0,
         "message": f"物語設定は{completion_percentage:.0f}%完成しています"
     }
+
+@router.post("/story_settings/{story_setting_id}/answers/bulk", response_model=BulkAnswerResponse)
+async def submit_bulk_answers(
+    story_setting_id: int,
+    bulk_answer_request: BulkAnswerRequest,
+    db: Session = Depends(get_db)
+):
+    """複数の回答を一度に受け取って物語設定を更新するエンドポイント"""
+    
+    # 処理時間計測開始
+    start_time = time.time()
+    print(f"=== 複数回答処理開始 ===")
+    print(f"Story Setting ID: {story_setting_id}")
+    print(f"Answers: {bulk_answer_request.answers}")
+    
+    # 物語設定を取得
+    db_start = time.time()
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
+    ).first()
+    db_fetch_time = time.time() - db_start
+    print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
+    
+    if not story_setting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"物語設定ID {story_setting_id} が見つかりません"
+        )
+    
+    try:
+        # 複数の回答に応じて物語設定を更新
+        update_start = time.time()
+        updated_fields = []
+        
+        for field, answer in bulk_answer_request.answers.items():
+            if field == "protagonist_name":
+                story_setting.protagonist_name = answer
+                updated_fields.append(field)
+            elif field == "protagonist_type":
+                story_setting.protagonist_type = answer
+                updated_fields.append(field)
+            elif field == "setting_place":
+                story_setting.setting_place = answer
+                updated_fields.append(field)
+            elif field == "tone":
+                story_setting.tone = answer
+                updated_fields.append(field)
+            elif field == "target_age":
+                story_setting.target_age = answer
+                updated_fields.append(field)
+            elif field == "reading_level":
+                story_setting.reading_level = answer
+                updated_fields.append(field)
+            
+            print(f"✅ Updated {field}: {answer}")
+        
+        update_time = time.time() - update_start
+        print(f"⏱️ データ更新時間: {update_time:.3f}秒")
+        
+        # データベースに保存
+        commit_start = time.time()
+        db.commit()
+        db.refresh(story_setting)
+        commit_time = time.time() - commit_start
+        print(f"⏱️ DB保存時間: {commit_time:.3f}秒")
+        
+        # 全体の処理時間
+        total_time = time.time() - start_time
+        processing_time_ms = total_time * 1000  # ミリ秒に変換
+        print(f"⏱️ 複数回答処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
+        print(f"=== 複数回答処理完了 ===")
+        
+        return BulkAnswerResponse(
+            story_setting_id=story_setting_id,
+            updated_fields=updated_fields,
+            message=f"{len(updated_fields)}個のフィールドが正常に更新されました",
+            processing_time_ms=processing_time_ms
+        )
+        
+    except Exception as e:
+        db.rollback()
+        error_time = time.time() - start_time
+        print(f"❌ 複数回答処理エラー（処理時間: {error_time:.3f}秒）: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"複数回答の処理中にエラーが発生しました: {str(e)}"
+        )

@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, JSON, Enum, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Enum, Text
 from sqlalchemy.orm import relationship
-from app.database.base import Base
+from app.database.supabase_base import SupabaseBase
 
-class StoryPlot(Base):
+class StoryPlot(SupabaseBase):
     
     """ 物語の骨子（プロット）を管理するモデル """
 
@@ -10,7 +10,7 @@ class StoryPlot(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     story_setting_id = Column(Integer, ForeignKey("story_settings.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String(255), ForeignKey("users.id"), nullable=False)
 
     # 物語の基本情報
     title = Column(String(255), nullable=True)
@@ -37,10 +37,7 @@ class StoryPlot(Base):
     current_page = Column(Integer, nullable=False, default=1)
     conversation_context = Column(JSON, nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-
     # リレーションシップ
-    story_setting = relationship("StorySetting")
-    user = relationship("Users")
-    generated_storybooks = relationship("GeneratedStoryBook", back_populates="story_plot")
+    story_setting = relationship("SupabaseStorySetting")
+    user = relationship("SupabaseUsers")
+    generated_storybooks = relationship("SupabaseGeneratedStoryBook", back_populates="story_plot")

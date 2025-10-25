@@ -29,3 +29,13 @@ class AnswerResponse(BaseModel):
     answer: str
     message: str
     processing_time_ms: Optional[float] = None  # 処理時間（ミリ秒）
+
+# 複数回答送信用のスキーマ
+class BulkAnswerRequest(BaseModel):
+    answers: Dict[str, str]  # field -> answer のマッピング
+
+class BulkAnswerResponse(BaseModel):
+    story_setting_id: int
+    updated_fields: List[str]  # 更新されたフィールドのリスト
+    message: str
+    processing_time_ms: Optional[float] = None  # 処理時間（ミリ秒）

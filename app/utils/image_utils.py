@@ -72,6 +72,21 @@ def resize_image_to_fixed_size(image_data: bytes, target_width: int = 1920, targ
         return image_data
 
 
+def resize_image_to_aspect_ratio(image_data: bytes, target_width: int = 1920, target_height: int = 1080) -> bytes:
+    """
+    画像を指定されたアスペクト比にリサイズする（縦横比保持）
+    
+    Args:
+        image_data: 元画像のバイトデータ
+        target_width: 目標幅
+        target_height: 目標高さ
+    
+    Returns:
+        リサイズされた画像のバイトデータ
+    """
+    return resize_image_to_fixed_size(image_data, target_width, target_height)
+
+
 def get_image_info(image_data: bytes) -> dict:
     """
     画像の情報を取得する

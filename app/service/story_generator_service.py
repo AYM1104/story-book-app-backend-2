@@ -10,10 +10,10 @@ class StoryGeneratorService:
     """Gemini 2.5 Flashを使用してストーリーを生成するサービス"""
 
     def __init__(self):
-        # Gemini APIの設定
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        # Gemini APIの設定（物語生成用のFree APIキーを使用）
+        api_key = os.getenv("GOOGLE_API_KEY_Free") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEYまたはGOOGLE_API_KEYが設定されていません")
+            raise ValueError("GOOGLE_API_KEY_Free、GEMINI_API_KEYまたはGOOGLE_API_KEYが設定されていません")
         
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.5-flash')

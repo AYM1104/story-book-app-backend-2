@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from app.database.session import get_db
 from app.models.story.story_setting import StorySetting
-from app.models.story.stroy_plot import StoryPlot
+from app.models.story.supabase_story_plot import SupabaseStoryPlot
 from app.service.story_generator_service import StoryGeneratorService
 from pydantic import BaseModel
 from typing import Dict, Any
@@ -88,7 +88,7 @@ async def story_generator(
         theme1_pages = theme1_story.get("story_pages", [])
         theme1_info = theme_options.get("theme1", {})
 
-        story_plot1 = StoryPlot(
+        story_plot1 = SupabaseStoryPlot(
             story_setting_id=request.story_setting_id,
             user_id=user_id,
             title=theme1_story.get("title", ""),
@@ -112,7 +112,7 @@ async def story_generator(
         theme2_pages = theme2_story.get("story_pages", [])
         theme2_info = theme_options.get("theme2", {})
 
-        story_plot2 = StoryPlot(
+        story_plot2 = SupabaseStoryPlot(
             story_setting_id=request.story_setting_id,
             user_id=user_id,
             title=theme2_story.get("title", ""),
@@ -136,7 +136,7 @@ async def story_generator(
         theme3_pages = theme3_story.get("story_pages", [])
         theme3_info = theme_options.get("theme3", {})
 
-        story_plot3 = StoryPlot(
+        story_plot3 = SupabaseStoryPlot(
             story_setting_id=request.story_setting_id,
             user_id=user_id,
             title=theme3_story.get("title", ""),
@@ -208,9 +208,9 @@ async def select_theme(
     user_id = story_setting.upload_image.user_id
     
     # ストーリープロットを取得
-    story_plot = db.query(StoryPlot).filter(
-        StoryPlot.story_setting_id == request.story_setting_id,
-        StoryPlot.user_id == user_id
+    story_plot = db.query(SupabaseStoryPlot).filter(
+        SupabaseStoryPlot.story_setting_id == request.story_setting_id,
+        SupabaseStoryPlot.user_id == user_id
     ).first()
     
     if not story_plot:
@@ -280,8 +280,8 @@ async def get_story_plot(
 ):
     """保存されたストーリーを取得するエンドポイント"""
     
-    story_plot = db.query(StoryPlot).filter(
-        StoryPlot.id == story_plot_id
+    story_plot = db.query(SupabaseStoryPlot).filter(
+        SupabaseStoryPlot.id == story_plot_id
     ).first()
     
     if not story_plot:
@@ -317,9 +317,9 @@ async def get_user_stories(
 ):
     """ユーザーのストーリー一覧を取得するエンドポイント"""
     
-    story_plots = db.query(StoryPlot).filter(
-        StoryPlot.user_id == user_id
-    ).order_by(StoryPlot.created_at.desc()).all()
+    story_plots = db.query(SupabaseStoryPlot).filter(
+        SupabaseStoryPlot.user_id == user_id
+    ).order_by(SupabaseStoryPlot.created_at.desc()).all()
     
     stories = []
     for plot in story_plots:
@@ -362,13 +362,13 @@ async def list_story_plots(
         limit = 50
 
     plots = (
-        db.query(StoryPlot)
+        db.query(SupabaseStoryPlot)
         .filter(
-            StoryPlot.user_id == user_id,
-            StoryPlot.story_setting_id == story_setting_id,
-            StoryPlot.title.isnot(None)
+            SupabaseStoryPlot.user_id == user_id,
+            SupabaseStoryPlot.story_setting_id == story_setting_id,
+            SupabaseStoryPlot.title.isnot(None)
         )
-        .order_by(StoryPlot.created_at.desc())
+        .order_by(SupabaseStoryPlot.created_at.desc())
         .limit(limit)
         .all()
     )

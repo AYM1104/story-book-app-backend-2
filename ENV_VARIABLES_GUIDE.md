@@ -34,15 +34,34 @@
   4. 「Connection string」の「URI」をコピー
   5. `[YOUR-PASSWORD]`を実際のパスワードに置き換え
 
-#### 4. GEMINI_API_KEY
-- **説明**: Google Gemini APIキー（AIでストーリーと画像を生成）
+#### 4. GOOGLE_API_KEY_Free
+- **説明**: Google Gemini APIキー（物語生成用の無料プラン）
 - **形式**: `AIzaSy...`
+- **用途**: AIでストーリーを生成する際に使用
 - **取得方法**:
   1. Google AI Studio (https://aistudio.google.com/app/apikey) にアクセス
   2. 「Create API key」をクリック
   3. 生成されたAPIキーをコピー
 
-#### 5. GCS_BUCKET_NAME
+#### 5. GOOGLE_API_KEY_Paid
+- **説明**: Google Gemini APIキー（画像生成用の有料プラン）
+- **形式**: `AIzaSy...`
+- **用途**: AIで画像を生成する際に使用
+- **取得方法**:
+  1. Google AI Studio (https://aistudio.google.com/app/apikey) にアクセス
+  2. 「Create API key」をクリック
+  3. 生成されたAPIキーをコピー
+
+#### 6. GEMINI_API_KEY（後方互換性のため）
+- **説明**: Google Gemini APIキー（後方互換性のため残存）
+- **形式**: `AIzaSy...`
+- **用途**: 上記の新しいAPIキーが設定されていない場合のフォールバック
+- **取得方法**:
+  1. Google AI Studio (https://aistudio.google.com/app/apikey) にアクセス
+  2. 「Create API key」をクリック
+  3. 生成されたAPIキーをコピー
+
+#### 7. GCS_BUCKET_NAME
 - **説明**: Google Cloud Storageのバケット名（画像ストレージ用）
 - **形式**: `your-bucket-name`
 - **用途**: AIで生成した画像やアップロードした画像を保存
@@ -76,7 +95,7 @@
 
 - ❌ **SUPABASE_STORAGE_BUCKET** - Supabaseストレージは使用しません（GCSを使用）
 - ❌ **SUPABASE_JWT_SECRET** - 現在のコードでは使用されていません
-- ❌ **GOOGLE_API_KEY** - GEMINI_API_KEYがあれば不要
+- ❌ **GOOGLE_API_KEY** - GOOGLE_API_KEY_FreeとGOOGLE_API_KEY_Paidがあれば不要（後方互換性のため残存）
 
 ---
 
@@ -138,7 +157,7 @@ gsutil iam ch serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.c
 ```bash
 gcloud run services update story-book-backend \
   --region=asia-northeast1 \
-  --set-env-vars="SUPABASE_URL=https://xxx.supabase.co,SUPABASE_ANON_KEY=eyJ...,SUPABASE_DB_URL=postgresql://...,GEMINI_API_KEY=AIza...,GCS_BUCKET_NAME=your-bucket-name,STORAGE_TYPE=gcs,SUPABASE_SERVICE_ROLE_KEY=eyJ..."
+  --set-env-vars="SUPABASE_URL=https://xxx.supabase.co,SUPABASE_ANON_KEY=eyJ...,SUPABASE_DB_URL=postgresql://...,GOOGLE_API_KEY_Free=AIza...,GOOGLE_API_KEY_Paid=AIza...,GCS_BUCKET_NAME=your-bucket-name,STORAGE_TYPE=gcs,SUPABASE_SERVICE_ROLE_KEY=eyJ..."
 ```
 
 ---
@@ -179,7 +198,7 @@ Supabase設定エラー: 以下の環境変数が設定されていません: SU
 
 ### Q: AIの生成が動かない
 
-**原因**: `GEMINI_API_KEY`が設定されていないか、APIキーが無効です。
+**原因**: `GOOGLE_API_KEY_Free`または`GOOGLE_API_KEY_Paid`が設定されていないか、APIキーが無効です。
 
 **解決方法**:
 1. Google AI Studioで新しいAPIキーを生成

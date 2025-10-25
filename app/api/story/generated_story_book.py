@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 import json
 from sqlalchemy.orm import Session, joinedload
 from app.database.session import get_db
-from app.models.story.stroy_plot import StoryPlot
+from app.models.story.supabase_story_plot import SupabaseStoryPlot
 from app.models.story.generated_story_book import GeneratedStoryBook
 from app.models.story.story_setting import StorySetting
 from app.schemas.story.generated_story_book import (
@@ -26,7 +26,7 @@ async def confirm_theme_and_create_storybook(
     
     try:
         # 1. StoryPlotから選択されたテーマの情報を取得
-        story_plot = db.query(StoryPlot).filter(StoryPlot.id == request.story_plot_id).first()
+        story_plot = db.query(SupabaseStoryPlot).filter(SupabaseStoryPlot.id == request.story_plot_id).first()
         if not story_plot:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -96,7 +96,7 @@ async def get_storybook(
     """ストーリーブック詳細を取得するエンドポイント"""
     
     storybook = db.query(GeneratedStoryBook).options(
-        joinedload(GeneratedStoryBook.story_plot).joinedload(StoryPlot.story_setting).joinedload(StorySetting.upload_image)
+        joinedload(GeneratedStoryBook.story_plot).joinedload(SupabaseStoryPlot.story_setting).joinedload(StorySetting.upload_image)
     ).filter(
         GeneratedStoryBook.id == storybook_id
     ).first()

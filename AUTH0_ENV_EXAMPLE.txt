@@ -1,10 +1,19 @@
-Copy this file to .env and fill in values
+# Auth0設定用の環境変数例
+# このファイルを.envにコピーして、実際の値を設定してください
 
-# Auth0設定
+# Auth0ドメイン
 AUTH0_DOMAIN=ehonnotane.jp.auth0.com
+
+# Auth0 API Audience（バックエンドAPI用）
 AUTH0_API_AUDIENCE=https://api.ehonnotane
+
+# Auth0 Native App用のClient ID（SwiftUIアプリ用）
 AUTH0_NATIVE_CLIENT_ID=b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh
+
+# Auth0 Web App用のClient ID（バックエンド用）
 AUTH0_WEB_CLIENT_ID=your-web-client-id-here
+
+# Auth0 Web App用のClient Secret（バックエンド用）
 AUTH0_WEB_CLIENT_SECRET=your-web-client-secret-here
 
 # Google / Gemini API Keys

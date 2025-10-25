@@ -24,7 +24,7 @@ story_generator_service = StoryGeneratorService()
 
 # クエリ用スキーマ
 class StoryPlotQueryParams(BaseModel):
-    user_id: int
+    user_id: str
     story_setting_id: int
     limit: int = 3
 
@@ -361,7 +361,7 @@ async def get_supabase_story_plot(
 # 4. ユーザーのストーリー一覧を取得（Supabase用）
 @router.get("/users/{user_id}/stories", response_model=Dict[str, Any])
 async def get_supabase_user_stories(
-    user_id: int,
+    user_id: str,
     db: Session = Depends(get_supabase_db)
 ):
     """Supabase用のユーザーのストーリー一覧を取得するエンドポイント"""
@@ -389,7 +389,7 @@ async def get_supabase_user_stories(
 # 5. ユーザーIDと設定IDで最新のタイトルを取得（Supabase用）
 @router.get("/story_plots", response_model=Dict[str, Any])
 async def list_supabase_story_plots(
-    user_id: int,
+    user_id: str,
     story_setting_id: int,
     limit: int = 3,
     db: Session = Depends(get_supabase_db)

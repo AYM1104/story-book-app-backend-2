@@ -1,15 +1,17 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from typing import Optional
 
 # ユーザー作成時に使うスキーマ
 class UserCreate(BaseModel):
+    id: str  # Auth0のユーザーID
     user_name: str
     email: EmailStr
     # password: str  # Supabase認証を使用するため、パスワードは不要
 
 # ユーザー情報取得時に使うスキーマ
 class UserRead(BaseModel):
-    id: int
+    id: str  # Auth0のユーザーID
     user_name: str
     email: EmailStr
     created_at: datetime

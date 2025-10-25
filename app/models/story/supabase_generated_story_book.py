@@ -12,7 +12,7 @@ class SupabaseGeneratedStoryBook(SupabaseBase):
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     story_plot_id = Column(Integer, ForeignKey("story_plots.id"), nullable=False, comment="元のプロットID")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="ユーザーID")
+    user_id = Column(String(255), ForeignKey("users.id"), nullable=False, comment="ユーザーID")
     
     # えほんの基本情報
     title = Column(String(255), nullable=False, comment="タイトル")
@@ -20,7 +20,8 @@ class SupabaseGeneratedStoryBook(SupabaseBase):
     keywords = Column(JSON, nullable=True, comment="キーワード")
     
     # 生成された物語本文（選択されたテーマのみ）
-    story_content = Column(Text, nullable=False, comment="物語本文")
+    content = Column(Text, nullable=False, comment="物語本文（メイン）")
+    story_content = Column(Text, nullable=True, comment="物語本文（詳細）")
     
     # 5ページの内容
     page_1 = Column(Text, nullable=False, comment="1ページ目の内容")

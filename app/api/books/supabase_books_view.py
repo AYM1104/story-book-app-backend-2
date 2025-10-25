@@ -181,7 +181,7 @@ async def get_supabase_book_detail(
 # ユーザー別絵本一覧取得エンドポイント（Supabase用）
 @router.get("/user/{user_id}")
 async def get_supabase_user_books(
-    user_id: int,
+    user_id: str,
     limit: Optional[int] = 20,
     cursor: Optional[int] = None,
     db: Session = Depends(get_supabase_db)

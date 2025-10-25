@@ -32,7 +32,7 @@ class GeneratedStoryBookResponse(BaseModel):
     """GeneratedStoryBookレスポンス用スキーマ"""
     id: int
     story_plot_id: int
-    user_id: int
+    user_id: str  # Supabaseでは文字列型（Auth0のユーザーID）
     title: str
     description: Optional[str] = None
     keywords: Optional[list] = None
