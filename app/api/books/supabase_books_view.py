@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
-from app.models.story.supabase_generated_story_book import SupabaseGeneratedStoryBook
-from app.schemas.story.generated_story_book import GeneratedStoryBookResponse
+from app.models.story.story_book import StoryBook
+from app.schemas.story.story_book import StoryBookResponse
 from typing import List, Optional
 from datetime import datetime
 import os
@@ -74,11 +74,11 @@ async def get_supabase_books_list(
     
     try:
         # クエリを構築
-        query = db.query(SupabaseGeneratedStoryBook).order_by(SupabaseGeneratedStoryBook.created_at.desc())
+        query = db.query(StoryBook).order_by(StoryBook.created_at.desc())
         
         # カーソルベースのページネーション（簡単な実装）
         if cursor:
-            query = query.filter(SupabaseGeneratedStoryBook.id < cursor)
+            query = query.filter(StoryBook.id < cursor)
         
         # 件数制限
         if limit:
@@ -126,8 +126,8 @@ async def get_supabase_book_detail(
     """Supabase用の絵本詳細を取得するエンドポイント（フロントエンド用）"""
     
     try:
-        storybook = db.query(SupabaseGeneratedStoryBook).filter(
-            SupabaseGeneratedStoryBook.id == book_id
+        storybook = db.query(StoryBook).filter(
+            StoryBook.id == book_id
         ).first()
         
         if not storybook:
@@ -136,21 +136,26 @@ async def get_supabase_book_detail(
                 detail=f"絵本 ID {book_id} が見つかりません"
             )
         
-        # 5ページの情報を配列形式に変換
+        # 最大10ページの情報を配列形式に変換
         pages = []
-        page_texts = [storybook.page_1, storybook.page_2, storybook.page_3, storybook.page_4, storybook.page_5]
+        page_texts = [
+            storybook.page_1, storybook.page_2, storybook.page_3, storybook.page_4, storybook.page_5,
+            getattr(storybook, 'page_6', None), getattr(storybook, 'page_7', None),
+            getattr(storybook, 'page_8', None), getattr(storybook, 'page_9', None),
+            getattr(storybook, 'page_10', None)
+        ]
         page_image_urls = [
-            storybook.page_1_image_url, 
-            storybook.page_2_image_url, 
-            storybook.page_3_image_url, 
-            storybook.page_4_image_url, 
-            storybook.page_5_image_url
+            storybook.page_1_image_url, storybook.page_2_image_url, storybook.page_3_image_url,
+            storybook.page_4_image_url, storybook.page_5_image_url,
+            getattr(storybook, 'page_6_image_url', None), getattr(storybook, 'page_7_image_url', None),
+            getattr(storybook, 'page_8_image_url', None), getattr(storybook, 'page_9_image_url', None),
+            getattr(storybook, 'page_10_image_url', None)
         ]
         
         for i, (text, image_url) in enumerate(zip(page_texts, page_image_urls), 1):
             if text:  # テキストが存在するページのみ追加
                 # 画像URLをWebアクセス可能な形式に変換
-                web_image_url = convert_file_path_to_url(image_url)
+                web_image_url = convert_file_path_to_url(image_url) if image_url else None
                 
                 pages.append(PageResponse(
                     id=book_id * 100 + i,  # 一意のIDを生成
@@ -190,13 +195,13 @@ async def get_supabase_user_books(
     
     try:
         # クエリを構築
-        query = db.query(SupabaseGeneratedStoryBook).filter(
-            SupabaseGeneratedStoryBook.user_id == user_id
-        ).order_by(SupabaseGeneratedStoryBook.created_at.desc())
+        query = db.query(StoryBook).filter(
+            StoryBook.user_id == user_id
+        ).order_by(StoryBook.created_at.desc())
         
         # カーソルベースのページネーション
         if cursor:
-            query = query.filter(SupabaseGeneratedStoryBook.id < cursor)
+            query = query.filter(StoryBook.id < cursor)
         
         # 件数制限
         if limit:
@@ -249,18 +254,18 @@ async def search_supabase_books(
     
     try:
         # クエリを構築
-        query = db.query(SupabaseGeneratedStoryBook).order_by(SupabaseGeneratedStoryBook.created_at.desc())
+        query = db.query(StoryBook).order_by(StoryBook.created_at.desc())
         
         # 検索条件
         if q:
             query = query.filter(
-                SupabaseGeneratedStoryBook.title.contains(q) |
-                SupabaseGeneratedStoryBook.description.contains(q)
+                StoryBook.title.contains(q) |
+                StoryBook.description.contains(q)
             )
         
         # カーソルベースのページネーション
         if cursor:
-            query = query.filter(SupabaseGeneratedStoryBook.id < cursor)
+            query = query.filter(StoryBook.id < cursor)
         
         # 件数制限
         if limit:
@@ -308,18 +313,18 @@ async def get_supabase_books_stats(db: Session = Depends(get_supabase_db)):
     
     try:
         # 総絵本数
-        total_books = db.query(SupabaseGeneratedStoryBook).count()
+        total_books = db.query(StoryBook).count()
         
         # 最近作成された絵本数（過去30日）
         from datetime import datetime, timedelta
         thirty_days_ago = datetime.now() - timedelta(days=30)
-        recent_books = db.query(SupabaseGeneratedStoryBook).filter(
-            SupabaseGeneratedStoryBook.created_at >= thirty_days_ago
+        recent_books = db.query(StoryBook).filter(
+            StoryBook.created_at >= thirty_days_ago
         ).count()
         
         # 画像生成完了済みの絵本数
-        completed_books = db.query(SupabaseGeneratedStoryBook).filter(
-            SupabaseGeneratedStoryBook.image_generation_status == "completed"
+        completed_books = db.query(StoryBook).filter(
+            StoryBook.image_generation_status == "completed"
         ).count()
         
         return {

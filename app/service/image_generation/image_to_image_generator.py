@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from PIL import Image
 from io import BytesIO
 from datetime import datetime
@@ -13,9 +13,10 @@ class ImageToImageGenerator(BaseImageGenerator):
         self, 
         prompt: str, 
         reference_image_path: str, 
-        strength: float = 0.8,
+        strength: float = 1.0,
         prefix: str = "i2i_image",
-        user_id: str = None
+        user_id: str = None,
+        story_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """Image-to-Image生成"""
         try:
@@ -25,8 +26,8 @@ class ImageToImageGenerator(BaseImageGenerator):
             # プロンプトに文字なしの指示とアスペクト比を追加（強化版）
             enhanced_prompt = (
                 f"{prompt}. "
-                f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
-                f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
+                f"Image format: 3:4 aspect ratio. "
+                f"MANDATORY: The image must be exactly 3:4 ratio, wide and landscape, NOT portrait or square. "
                 f"The composition should be horizontal with elements spread across the width. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
@@ -36,7 +37,6 @@ class ImageToImageGenerator(BaseImageGenerator):
             )
             
             print(f"🎨 Image-to-Image生成開始")
-            print(f"📝 プロンプト: {enhanced_prompt[:50]}...")
             print(f"🖼️ 参考画像: {reference_image_path}")
             print(f"💪 強度: {strength}")
             
@@ -71,6 +71,12 @@ class ImageToImageGenerator(BaseImageGenerator):
                         f"Maintain the style and composition similar to the reference image with {strength*100}% similarity. " \
                         f"Reference image characteristics should be preserved while adapting to the new scene."
             
+            # プロンプト全文をターミナルに表示
+            print("=" * 80)
+            print("【Gemini API プロンプト全文 - Image-to-Image生成】")
+            print("=" * 80)
+            print(i2i_prompt)
+            print("=" * 80)
             
             response = self.model.generate_content([
                 i2i_prompt,
@@ -134,6 +140,7 @@ class ImageToImageGenerator(BaseImageGenerator):
                                 image_data=image_data,
                                 filename=filename,
                                 user_id=user_id,
+                                story_id=story_id,
                                 content_type="image/png"
                             )
                             save_end_time = time.time()

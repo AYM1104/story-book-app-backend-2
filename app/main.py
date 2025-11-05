@@ -43,6 +43,7 @@ def env_check():
         "SUPABASE_ANON_KEY": bool(os.getenv("SUPABASE_ANON_KEY")),
         "SUPABASE_DB_URL": bool(os.getenv("SUPABASE_DB_URL")),
         "GOOGLE_API_KEY": bool(os.getenv("GOOGLE_API_KEY")),
+        "GOOGLE_CLOUD_PROJECT": bool(os.getenv("GOOGLE_CLOUD_PROJECT")),
         "GCS_BUCKET_NAME": bool(os.getenv("GCS_BUCKET_NAME")),
         "STORAGE_TYPE": os.getenv("STORAGE_TYPE", "not_set"),
         "VISION_API_ENABLED": os.getenv("VISION_API_ENABLED", "not_set"),
@@ -50,14 +51,6 @@ def env_check():
         "GOOGLE_APPLICATION_CREDENTIALS": os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "not_set")
     }
     return {"environment_variables": env_vars}
-
-# 認証ルーター
-try:
-    from app.api.auth.auth import router as auth_router
-    app.include_router(auth_router)
-    print("✅ Auth router loaded successfully")
-except Exception as e:
-    print(f"❌ Failed to load auth_router: {e}")
 
 # Auth0認証ルーター
 try:
@@ -69,7 +62,7 @@ except Exception as e:
 
 # Supabaseの基本機能を追加
 try:
-    from app.api.users.supabase_users import router as supabase_users_router
+    from app.api.users.users import router as supabase_users_router
     app.include_router(supabase_users_router)
     print("✅ Supabase users router loaded successfully")
 except Exception as e:
@@ -141,7 +134,7 @@ except Exception as e:
         return {"message": "Story router not available", "error": str(e)}
 
 try:
-    from app.api.story.supabase_generated_story_book import router as supabase_generated_storybook_router
+    from app.api.story.supabase_story_book import router as supabase_generated_storybook_router
     app.include_router(supabase_generated_storybook_router)
     print("✅ Supabase generated storybook router loaded successfully")
 except Exception as e:
@@ -149,6 +142,39 @@ except Exception as e:
     @app.get("/api/storybook/test")
     def storybook_test():
         return {"message": "Generated storybook router not available", "error": str(e)}
+
+# クレジット管理API
+try:
+    from app.api.credits import router as credits_router
+    app.include_router(credits_router, prefix="/api")
+    print("✅ Credits router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load credits_router: {e}")
+    @app.get("/api/credits/test")
+    def credits_test():
+        return {"message": "Credits router not available", "error": str(e)}
+
+# 価格見積API
+try:
+    from app.api.pricing import router as pricing_router
+    app.include_router(pricing_router, prefix="/api")
+    print("✅ Pricing router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load pricing_router: {e}")
+    @app.get("/api/pricing/test")
+    def pricing_test():
+        return {"message": "Pricing router not available", "error": str(e)}
+
+# 子供管理API
+try:
+    from app.api.child.child import router as child_router
+    app.include_router(child_router, prefix="/api")
+    print("✅ Child router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load child_router: {e}")
+    @app.get("/api/child/test")
+    def child_test():
+        return {"message": "Child router not available", "error": str(e)}
 
 @app.get("/api/routes")
 def list_routes():

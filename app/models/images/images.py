@@ -1,20 +1,23 @@
-from sqlalchemy import Column, Integer, String, DateTime, func, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Text
 from sqlalchemy.orm import relationship
-from app.database.base import Base
+from app.database.supabase_base import SupabaseBase
 
-class UploadImages(Base):
+class UploadImages(SupabaseBase):
+    """画像アップロードモデル
+    
+    SupabaseBaseを継承してcreated_atとupdated_atを自動管理
+    """
     __tablename__ = "upload_images"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    file_name = Column(String(255), nullable=False)
-    file_path = Column(String(512), nullable=False)
-    content_type = Column(String(100), nullable=False)
-    size_bytes = Column(Integer, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    meta_data = Column(Text, nullable=True)     # 画像解析結果を入れる
-    public_url = Column(String(1024), nullable=True)     # GCSの公開URL（ストレージタイプがGCSの場合）
+    file_name = Column(String(255), nullable=False, comment="ファイル名")
+    file_path = Column(String(512), nullable=False, comment="ファイルパス")
+    content_type = Column(String(100), nullable=False, comment="コンテンツタイプ")
+    size_bytes = Column(Integer, nullable=False, comment="ファイルサイズ（バイト）")
+    user_id = Column(String(255), nullable=False, comment="ユーザーID（Auth0のユーザーID）")
+    meta_data = Column(Text, nullable=True, comment="画像解析結果のメタデータ")
+    public_url = Column(String(1024), nullable=True, comment="公開URL（GCS等）")
 
-    user = relationship("Users", back_populates="upload_images")
+    # リレーションシップ（user_idが文字列型のため、外部キー制約なし）
+    # user = relationship("Users", back_populates="upload_images")  # 外部キー制約がないため無効化
     story_settings = relationship("StorySetting", back_populates="upload_image")

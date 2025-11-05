@@ -16,30 +16,42 @@ class GCSStorageService:
         # 環境変数チェック
         self.bucket_name = os.getenv("GCS_BUCKET_NAME")
         project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         
         # 必須環境変数のチェック
         missing_vars = []
         if not self.bucket_name:
             missing_vars.append("GCS_BUCKET_NAME")
-        if not project_id:
-            missing_vars.append("GOOGLE_CLOUD_PROJECT")
         
         if missing_vars:
             error_msg = (
                 f"❌ GCS初期化エラー: 以下の環境変数が設定されていません: {', '.join(missing_vars)}\n"
                 f"設定方法:\n"
-                f"  export GCS_BUCKET_NAME=your-bucket-name\n"
-                f"  export GOOGLE_CLOUD_PROJECT=your-project-id"
+                f"  export GCS_BUCKET_NAME=your-bucket-name"
             )
             raise ValueError(error_msg)
         
-        # GCSクライアント初期化
+        # GCSクライアント初期化（ADCフォールバック対応）
         try:
             print(f"✅ GCS初期化開始")
             print(f"  - プロジェクトID: {project_id}")
             print(f"  - バケット名: {self.bucket_name}")
             
-            self.client = storage.Client(project=project_id)
+            # Service Account認証ファイルが存在する場合はそれを使用、なければADC（Cloud Run等で自動認証）
+            if credentials_path and os.path.exists(credentials_path):
+                print(f"  - Service Account認証を使用: {credentials_path}")
+                credentials = service_account.Credentials.from_service_account_file(credentials_path)
+                if project_id:
+                    self.client = storage.Client(credentials=credentials, project=project_id)
+                else:
+                    self.client = storage.Client(credentials=credentials)
+            else:
+                print(f"  - ADC（Application Default Credentials）を使用")
+                if project_id:
+                    self.client = storage.Client(project=project_id)
+                else:
+                    self.client = storage.Client()
+            
             self.bucket = self.client.bucket(self.bucket_name)
             
             print(f"✅ GCS初期化完了")
@@ -57,12 +69,18 @@ class GCSStorageService:
         unique_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
+    def _compose_page_filename(self, extension: str, page_index: int) -> str:
+        """ページ番号に基づいたファイル名を生成（page_00, page_01, ...）"""
+        safe_ext = extension.lower().lstrip('.') if extension else "png"
+        return f"page_{page_index:02d}.{safe_ext}"
+
     def _get_user_path(self, user_id: str, file_type: str = "uploads") -> str:
-        """ユーザー別パスを生成"""
+        """ユーザー別パスを生成（user_id/uploads/yyyy/mm/dd形式）"""
         now = datetime.now()
         year = now.strftime("%Y")
         month = now.strftime("%m")
-        return f"users/{user_id}/{file_type}/{year}/{month}"
+        day = now.strftime("%d")
+        return f"{user_id}/{file_type}/{year}/{month}/{day}"
 
     def upload_image(self, file_content: bytes, filename: str, user_id: str, content_type: str = "image/jpeg") -> Dict[str, Any]:
         """画像をGoogle Cloud Storageにアップロード（改善版）"""
@@ -103,16 +121,24 @@ class GCSStorageService:
                 "filename": filename
             }
 
-    def upload_generated_image(self, file_content: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
+    def upload_generated_image(self, file_content: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png", page_index: Optional[int] = None) -> Dict[str, Any]:
         """生成された画像をGoogle Cloud Storageにアップロード（改善版）"""
         try:
+            # ページ番号が与えられた場合は命名規約に合わせて上書き
+            final_filename = filename
+            if page_index is not None:
+                ext = filename.split(".")[-1] if "." in filename else "png"
+                final_filename = self._compose_page_filename(ext, page_index)
+
             # ストーリー別パスを生成
             if story_id:
                 user_path = self._get_user_path(user_id, "generated")
-                gcs_path = f"{user_path}/{story_id}/pages/{filename}"
+                gcs_path = f"{user_path}/{story_id}/pages/{final_filename}"
             else:
                 user_path = self._get_user_path(user_id, "generated")
-                gcs_path = f"{user_path}/temp/{filename}"
+                # 日付(DD)フォルダを用いて、generated/YYYY/MM/DD/pages/ に保存
+                day = datetime.now().strftime("%d")
+                gcs_path = f"{user_path}/{day}/pages/{final_filename}"
             
             # ファイルをアップロード
             blob = self.bucket.blob(gcs_path)
@@ -126,7 +152,7 @@ class GCSStorageService:
             
             return {
                 "success": True,
-                "filename": filename,
+                "filename": final_filename,
                 "gcs_path": gcs_path,
                 "public_url": public_url,  # storage.googleapis.com形式のURLを使用
                 "size_bytes": len(file_content),
@@ -143,10 +169,54 @@ class GCSStorageService:
                 "filename": filename
             }
 
+    def upload_cover_image(self, file_content: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
+        """表紙画像をGoogle Cloud Storageにアップロード
+        
+        - story_id がある場合: users/{user_id}/generated/YYYY/MM/{story_id}/pages/page_00.{ext}
+        - story_id がない場合: users/{user_id}/generated/YYYY/MM/DD/pages/page_00.{ext}
+        """
+        try:
+            user_path = self._get_user_path(user_id, "generated")
+            # 表紙は常に page_00.{ext} 命名
+            ext = filename.split(".")[-1] if "." in filename else "png"
+            cover_filename = self._compose_page_filename(ext, 0)
+            if story_id:
+                gcs_path = f"{user_path}/{story_id}/pages/{cover_filename}"
+            else:
+                day = datetime.now().strftime("%d")
+                gcs_path = f"{user_path}/{day}/pages/{cover_filename}"
+
+            blob = self.bucket.blob(gcs_path)
+            blob.upload_from_string(
+                file_content,
+                content_type=content_type
+            )
+
+            public_url = f"https://storage.googleapis.com/{self.bucket_name}/{gcs_path}"
+
+            return {
+                "success": True,
+                "filename": cover_filename,
+                "gcs_path": gcs_path,
+                "public_url": public_url,
+                "size_bytes": len(file_content),
+                "content_type": content_type,
+                "timestamp": datetime.now().isoformat(),
+                "user_id": user_id,
+                "story_id": story_id,
+                "is_cover": True
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "filename": filename
+            }
+
     def delete_user_images(self, user_id: str, file_type: str = "uploads") -> bool:
         """ユーザーの画像を一括削除"""
         try:
-            user_path = f"users/{user_id}/{file_type}"
+            user_path = f"{user_id}/{file_type}"
             blobs = self.bucket.list_blobs(prefix=user_path)
             
             for blob in blobs:
@@ -160,7 +230,7 @@ class GCSStorageService:
     def get_user_images(self, user_id: str, file_type: str = "uploads") -> List[Dict[str, Any]]:
         """ユーザーの画像一覧を取得"""
         try:
-            user_path = f"users/{user_id}/{file_type}"
+            user_path = f"{user_id}/{file_type}"
             blobs = self.bucket.list_blobs(prefix=user_path)
             
             images = []
@@ -198,3 +268,7 @@ class GCSStorageService:
         except Exception as e:
             print(f"公開URL生成エラー: {str(e)}")
             return file_path
+
+
+# グローバルインスタンス（シングルトンパターン的な使用）
+gcs_storage_service = GCSStorageService()

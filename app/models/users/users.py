@@ -1,17 +1,24 @@
-from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from app.database.base import Base
+from app.database.supabase_base import SupabaseBase
 
-class Users(Base):
+class Users(SupabaseBase):
+    """ユーザーモデル
+    
+    SupabaseBaseを継承してcreated_atとupdated_atを自動管理
+    """
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=False, unique=True)
-    password = Column(String(255), nullable=False)
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    id = Column(String(255), primary_key=True, index=True, comment="Auth0のユーザーID")
+    user_name = Column(String(255), nullable=False, comment="ユーザー名")
+    email = Column(String(255), nullable=False, unique=True, comment="メールアドレス")
+    balance = Column(Integer, nullable=False, default=0, comment="クレジット残高")
+    # password = Column(String(255), nullable=False, comment="パスワード")  # Supabase認証で管理
 
     # リレーションシップ
-    upload_images = relationship("UploadImages", back_populates="user")
-    generated_storybooks = relationship("GeneratedStoryBook", back_populates="user")
+    # upload_images = relationship("UploadImages", back_populates="user")  # 外部キー制約がないため無効化
+    children = relationship("Child", back_populates="user")
+    storybooks = relationship("StoryBook", back_populates="user")
+    credit_ledger = relationship("CreditLedger", back_populates="user")
+    subscription = relationship("Subscription", back_populates="user", uselist=False)
+

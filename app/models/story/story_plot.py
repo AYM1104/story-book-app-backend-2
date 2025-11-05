@@ -2,10 +2,9 @@ from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
 from app.database.supabase_base import SupabaseBase
 
-class SupabaseStoryPlot(SupabaseBase):
-    """Supabase用の物語プロットモデル
+class StoryPlot(SupabaseBase):
+    """物語プロットモデル
     
-    既存のStoryPlotモデルと互換性を保ちつつ、
     SupabaseBaseを継承してcreated_atとupdated_atを自動管理
     """
     __tablename__ = "story_plots"
@@ -28,18 +27,24 @@ class SupabaseStoryPlot(SupabaseBase):
     # 生成された物語本文（3つのテーマ分）
     generated_stories = Column(JSON, nullable=True, comment="生成された物語本文")
 
-    # 物語の骨子（プロット）5ページ
+    # 物語の骨子（プロット）最大10ページ
     page_1 = Column(Text, nullable=True, comment="1ページ目の内容")
     page_2 = Column(Text, nullable=True, comment="2ページ目の内容")
     page_3 = Column(Text, nullable=True, comment="3ページ目の内容")
     page_4 = Column(Text, nullable=True, comment="4ページ目の内容")
     page_5 = Column(Text, nullable=True, comment="5ページ目の内容")
+    page_6 = Column(Text, nullable=True, comment="6ページ目の内容")
+    page_7 = Column(Text, nullable=True, comment="7ページ目の内容")
+    page_8 = Column(Text, nullable=True, comment="8ページ目の内容")
+    page_9 = Column(Text, nullable=True, comment="9ページ目の内容")
+    page_10 = Column(Text, nullable=True, comment="10ページ目の内容")
 
     # 対話の状態管理
     current_page = Column(Integer, nullable=False, default=1, comment="現在のページ番号")
     conversation_context = Column(JSON, nullable=True, comment="対話のコンテキスト")
 
-    # リレーションシップ（既存モデルと互換性を保つ）
-    story_setting = relationship("SupabaseStorySetting")
-    user = relationship("SupabaseUsers")
-    generated_storybooks = relationship("SupabaseGeneratedStoryBook", back_populates="story_plot")
+    # リレーションシップ
+    story_setting = relationship("StorySetting")
+    user = relationship("Users")
+    storybooks = relationship("StoryBook", back_populates="story_plot")
+

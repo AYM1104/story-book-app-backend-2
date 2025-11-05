@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
-from app.models.story.supabase_story_setting import SupabaseStorySetting
-from app.models.images.supabase_images import SupabaseUploadImages
-from app.service.story_generator_service import story_generator_service
+from app.models.story.story_setting import StorySetting
+from app.models.images.images import UploadImages
+from app.service.story_book_generation.story_line.story_line_generator import story_generator_service
 import json
 
 router = APIRouter(prefix="/story", tags=["story"])
@@ -16,8 +16,8 @@ async def create_supabase_story_setting_from_image(
     """Supabase用の画像IDを指定して、meta_dataの解析結果から物語設定を作成または更新するエンドポイント"""
 
     # 画像レコードを取得
-    upload_image = db.query(SupabaseUploadImages).filter(
-        SupabaseUploadImages.id == upload_image_id
+    upload_image = db.query(UploadImages).filter(
+        UploadImages.id == upload_image_id
     ).first()
     
     # 画像レコードが存在しない場合はエラー
@@ -53,8 +53,8 @@ async def create_supabase_story_setting_from_image(
         )
         
         # 既存の物語設定をチェック
-        existing_story_setting = db.query(SupabaseStorySetting).filter(
-            SupabaseStorySetting.upload_image_id == upload_image_id
+        existing_story_setting = db.query(StorySetting).filter(
+            StorySetting.upload_image_id == upload_image_id
         ).first()
         
         if existing_story_setting:
@@ -80,7 +80,7 @@ async def create_supabase_story_setting_from_image(
             
         else:
             # 新しいレコードを作成
-            new_story_setting = SupabaseStorySetting(
+            new_story_setting = StorySetting(
                 upload_image_id=upload_image_id,
                 title_suggestion=story_setting_data.get("title_suggestion"),
                 protagonist_name=story_setting_data.get("protagonist_name"),
@@ -128,7 +128,7 @@ async def create_supabase_story_setting_from_image(
 def get_supabase_story_settings(db: Session = Depends(get_supabase_db)):
     """Supabase用の物語設定一覧取得エンドポイント"""
     
-    story_settings = db.query(SupabaseStorySetting).all()
+    story_settings = db.query(StorySetting).all()
     return [
         {
             "id": setting.id,
@@ -153,8 +153,8 @@ def get_supabase_story_settings(db: Session = Depends(get_supabase_db)):
 def get_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_supabase_db)):
     """Supabase用の物語設定詳細取得エンドポイント"""
     
-    story_setting = db.query(SupabaseStorySetting).filter(
-        SupabaseStorySetting.id == story_setting_id
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
     ).first()
     
     if not story_setting:
@@ -181,8 +181,8 @@ def get_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_
 def delete_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_supabase_db)):
     """Supabase用の物語設定削除エンドポイント"""
     
-    story_setting = db.query(SupabaseStorySetting).filter(
-        SupabaseStorySetting.id == story_setting_id
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
     ).first()
     
     if not story_setting:

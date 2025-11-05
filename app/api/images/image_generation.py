@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import os
 from app.database.supabase_session import get_supabase_db
 from app.service.image_generator_service import image_generator_service
-from app.core.security.jwt_auth import get_current_user
+from app.core.security.auth0_jwt import get_auth0_sub_from_token
 from app.schemas.images.image_generation import (
     StoryPlotImageToImageRequest,
     StoryPlotAllPagesImageToImageRequest,
@@ -16,21 +16,41 @@ from app.schemas.images.image_generation import (
 )
 from typing import List
 
-router = APIRouter(prefix="/images/generation", tags=["image-generation"])
+router = APIRouter(prefix="/api/images/generation", tags=["image-generation"])
 
 @router.post("/generate-storyplot-image-to-image", response_model=StoryPlotImageGenerationResponse)
 async def generate_supabase_storyplot_image_to_image(
     request: StoryPlotImageToImageRequest,
     db: Session = Depends(get_supabase_db),
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_auth0_sub_from_token)  # Auth0のsubクレーム
 ):
     """Supabase用のStoryPlot Image-to-Image生成エンドポイント（メイン機能）"""
     try:
-        # バリデーション
-        if not (1 <= request.page_number <= 5):
+        # story_plotを取得してページ数を確認
+        from app.models.story.story_plot import StoryPlot
+        
+        story_plot = db.query(StoryPlot).filter(StoryPlot.id == request.story_plot_id).first()
+        if not story_plot:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"StoryPlot ID {request.story_plot_id} が見つかりません"
+            )
+        
+        # 実際に存在するページ数を計算（最大10ページまで）
+        def get_page_count(plot):
+            for i in range(10, 0, -1):
+                page_content = getattr(plot, f'page_{i}', None)
+                if page_content and page_content.strip():
+                    return i
+            return 5  # デフォルトは5ページ
+        
+        max_pages = get_page_count(story_plot)
+        
+        # バリデーション（動的なページ数に対応）
+        if not (1 <= request.page_number <= max_pages):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="ページ番号は1-5の範囲で指定してください"
+                detail=f"ページ番号は1-{max_pages}の範囲で指定してください"
             )
         
         if not (0.0 <= request.strength <= 1.0):
@@ -85,7 +105,7 @@ async def generate_supabase_storyplot_image_to_image(
 async def generate_supabase_storyplot_all_pages_image_to_image(
     request: StoryPlotAllPagesImageToImageRequest,
     db: Session = Depends(get_supabase_db),
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_auth0_sub_from_token)  # Auth0のsubクレーム
 ):
     """Supabase用のStoryPlot全ページImage-to-Image生成エンドポイント"""
     try:
@@ -115,10 +135,10 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
         print(f"DEBUG: Initial story_plot_id={story_plot_id}")
         if request.storybook_id:
             # storybook_idからstory_plot_idを取得
-            from app.models.story.supabase_generated_story_book import SupabaseGeneratedStoryBook
+            from app.models.story.story_book import StoryBook
             
-            storybook = db.query(SupabaseGeneratedStoryBook).filter(
-                SupabaseGeneratedStoryBook.id == request.storybook_id
+            storybook = db.query(StoryBook).filter(
+                StoryBook.id == request.storybook_id
             ).first()
             
             if not storybook:
@@ -134,15 +154,15 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
         image_path = request.reference_image_path
         if not image_path:
             # request.reference_image_path が未指定の場合、story_plot_id から解決
-            from app.models.story.supabase_story_plot import SupabaseStoryPlot
-            from app.models.story.supabase_story_setting import SupabaseStorySetting
-            from app.models.images.supabase_images import SupabaseUploadImages
+            from app.models.story.story_plot import StoryPlot
+            from app.models.story.story_setting import StorySetting
+            from app.models.images.images import UploadImages
 
-            story_plot = db.query(SupabaseStoryPlot).filter(SupabaseStoryPlot.id == story_plot_id).first()
+            story_plot = db.query(StoryPlot).filter(StoryPlot.id == story_plot_id).first()
             if not story_plot:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StoryPlot ID {story_plot_id} が見つかりません")
 
-            story_setting = db.query(SupabaseStorySetting).filter(SupabaseStorySetting.id == story_plot.story_setting_id).first()
+            story_setting = db.query(StorySetting).filter(StorySetting.id == story_plot.story_setting_id).first()
             if not story_setting:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StorySetting ID {story_plot.story_setting_id} が見つかりません")
 
@@ -176,7 +196,8 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
             reference_image_path=request.reference_image_path,
             strength=request.strength,
             prefix=request.prefix,
-            user_id=user_id
+            user_id=user_id,
+            story_pages=request.story_pages
         )
         
         return StoryPlotAllPagesGenerationResponse(
@@ -296,8 +317,8 @@ async def get_supabase_generation_status(
 ):
     """Supabase用の画像生成状態を確認するエンドポイント"""
     try:
-        # 画像生成の状態を確認
-        status_info = image_generator_service.get_generation_status(story_plot_id)
+        # 画像生成の状態を確認（データベースセッションを渡して動的にページ数を取得）
+        status_info = image_generator_service.get_generation_status(story_plot_id, db=db)
         
         return status_info
         
@@ -311,7 +332,7 @@ async def get_supabase_generation_status(
 async def generate_storybook_all_pages_image_to_image(
     request: StorybookAllPagesImageToImageRequest,
     db: Session = Depends(get_supabase_db),
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_auth0_sub_from_token)  # Auth0のsubクレーム
 ):
     """ストーリーブック全ページImage-to-Image生成エンドポイント"""
     try:
@@ -322,10 +343,10 @@ async def generate_storybook_all_pages_image_to_image(
             )
         
         # ストーリーブックからstory_plot_idを取得
-        from app.models.story.supabase_generated_story_book import SupabaseGeneratedStoryBook
+        from app.models.story.story_book import StoryBook
         
-        storybook = db.query(SupabaseGeneratedStoryBook).filter(
-            SupabaseGeneratedStoryBook.id == request.storybook_id
+        storybook = db.query(StoryBook).filter(
+            StoryBook.id == request.storybook_id
         ).first()
         
         if not storybook:
@@ -340,15 +361,15 @@ async def generate_storybook_all_pages_image_to_image(
         image_path = request.reference_image_path
         if not image_path:
             # request.reference_image_path が未指定の場合、story_plot_id から解決
-            from app.models.story.supabase_story_plot import SupabaseStoryPlot
-            from app.models.story.supabase_story_setting import SupabaseStorySetting
-            from app.models.images.supabase_images import SupabaseUploadImages
+            from app.models.story.story_plot import StoryPlot
+            from app.models.story.story_setting import StorySetting
+            from app.models.images.images import UploadImages
 
-            story_plot = db.query(SupabaseStoryPlot).filter(SupabaseStoryPlot.id == story_plot_id).first()
+            story_plot = db.query(StoryPlot).filter(StoryPlot.id == story_plot_id).first()
             if not story_plot:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StoryPlot ID {story_plot_id} が見つかりません")
 
-            story_setting = db.query(SupabaseStorySetting).filter(SupabaseStorySetting.id == story_plot.story_setting_id).first()
+            story_setting = db.query(StorySetting).filter(StorySetting.id == story_plot.story_setting_id).first()
             if not story_setting:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StorySetting ID {story_plot.story_setting_id} が見つかりません")
 
@@ -382,7 +403,8 @@ async def generate_storybook_all_pages_image_to_image(
             reference_image_path=request.reference_image_path,
             strength=request.strength,
             prefix=request.prefix,
-            user_id=user_id
+            user_id=user_id,
+            story_pages=request.story_pages
         )
         
         return StorybookAllPagesGenerationResponse(

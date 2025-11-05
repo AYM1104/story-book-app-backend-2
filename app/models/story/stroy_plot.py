@@ -38,6 +38,6 @@ class StoryPlot(SupabaseBase):
     conversation_context = Column(JSON, nullable=True)
 
     # リレーションシップ
-    story_setting = relationship("SupabaseStorySetting")
+    story_setting = relationship("StorySetting")
     user = relationship("SupabaseUsers")
-    generated_storybooks = relationship("SupabaseGeneratedStoryBook", back_populates="story_plot")
+    generated_storybooks = relationship("StoryBook", back_populates="story_plot")

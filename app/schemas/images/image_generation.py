@@ -84,7 +84,7 @@ class ImageToImageRequest(BaseModel):
     """Image-to-Image生成リクエスト"""
     prompt: str
     reference_image_path: str  # 参考画像のパス
-    strength: Optional[float] = 0.8  # 参考画像の影響度 (0.0-1.0)
+    strength: Optional[float] = 1.0  # 参考画像の影響度 (0.0-1.0)
     prefix: Optional[str] = "i2i_image"
 
 class ImageToImageResponse(BaseModel):
@@ -100,7 +100,7 @@ class StoryPlotImageToImageRequest(BaseModel):
     story_plot_id: int
     page_number: int
     reference_image_path: str
-    strength: Optional[float] = Field(default=0.8, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
+    strength: Optional[float] = Field(default=1.0, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
     prefix: Optional[str] = "storyplot_i2i"
 
 class StoryPlotAllPagesImageToImageRequest(BaseModel):
@@ -110,7 +110,8 @@ class StoryPlotAllPagesImageToImageRequest(BaseModel):
     storybook_id: Optional[int] = None
     # 省略可。未指定の場合は story_plot_id → story_setting → upload_image.file_path を自動解決
     reference_image_path: Optional[str] = None
-    strength: Optional[float] = Field(default=0.8, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
+    strength: Optional[float] = Field(default=1.0, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
+    story_pages: Optional[int] = Field(default=5, ge=3, le=10, description="物語ページ数（3, 5, 7, 10のいずれか、デフォルトは5）")
     prefix: Optional[str] = "storyplot_i2i_all"
 
 class StorybookAllPagesImageToImageRequest(BaseModel):
@@ -118,7 +119,7 @@ class StorybookAllPagesImageToImageRequest(BaseModel):
     storybook_id: int
     # 省略可。未指定の場合は storybook_id → story_plot_id → story_setting → upload_image.file_path を自動解決
     reference_image_path: Optional[str] = None
-    strength: Optional[float] = Field(default=0.8, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
+    strength: Optional[float] = Field(default=1.0, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
     prefix: Optional[str] = "storybook_i2i_all"
 
 class StorybookAllPagesGenerationResponse(BaseModel):

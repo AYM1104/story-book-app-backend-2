@@ -10,10 +10,13 @@ AUTH0_API_AUDIENCE=https://api.ehonnotane
 # Auth0 Native App用のClient ID（SwiftUIアプリ用）
 AUTH0_NATIVE_CLIENT_ID=b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh
 
-# Auth0 Web App用のClient ID（バックエンド用）
-AUTH0_WEB_CLIENT_ID=your-web-client-id-here
+# Auth0 Management API（Machine to Machine）用のClient ID/Secret（バックエンドでユーザー削除に使用）
+AUTH0_MANAGEMENT_CLIENT_ID=your-management-client-id-here
+AUTH0_MANAGEMENT_CLIENT_SECRET=your-management-client-secret-here
+# AUTH0_MANAGEMENT_AUDIENCE=https://ehonnotane.jp.auth0.com/api/v2/
 
-# Auth0 Web App用のClient Secret（バックエンド用）
+# （互換用）Auth0 Web App用のClient ID/Secret
+AUTH0_WEB_CLIENT_ID=your-web-client-id-here
 AUTH0_WEB_CLIENT_SECRET=your-web-client-secret-here
 
 # Google / Gemini API Keys

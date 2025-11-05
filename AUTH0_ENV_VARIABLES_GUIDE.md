@@ -33,26 +33,41 @@
   2. 「Applications」→「Applications」
   3. Native Appの「Client ID」をコピー
 
-### 【推奨】バックエンドAPI用
+### 【必須】Auth0 Management API用
 
-#### 4. AUTH0_WEB_CLIENT_ID
-- **説明**: Web App用のClient ID（バックエンド用）
+#### 4. AUTH0_MANAGEMENT_CLIENT_ID
+- **説明**: Auth0 Management APIを呼び出すためのMachine to MachineアプリのClient ID
 - **形式**: `長いランダム文字列`
-- **用途**: バックエンドでのAuth0 API呼び出し用
+- **用途**: バックエンドでユーザー削除（/api/v2/users）などの管理操作を行う際に使用
 - **取得方法**:
-  1. Auth0ダッシュボードにログイン
-  2. 「Applications」→「Applications」
-  3. Web Appの「Client ID」をコピー
+  1. Auth0ダッシュボードで「Applications」→「Applications」→「Create Application」
+  2. **Machine to Machine Applications**を選択
+  3. Auth0 Management APIを許可し、`read:users`と`delete:users`スコープを付与
+  4. 作成したアプリの「Client ID」をコピー
 
-#### 5. AUTH0_WEB_CLIENT_SECRET
-- **説明**: Web App用のClient Secret（バックエンド用）
+#### 5. AUTH0_MANAGEMENT_CLIENT_SECRET
+- **説明**: Auth0 Management API用Machine to MachineアプリのClient Secret
 - **形式**: `長いランダム文字列`
-- **用途**: バックエンドでのAuth0 API呼び出し用
+- **用途**: バックエンドから`client_credentials`フローでトークンを取得する際に使用
 - **取得方法**:
-  1. Auth0ダッシュボードにログイン
-  2. 「Applications」→「Applications」
-  3. Web Appの「Client Secret」をコピー
-- **⚠️ 注意**: この値は秘密に保持してください
+  1. 上記のMachine to Machineアプリの「Settings」タブを開く
+  2. 「Client Secret」をコピー
+- **⚠️ 注意**: この値は秘密に保持してください（Git管理下に置かないこと）
+
+### 【任意】互換用（既存のWebアプリ設定）
+
+#### 6. AUTH0_WEB_CLIENT_ID
+- **説明**: 既存環境と互換性を保つためのWeb App用Client ID
+- **用途**: 現状では直接使用していませんが、将来の機能や後方互換のために保持
+
+#### 7. AUTH0_WEB_CLIENT_SECRET
+- **説明**: 既存環境と互換性を保つためのWeb App用Client Secret
+- **⚠️ 注意**: Machine to Machineアプリの値とは別物です。混在させないようにしてください。
+
+#### 8. AUTH0_MANAGEMENT_AUDIENCE（任意）
+- **説明**: Management API向けのAudienceを上書きする場合に使用
+- **デフォルト**: `https://{AUTH0_DOMAIN}/api/v2/`
+- **用途**: 特殊なカスタムドメインなどでAudienceを切り替える必要がある場合のみ設定
 
 ---
 
@@ -60,7 +75,7 @@
 
 ### AI・画像生成用
 
-#### 6. GEMINI_API_KEY
+#### 9. GEMINI_API_KEY
 - **説明**: Google Gemini APIキー（AIでストーリーと画像を生成）
 - **形式**: `AIzaSy...`
 - **取得方法**:
@@ -68,7 +83,7 @@
   2. 「Create API key」をクリック
   3. 生成されたAPIキーをコピー
 
-#### 7. GCS_BUCKET_NAME
+#### 10. GCS_BUCKET_NAME
 - **説明**: Google Cloud Storageのバケット名（画像ストレージ用）
 - **形式**: `your-bucket-name`
 - **用途**: AIで生成した画像やアップロードした画像を保存
@@ -102,7 +117,16 @@
    - **Client Secret**: Google Cloud Consoleで作成したOAuth 2.0クライアントシークレット
 4. 「Applications」タブでNative Appを有効化
 
-#### Step 4: アプリケーション設定
+#### Step 4: Management API用Machine to Machineアプリの作成
+1. 「Applications」→「Applications」→「Create Application」
+2. **Machine to Machine Applications**を選択し、名称を例: `Story Book Backend`
+3. 作成後、「APIs」タブで**Auth0 Management API**を選択して`Authorize`
+4. 必要なスコープを追加：
+   - `read:users`
+   - `delete:users`
+5. 「Settings」タブで `AUTH0_MANAGEMENT_CLIENT_ID` と `AUTH0_MANAGEMENT_CLIENT_SECRET` を控える
+
+#### Step 5: アプリケーション設定
 1. Native Appの設定ページで以下を設定：
    - **Allowed Callback URLs**: 
      ```

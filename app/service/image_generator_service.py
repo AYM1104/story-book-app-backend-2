@@ -29,7 +29,7 @@ class ImageGeneratorService:
         self, 
         prompt: str, 
         reference_image_path: str, 
-        strength: float = 0.8,
+        strength: float = 1.0,
         prefix: str = "i2i_image",
         user_id: str = None
     ) -> dict:
@@ -43,7 +43,7 @@ class ImageGeneratorService:
         story_plot_id: int, 
         page_number: int, 
         reference_image_path: str,
-        strength: float = 0.8,
+        strength: float = 1.0,  # 参考画像の影響度
         prefix: str = "storyplot_i2i",
         user_id: str = None
     ) -> dict:
@@ -57,13 +57,14 @@ class ImageGeneratorService:
         db, 
         story_plot_id: int, 
         reference_image_path: str,
-        strength: float = 0.8,
+        strength: float = 1.0,
         prefix: str = "storyplot_i2i_all",
-        user_id: str = None
+        user_id: str = None,
+        story_pages: int = 5
     ) -> list:
         """StoryPlotの全ページをi2iで一括生成"""
         return self.storyplot.generate_storyplot_all_pages_i2i(
-            db, story_plot_id, reference_image_path, strength, prefix, user_id
+            db, story_plot_id, reference_image_path, strength, prefix, user_id, story_pages
         )
     
     # === StoryBook関連メソッド ===
@@ -75,9 +76,9 @@ class ImageGeneratorService:
         """StoryPlotの指定ページの画像を生成"""
         return self.storybook.generate_image_for_story_plot_page(db, story_plot_id, page_number, user_id)
     
-    def generate_all_pages_for_story_plot(self, db, story_plot_id: int, user_id: str = None) -> list:
+    def generate_all_pages_for_story_plot(self, db, story_plot_id: int, user_id: str = None, story_pages: int = 5) -> list:
         """StoryPlotの全ページの画像を一括生成"""
-        return self.storybook.generate_all_pages_for_story_plot(db, story_plot_id, user_id)
+        return self.storybook.generate_all_pages_for_story_plot(db, story_plot_id, user_id, story_pages)
     
     # === ユーティリティメソッド ===
     def upload_reference_image(self, file_content: bytes, filename: str) -> dict:
@@ -92,9 +93,9 @@ class ImageGeneratorService:
         """画像生成履歴を取得"""
         return self.utils.get_generation_history(story_plot_id)
     
-    def get_generation_status(self, story_plot_id: int) -> dict:
+    def get_generation_status(self, story_plot_id: int, db=None) -> dict:
         """画像生成状態を確認"""
-        return self.utils.get_generation_status(story_plot_id)
+        return self.utils.get_generation_status(story_plot_id, db=db)
     
     # === 後方互換性のためのメソッド ===
     def create_save_directory(self, subdir: str = None):

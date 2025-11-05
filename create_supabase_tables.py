@@ -8,11 +8,14 @@ python create_supabase_tables.py
 
 from app.database.supabase_base import SupabaseBase
 from app.database.supabase_session import engine
-from app.models.users.supabase_users import SupabaseUsers
-from app.models.images.supabase_images import SupabaseUploadImages
-from app.models.story.supabase_story_setting import SupabaseStorySetting
-from app.models.story.supabase_story_plot import SupabaseStoryPlot
-from app.models.story.supabase_generated_story_book import SupabaseGeneratedStoryBook
+from app.models.users.users import Users
+from app.models.child import Child
+from app.models.images.images import UploadImages
+from app.models.story.story_setting import StorySetting
+from app.models.story.story_plot import StoryPlot
+from app.models.story.story_book import StoryBook
+from app.models.credits.credit_ledger import CreditLedger
+from app.models.credits.subscription import Subscription
 
 def create_supabase_tables():
     """Supabase用のテーブルを作成"""

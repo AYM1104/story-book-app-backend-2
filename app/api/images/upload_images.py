@@ -23,20 +23,22 @@ async def upload_gcs_image(
 
     try:
         total_start_time = time.time()
-        print("=== GCSアップロード処理開始 ===")
+        print("================================================================================")
+        print("【 GCSアップロード処理開始 】")
+        print("================================================================================")
 
         # 1. アップロードされたファイルを検証
         file_validation_start_time = time.time()
-        print("=== ファイル検証開始 ===")
+        print("1. アップロードされたファイルを検証 -------------------")
         file_result = await file_processing_service.validate_and_read_file(file)    # file_processing_service.pyを呼び出す
         content = file_result["content"]
         content_type = file_result["content_type"]
         filename = file_result["filename"]
-        print(f"=== ファイル検証完了: {time.time() - file_validation_start_time:.3f}秒 ===")
+        print(f"✅ ファイル検証完了: {time.time() - file_validation_start_time:.3f}秒 ===")
 
         # 2. GCSへアップロード
         upload_start_time = time.time()
-        print("=== 画像をGCSにアップロード開始 ===")
+        print("2. GCSへ画像をアップロード -------------------")
         try:
             upload_result = await image_upload_gcs_service.upload_image(    # image_upload_gcs_service.pyを呼び出す
                 file_content=content,
@@ -56,7 +58,7 @@ async def upload_gcs_image(
             # アップロードに成功した場合はファイルパスと公開URLを取得
             file_path = upload_result["gcs_path"]
             public_url = upload_result["public_url"]
-            print(f"=== 画像をGCSにアップロード完了: {time.time() - upload_start_time:.3f}秒 ===")
+            print(f"✅ GCSに画像アップロード完了: {time.time() - upload_start_time:.3f}秒 ===")
         
         # エラーが発生した場合はエラーを返す
         except HTTPException:
@@ -72,15 +74,15 @@ async def upload_gcs_image(
                 detail=f"画像のアップロードに失敗しました: {gcs_error}",
             )
 
-        print(f"ファイルパス: {file_path}")
-        print(f"GCS public_url: {public_url}")
+        # print(f"ファイルパス: {file_path}")
+        # print(f"GCS public_url: {public_url}")
 
         # 3. Vision API 解析
         analysis_start_time = time.time()
-        print("=== Vision API解析開始 ===")
+        print("3. Vision API解析 -------------------")
         analysis_result = await image_analysis_service.analyze_image(content, filename)
         meta_data_json = analysis_result["meta_data_json"]
-        print(f"=== Vision API解析完了: {time.time() - analysis_start_time:.3f}秒 ===")
+        print(f"✅ Vision API解析完了: {time.time() - analysis_start_time:.3f}秒 ===")
 
         # 4. データベースへ保存
         db_result = await image_database_service.save_image_to_database(

@@ -4,7 +4,7 @@
 import time
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
-from app.models.images.supabase_images import SupabaseUploadImages
+from app.models.images.images import UploadImages
 
 
 class ImageDatabaseService:
@@ -43,7 +43,7 @@ class ImageDatabaseService:
         
         try:
             # 画像レコードを作成
-            new_image = SupabaseUploadImages(
+            new_image = UploadImages(
                 file_name=file_name,
                 file_path=file_path,
                 content_type=content_type,

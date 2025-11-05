@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
-from app.models.story.supabase_story_setting import SupabaseStorySetting
+from app.models.story.story_setting import StorySetting
 from app.service.question_generator_service import question_generator_service
 from app.schemas.story.question import QuestionResponse, AnswerRequest, AnswerResponse
 import time
@@ -22,8 +22,8 @@ async def get_supabase_questions_for_story_setting(
     
     # 物語設定を取得
     db_start = time.time()
-    story_setting = db.query(SupabaseStorySetting).filter(
-        SupabaseStorySetting.id == story_setting_id
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
     ).first()
     db_fetch_time = time.time() - db_start
     print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
@@ -87,8 +87,8 @@ async def submit_supabase_answer(
     
     # 物語設定を取得
     db_start = time.time()
-    story_setting = db.query(SupabaseStorySetting).filter(
-        SupabaseStorySetting.id == story_setting_id
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
     ).first()
     db_fetch_time = time.time() - db_start
     print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
@@ -159,8 +159,8 @@ async def get_supabase_story_setting_completion_status(
     """Supabase用の物語設定の完成度を確認するエンドポイント"""
     
     # 物語設定を取得
-    story_setting = db.query(SupabaseStorySetting).filter(
-        SupabaseStorySetting.id == story_setting_id
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
     ).first()
     
     if not story_setting:
@@ -207,8 +207,8 @@ def get_supabase_question_history(
     """Supabase用の質問履歴一覧取得エンドポイント"""
     
     # 物語設定を取得
-    story_setting = db.query(SupabaseStorySetting).filter(
-        SupabaseStorySetting.id == story_setting_id
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
     ).first()
     
     if not story_setting:

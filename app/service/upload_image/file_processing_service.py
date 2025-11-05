@@ -38,8 +38,8 @@ class FileProcessingService:
             content = await file.read()
             read_time = time.time() - read_start_time
             
-            print(f"⏱️ ファイル読み込み時間: {read_time:.3f}秒")
-            print(f"読み込んだファイルサイズ: {len(content)} bytes")
+            print(f"　⭐️ ファイル読み込み時間: {read_time:.3f}秒")
+            print(f"　⭐️ 読み込んだファイルサイズ: {len(content)} bytes")
             
             # ファイルサイズの検証
             if len(content) > MAX_UPLOAD_SIZE:

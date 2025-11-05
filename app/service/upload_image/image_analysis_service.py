@@ -51,9 +51,9 @@ class ImageAnalysisService:
             analysis_result = await vision_service.analyze_image(temp_file_path)
             
             processing_time = time.time() - start_time
-            print(f"⏱️ Vision API解析時間: {processing_time:.3f}秒")
-            print(f"Vision API解析結果: {analysis_result}")
-            print("=== Vision API解析処理完了 ===")
+            print(f"　⭐️ Vision API解析時間: {processing_time:.3f}秒")
+            print(f"　⭐️ Vision API解析結果: {analysis_result}")
+            # print("=== Vision API解析処理完了 ===")
             
             return {
                 "success": True,
@@ -92,7 +92,7 @@ class ImageAnalysisService:
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.unlink(temp_file_path)
-                    print(f"一時ファイルを削除しました: {temp_file_path}")
+                    print(f"🙆‍♀️ 一時ファイルを削除しました: {temp_file_path}")
                 except Exception as cleanup_error:
                     print(f"一時ファイル削除エラー: {cleanup_error}")
 

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.session import get_db
-from app.models.story.generated_story_book import GeneratedStoryBook
-from app.schemas.story.generated_story_book import GeneratedStoryBookResponse
+from app.models.story.story_book import StoryBook
+from app.schemas.story.story_book import StoryBookResponse
 from typing import List, Optional
 from datetime import datetime
 import os
@@ -74,11 +74,11 @@ async def get_books_list(
     
     try:
         # クエリを構築
-        query = db.query(GeneratedStoryBook).order_by(GeneratedStoryBook.created_at.desc())
+        query = db.query(StoryBook).order_by(StoryBook.created_at.desc())
         
         # カーソルベースのページネーション（簡単な実装）
         if cursor:
-            query = query.filter(GeneratedStoryBook.id < cursor)
+            query = query.filter(StoryBook.id < cursor)
         
         # 件数制限
         if limit:
@@ -126,8 +126,8 @@ async def get_book_detail(
     """絵本詳細を取得するエンドポイント（フロントエンド用）"""
     
     try:
-        storybook = db.query(GeneratedStoryBook).filter(
-            GeneratedStoryBook.id == book_id
+        storybook = db.query(StoryBook).filter(
+            StoryBook.id == book_id
         ).first()
         
         if not storybook:

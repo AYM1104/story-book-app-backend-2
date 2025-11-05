@@ -82,17 +82,34 @@ class ImageUtils(BaseImageGenerator):
             print(f"❌ 画像生成履歴取得エラー: {e}")
             return []
 
-    def get_generation_status(self, story_plot_id: int) -> dict:
+    def get_generation_status(self, story_plot_id: int, db=None) -> dict:
         """画像生成状態を確認"""
         try:
             # 実際の実装では、データベースから生成状態を確認する必要があります
             # ここでは簡易的な実装としてデフォルト状態を返します
             
+            total_pages = 5  # デフォルト値
+            
+            # データベースセッションが提供されている場合、実際のページ数を取得
+            if db:
+                try:
+                    from app.models.story.story_plot import StoryPlot
+                    story_plot = db.query(StoryPlot).filter(StoryPlot.id == story_plot_id).first()
+                    if story_plot:
+                        # 実際に存在するページ数を計算（最大10ページまで）
+                        for i in range(10, 0, -1):
+                            page_content = getattr(story_plot, f'page_{i}', None)
+                            if page_content and page_content.strip():
+                                total_pages = i
+                                break
+                except Exception as e:
+                    print(f"⚠️ ページ数取得エラー: {e}")
+            
             status_info = {
                 "story_plot_id": story_plot_id,
                 "status": "unknown",
                 "generated_pages": [],
-                "total_pages": 5,
+                "total_pages": total_pages,
                 "last_updated": datetime.now().isoformat()
             }
             

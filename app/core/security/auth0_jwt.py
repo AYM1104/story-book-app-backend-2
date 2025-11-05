@@ -6,6 +6,7 @@ from urllib.request import urlopen
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt, JWTError
+from sqlalchemy.orm import Session
 
 from app.core.security.auth0_config import Auth0Config
 
@@ -96,41 +97,146 @@ def get_current_user_auth0(
 ) -> dict:
     """Auth0トークンを検証し、現在のユーザー情報を返す
     
-    FastAPIの依存性注入で使用する関数
+    FastAPIの依存性注入で使用する関数。
+    JWTトークンの全ペイロードを返します。
     
     Args:
         credentials: HTTPベアラートークン
         
     Returns:
-        ユーザー情報を含むペイロード
-        - sub: ユーザーID（Auth0のユーザーID）
+        ユーザー情報を含むペイロード辞書
+        - sub: Auth0のユーザー識別子（users.idとして使用）
         - email: メールアドレス（存在する場合）
+        - name: ユーザー名（存在する場合）
         - その他のクレーム
     """
     token = credentials.credentials
     payload = verify_auth0_token(token)
     
-    # ユーザーIDが存在するか確認
+    # subクレームが存在するか確認
     if "sub" not in payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="トークンにユーザーIDが含まれていません",
+            detail="トークンにユーザーID（sub）が含まれていません",
         )
     
     return payload
 
 
-def get_user_id_auth0(
+def get_auth0_sub_from_token(
     credentials: HTTPAuthorizationCredentials = Depends(http_bearer)
 ) -> str:
-    """Auth0トークンからユーザーIDのみを取得する
+    """Auth0 JWTトークンから`sub`クレームを取得する
+    
+    JWTトークンの`sub`クレームはAuth0のユーザー識別子で、
+    データベースの`users.id`として使用されます。
     
     Args:
         credentials: HTTPベアラートークン
         
     Returns:
-        ユーザーID（Auth0のsub）
+        Auth0の`sub`クレーム（例: "auth0|123456789"）
+        この値はデータベースのuser_idとして使用される
     """
     payload = get_current_user_auth0(credentials)
     return payload["sub"]
+
+# 後方互換性のためのエイリアス（将来的に削除予定）
+get_user_id_auth0 = get_auth0_sub_from_token
+
+
+def get_user_or_create(
+    payload: dict = Depends(get_current_user_auth0),
+    db: Session = None  # 使用時にget_supabase_dbを注入
+):
+    """JWTトークンからユーザーを取得、存在しない場合は自動作成する
+    
+    初回ログイン時にJWTから`sub`を取得し、DBにユーザーが存在しない場合は
+    自動作成して300クレジットを付与します（仕様書の要件に準拠）。
+    
+    この関数は依存性注入用ではありません。実際の使用時は以下のようにしてください：
+    
+    ```python
+    from app.database.supabase_session import get_supabase_db
+    from app.models.users.users import Users
+    from app.service.credits import CreditsService
+    from app.models.credits.subscription import PlanType
+    
+    @router.get("/some-endpoint")
+    def some_endpoint(
+        payload: dict = Depends(get_current_user_auth0),
+        db: Session = Depends(get_supabase_db)
+    ):
+        user = get_user_or_create(payload, db)
+        # ...
+    ```
+    
+    Args:
+        payload: JWTペイロード（get_current_user_auth0から取得）
+        db: データベースセッション（必須）
+        
+    Returns:
+        Usersオブジェクト（作成または取得されたユーザー）
+    """
+    if db is None:
+        raise ValueError("データベースセッション（db）が必要です")
+    
+    # JWTのsubクレームを取得（Auth0ユーザーID = DBのusers.id）
+    sub = payload.get("sub")
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="トークンにユーザーID（sub）が含まれていません",
+        )
+    
+    # ユーザーを検索
+    from app.models.users.users import Users
+    from app.service.credits import CreditsService
+    from app.models.credits.subscription import PlanType
+    
+    user = db.query(Users).filter(Users.id == sub).first()
+    
+    if not user:
+        # ユーザーが存在しない場合：初回ログイン時の自動作成
+        # ユーザー名を取得（Google認証などでnameが含まれている場合）
+        user_name = payload.get("name") or ""
+        
+        # nameが取得できない場合、emailから名前部分を抽出
+        if not user_name:
+            email = payload.get("email", "")
+            if email:
+                # emailの@マークより前の部分をユーザー名として使用
+                user_name = email.split("@")[0]
+        
+        # それでも取得できない場合、デフォルト値を使用
+        if not user_name:
+            user_name = "ユーザー"
+        
+        user = Users(
+            id=sub,  # Auth0のsubクレーム
+            user_name=user_name,  # Google認証などから取得した名前
+            email=payload.get("email", "")  # Auth0から取得可能なメールアドレス
+        )
+        db.add(user)
+        db.flush()  # IDを取得するためにflush
+        
+        # 初回登録時の300クレジット付与
+        CreditsService.add_credits(
+            db=db,
+            user_id=sub,
+            amount=300,
+            reason="signup_bonus"
+        )
+        
+        # FREEプランのサブスクリプションを作成
+        CreditsService.ensure_subscription(
+            db=db,
+            user_id=sub,
+            plan=PlanType.FREE
+        )
+        
+        db.commit()
+        db.refresh(user)
+    
+    return user
 

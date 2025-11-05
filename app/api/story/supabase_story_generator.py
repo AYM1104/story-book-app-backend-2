@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from app.database.supabase_session import get_supabase_db
-from app.models.story.supabase_story_setting import SupabaseStorySetting
-from app.models.story.supabase_story_plot import SupabaseStoryPlot
-from app.service.story_generator_service import StoryGeneratorService
+from app.models.story.story_setting import StorySetting
+from app.models.story.story_plot import StoryPlot
+from app.service.story_book_generation.story_line.story_line_generator import StoryGeneratorService
 from pydantic import BaseModel
 from typing import Dict, Any
 import traceback
@@ -18,6 +18,7 @@ class StoryGenerationRequest(BaseModel):
 class ThemeSelectionRequest(BaseModel):
     story_setting_id: int
     selected_theme: str
+    story_pages: int = 5  # 物語ページ数（3, 5, 7, 10のいずれか、デフォルトは5）
 
 # ストーリー生成サービス
 story_generator_service = StoryGeneratorService()
@@ -46,10 +47,10 @@ async def supabase_story_generator(
         db_start = time.time()
         
         # ストーリー設定を取得（upload_imageとuserの情報も一緒に取得）
-        story_setting = db.query(SupabaseStorySetting).options(
-            joinedload(SupabaseStorySetting.upload_image)
+        story_setting = db.query(StorySetting).options(
+            joinedload(StorySetting.upload_image)
         ).filter(
-            SupabaseStorySetting.id == request.story_setting_id
+            StorySetting.id == request.story_setting_id
         ).first()
         
         db_fetch_time = time.time() - db_start
@@ -103,7 +104,7 @@ async def supabase_story_generator(
         for theme_key in ["theme1", "theme2", "theme3"]:
             theme_info = theme_options.get(theme_key, {})
 
-            story_plot = SupabaseStoryPlot(
+            story_plot = StoryPlot(
                 story_setting_id=request.story_setting_id,
                 user_id=user_id,
                 title=theme_info.get("title", ""),
@@ -189,10 +190,10 @@ async def supabase_select_theme(
         # ストーリー設定からuser_idを取得
         db_start = time.time()
         
-        story_setting = db.query(SupabaseStorySetting).options(
-            joinedload(SupabaseStorySetting.upload_image)
+        story_setting = db.query(StorySetting).options(
+            joinedload(StorySetting.upload_image)
         ).filter(
-            SupabaseStorySetting.id == request.story_setting_id
+            StorySetting.id == request.story_setting_id
         ).first()
         
         if not story_setting:
@@ -204,10 +205,10 @@ async def supabase_select_theme(
         user_id = story_setting.upload_image.user_id
         
         # 選択されたテーマのストーリープロットを取得
-        story_plot = db.query(SupabaseStoryPlot).filter(
-            SupabaseStoryPlot.story_setting_id == request.story_setting_id,
-            SupabaseStoryPlot.user_id == user_id,
-            SupabaseStoryPlot.selected_theme == request.selected_theme
+        story_plot = db.query(StoryPlot).filter(
+            StoryPlot.story_setting_id == request.story_setting_id,
+            StoryPlot.user_id == user_id,
+            StoryPlot.selected_theme == request.selected_theme
         ).first()
         
         if not story_plot:
@@ -237,32 +238,46 @@ async def supabase_select_theme(
         convert_time = time.time() - convert_start
         print(f"⏱️ データ変換時間: {convert_time:.3f}秒")
         
-        # Gemini APIで選択されたテーマの物語本文（5ページ）を生成
-        print(f"🤖 Gemini API呼び出し開始（テーマ「{theme_title}」の物語生成）")
+        # ページ数の検証
+        if request.story_pages not in [3, 5, 7, 10]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"無効なページ数です。3, 5, 7, 10のいずれかを指定してください。指定値: {request.story_pages}"
+            )
+        
+        # Gemini APIで選択されたテーマの物語本文を生成（動的ページ数）
+        print(f"🤖 Gemini API呼び出し開始（テーマ「{theme_title}」の物語生成、{request.story_pages}ページ）")
         gemini_start = time.time()
         
         story_data = story_generator_service.generate_single_story(
             story_setting_dict, 
-            theme_title
+            theme_title,
+            story_pages=request.story_pages
         )
         
         gemini_time = time.time() - gemini_start
         print(f"⏱️ Gemini API処理時間（物語生成）: {gemini_time:.3f}秒")
         
-        # 各ページの内容を保存
+        # 各ページの内容を保存（動的ページ数に対応）
         story_pages = story_data.get("story_pages", [])
         print(f"デバッグ: story_pages = {story_pages}")
         print(f"デバッグ: story_pagesの長さ = {len(story_pages)}")
+        print(f"デバッグ: リクエストされたページ数 = {request.story_pages}")
 
-        if len(story_pages) >= 5:
-            story_plot.page_1 = story_pages[0].get("page_1", "")
-            story_plot.page_2 = story_pages[1].get("page_2", "")
-            story_plot.page_3 = story_pages[2].get("page_3", "")
-            story_plot.page_4 = story_pages[3].get("page_4", "")
-            story_plot.page_5 = story_pages[4].get("page_5", "")
-            print(f"✅ ページ保存完了")
-        else:
-            print(f"⚠️ エラー - ページ数が不足 (必要な数: 5, 実際の数: {len(story_pages)})")
+        # ページ数をリセット（空文字で初期化、最大10ページまで）
+        for i in range(1, 11):
+            page_key = f"page_{i}"
+            if hasattr(story_plot, page_key):
+                setattr(story_plot, page_key, "")
+        
+        # 生成されたページ数に応じて保存（最大10ページまで）
+        max_save_pages = min(len(story_pages), 10)
+        for i, page_data in enumerate(story_pages[:max_save_pages], 1):
+            page_key = f"page_{i}"
+            if page_key in page_data and hasattr(story_plot, page_key):
+                setattr(story_plot, page_key, page_data[page_key])
+        
+        print(f"✅ ページ保存完了（{max_save_pages}ページ保存）")
         
         # データベース保存
         db_save_start = time.time()
@@ -293,12 +308,11 @@ async def supabase_select_theme(
             "title": story_plot.title,
             "keywords": story_plot.keywords,
             "message": f"テーマ「{story_plot.title}」の物語を生成して保存しました。",
-            "story_pages": [
-                {"page_1": story_plot.page_1},
-                {"page_2": story_plot.page_2},
-                {"page_3": story_plot.page_3},
-                {"page_4": story_plot.page_4},
-                {"page_5": story_plot.page_5}
+            "story_pages": request.story_pages,
+            "pages": [
+                {f"page_{i}": getattr(story_plot, f"page_{i}", None) or ""}
+                for i in range(1, 11)
+                if getattr(story_plot, f"page_{i}", None)
             ],
             "next_step": "story_completed",
             "processing_time_ms": processing_time_ms,
@@ -329,8 +343,8 @@ async def get_supabase_story_plot(
 ):
     """Supabase用の保存されたストーリーを取得するエンドポイント"""
     
-    story_plot = db.query(SupabaseStoryPlot).filter(
-        SupabaseStoryPlot.id == story_plot_id
+    story_plot = db.query(StoryPlot).filter(
+        StoryPlot.id == story_plot_id
     ).first()
     
     if not story_plot:
@@ -348,11 +362,9 @@ async def get_supabase_story_plot(
         "keywords": story_plot.keywords,
         "theme_options": story_plot.theme_options,
         "story_pages": [
-            {"page_1": story_plot.page_1},
-            {"page_2": story_plot.page_2},
-            {"page_3": story_plot.page_3},
-            {"page_4": story_plot.page_4},
-            {"page_5": story_plot.page_5}
+            {f"page_{i}": getattr(story_plot, f"page_{i}", None) or ""}
+            for i in range(1, 11)
+            if getattr(story_plot, f"page_{i}", None)
         ],
         "created_at": story_plot.created_at.isoformat(),
         "updated_at": story_plot.updated_at.isoformat()
@@ -366,9 +378,9 @@ async def get_supabase_user_stories(
 ):
     """Supabase用のユーザーのストーリー一覧を取得するエンドポイント"""
     
-    story_plots = db.query(SupabaseStoryPlot).filter(
-        SupabaseStoryPlot.user_id == user_id
-    ).order_by(SupabaseStoryPlot.created_at.desc()).all()
+    story_plots = db.query(StoryPlot).filter(
+        StoryPlot.user_id == user_id
+    ).order_by(StoryPlot.created_at.desc()).all()
     
     stories = []
     for plot in story_plots:
@@ -402,13 +414,13 @@ async def list_supabase_story_plots(
         limit = 50
 
     plots = (
-        db.query(SupabaseStoryPlot)
+        db.query(StoryPlot)
         .filter(
-            SupabaseStoryPlot.user_id == user_id,
-            SupabaseStoryPlot.story_setting_id == story_setting_id,
-            SupabaseStoryPlot.title.isnot(None)
+            StoryPlot.user_id == user_id,
+            StoryPlot.story_setting_id == story_setting_id,
+            StoryPlot.title.isnot(None)
         )
-        .order_by(SupabaseStoryPlot.created_at.desc())
+        .order_by(StoryPlot.created_at.desc())
         .limit(limit)
         .all()
     )

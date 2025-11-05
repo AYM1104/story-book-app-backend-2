@@ -7,7 +7,7 @@ import google.generativeai as genai
 from PIL import Image
 from io import BytesIO
 from dotenv import load_dotenv
-from app.service.gcs_storage_service import GCSStorageService
+from app.service.gcs_storage_service import gcs_storage_service
 
 load_dotenv()
 
@@ -25,12 +25,8 @@ class BaseImageGenerator:
         self.client = genai
         self.model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
         
-        # GCSサービスを初期化
-        try:
-            self.gcs_service = GCSStorageService()
-        except Exception as e:
-            print(f"❌ GCS初期化エラー: {e}")
-            raise e
+        # GCSサービス（グローバルインスタンスを使用）
+        self.gcs_service = gcs_storage_service
 
     def generate_unique_filename(self, prefix: str = "generated_image", extension: str = "png"):
         """ユニークなファイル名を生成"""
@@ -38,14 +34,15 @@ class BaseImageGenerator:
         unique_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
-    def save_image_to_storage(self, image_data: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
+    def save_image_to_storage(self, image_data: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png", page_index: Optional[int] = None) -> Dict[str, Any]:
         """画像をGoogle Cloud Storageに保存"""
         return self.gcs_service.upload_generated_image(
             file_content=image_data,
             filename=filename,
             user_id=user_id,
             story_id=story_id,
-            content_type=content_type
+            content_type=content_type,
+            page_index=page_index
         )
 
     def encode_image_to_base64(self, image_path: str) -> str:

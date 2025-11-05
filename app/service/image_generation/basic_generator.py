@@ -16,8 +16,15 @@ class BasicImageGenerator(BaseImageGenerator):
             start_time = time.time()
             
             # プロンプトにアスペクト比を追加
-            enhanced_prompt = f"{prompt}. Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. The composition should be horizontal with elements spread across the width."
+            enhanced_prompt = f"{prompt}. Image format: 3:4 aspect ratio. MANDATORY: The image must be exactly 3:4 ratio. No text, letters, words, captions, labels, symbols, or numbers."
             print(f"🕐 [{datetime.now().strftime('%H:%M:%S')}] 画像生成開始: {enhanced_prompt}")
+            
+            # プロンプト全文をターミナルに表示
+            print("=" * 80)
+            print("【Gemini API プロンプト全文 - 単一画像生成】")
+            print("=" * 80)
+            print(enhanced_prompt)
+            print("=" * 80)
             
             # 画像生成のリクエストを作成
             api_start_time = time.time()
@@ -106,8 +113,8 @@ class BasicImageGenerator(BaseImageGenerator):
                     # プロンプトに文字なしの指示とアスペクト比を追加
                     enhanced_prompt = (
                         f"{prompt}. "
-                        f"Image format: 16:9 aspect ratio (landscape orientation), horizontal composition. "
-                        f"MANDATORY: The image must be exactly 16:9 ratio, wide and landscape, NOT portrait or square. "
+                        f"Image format: 3:4 aspect ratio. "
+                        f"MANDATORY: The image must be exactly 3:4 ratio, wide and landscape, NOT portrait or square. "
                         f"The composition should be horizontal with elements spread across the width. "
                         f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                         f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
@@ -117,6 +124,13 @@ class BasicImageGenerator(BaseImageGenerator):
                     )
                     
                     print(f"\n📝 [{datetime.now().strftime('%H:%M:%S')}] プロンプト {i}/{len(prompts)} (試行 {attempt + 1}/{max_retries}): {enhanced_prompt[:50]}...")
+                    
+                    # プロンプト全文をターミナルに表示
+                    print("=" * 80)
+                    print(f"【Gemini API プロンプト全文 - 複数画像生成 {i}/{len(prompts)}】")
+                    print("=" * 80)
+                    print(enhanced_prompt)
+                    print("=" * 80)
                     
                     # API処理時間計測
                     api_start_time = time.time()

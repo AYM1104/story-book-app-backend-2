@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 import json
 from sqlalchemy.orm import Session, joinedload
 from app.database.session import get_db
-from app.models.story.supabase_story_plot import SupabaseStoryPlot
-from app.models.story.generated_story_book import GeneratedStoryBook
+from app.models.story.story_plot import StoryPlot
+from app.models.story.story_book import StoryBook
 from app.models.story.story_setting import StorySetting
-from app.schemas.story.generated_story_book import (
+from app.schemas.story.story_book import (
     ThemeConfirmationRequest,
     ThemeConfirmationResponse,
-    GeneratedStoryBookCreate,
-    GeneratedStoryBookResponse,
+    StoryBookCreate,
+    StoryBookResponse,
     StorybookImageUrlUpdateRequest,
     StorybookImageUrlUpdateResponse,
     ImageGenerationStatus
@@ -26,7 +26,7 @@ async def confirm_theme_and_create_storybook(
     
     try:
         # 1. StoryPlotから選択されたテーマの情報を取得
-        story_plot = db.query(SupabaseStoryPlot).filter(SupabaseStoryPlot.id == request.story_plot_id).first()
+        story_plot = db.query(StoryPlot).filter(StoryPlot.id == request.story_plot_id).first()
         if not story_plot:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -52,8 +52,8 @@ async def confirm_theme_and_create_storybook(
         # Textカラムに保存可能なようJSON文字列化
         selected_story_content = json.dumps(selected_story_content_dict, ensure_ascii=False)
         
-        # 4. GeneratedStoryBookレコードを作成
-        new_storybook = GeneratedStoryBook(
+        # 4. StoryBookレコードを作成
+        new_storybook = StoryBook(
             story_plot_id=story_plot.id,
             user_id=story_plot.user_id,
             title=story_plot.title or "無題のえほん",
@@ -88,17 +88,17 @@ async def confirm_theme_and_create_storybook(
             detail=f"ストーリーブック作成に失敗しました: {str(e)}"
         )
 
-@router.get("/{storybook_id}", response_model=GeneratedStoryBookResponse)
+@router.get("/{storybook_id}", response_model=StoryBookResponse)
 async def get_storybook(
     storybook_id: int,
     db: Session = Depends(get_db)
 ):
     """ストーリーブック詳細を取得するエンドポイント"""
     
-    storybook = db.query(GeneratedStoryBook).options(
-        joinedload(GeneratedStoryBook.story_plot).joinedload(SupabaseStoryPlot.story_setting).joinedload(StorySetting.upload_image)
+    storybook = db.query(StoryBook).options(
+        joinedload(StoryBook.story_plot).joinedload(StoryPlot.story_setting).joinedload(StorySetting.upload_image)
     ).filter(
-        GeneratedStoryBook.id == storybook_id
+        StoryBook.id == storybook_id
     ).first()
     
     if not storybook:
@@ -122,8 +122,8 @@ async def get_storybook(
             }
     
     # GCSの画像URLを公開URLに変換
-    from app.service.gcs_storage_service import GCSStorageService
-    gcs_service = GCSStorageService()
+    from app.service.gcs_storage_service import gcs_storage_service
+    gcs_service = gcs_storage_service  # グローバルインスタンスを使用
     
     # 各ページの画像URLをGCSの公開URLに変換
     if storybook.page_1_image_url and not storybook.page_1_image_url.startswith('http'):
@@ -148,16 +148,16 @@ async def get_storybook(
     
     return storybook_dict
 
-@router.get("/user/{user_id}", response_model=list[GeneratedStoryBookResponse])
+@router.get("/user/{user_id}", response_model=list[StoryBookResponse])
 async def get_user_storybooks(
     user_id: int,
     db: Session = Depends(get_db)
 ):
     """ユーザーのストーリーブック一覧を取得するエンドポイント"""
     
-    storybooks = db.query(GeneratedStoryBook).filter(
-        GeneratedStoryBook.user_id == user_id
-    ).order_by(GeneratedStoryBook.created_at.desc()).all()
+    storybooks = db.query(StoryBook).filter(
+        StoryBook.user_id == user_id
+    ).order_by(StoryBook.created_at.desc()).all()
     
     return storybooks
 
@@ -169,8 +169,8 @@ async def update_storybook_image_urls(
     """生成された画像のURLをストーリーブックに紐づけるエンドポイント"""
     
     try:
-        storybook = db.query(GeneratedStoryBook).filter(
-            GeneratedStoryBook.id == request.storybook_id
+        storybook = db.query(StoryBook).filter(
+            StoryBook.id == request.storybook_id
         ).first()
         
         if not storybook:
@@ -233,8 +233,8 @@ async def update_image_generation_status(
 ):
     """画像生成状態を更新するエンドポイント"""
     
-    storybook = db.query(GeneratedStoryBook).filter(
-        GeneratedStoryBook.id == storybook_id
+    storybook = db.query(StoryBook).filter(
+        StoryBook.id == storybook_id
     ).first()
     
     if not storybook:

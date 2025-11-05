@@ -3,6 +3,7 @@ import google.generativeai as genai
 from typing import Dict, Any, Optional, List
 import os
 from dotenv import load_dotenv
+from .theme_generator import theme_generator, TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
 
 load_dotenv()
 
@@ -20,32 +21,10 @@ class StoryGeneratorService:
 
     def generate_theme_options_only(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
         """3つのテーマ案のみを生成（物語本文は生成しない）- 高速化版"""
-        
-        protagonist_name = story_setting.get("protagonist_name", "主人公")
-        protagonist_type = story_setting.get("protagonist_type", "子供")
-        setting_place = story_setting.get("setting_place", "公園")
-        tone = story_setting.get("tone", "gentle")
-        target_age = story_setting.get("target_age", "preschool")
-        reading_level = story_setting.get("reading_level", "hiragana_only")
+        # ThemeGeneratorに委譲
+        return theme_generator.generate_theme_options_only(story_setting)
 
-        # プロンプトを作成
-        prompt = self._create_theme_options_prompt(
-            protagonist_name, protagonist_type, setting_place, 
-            tone, target_age, reading_level
-        )
-
-        try:
-            # Gemini 2.5 Flashでテーマ案のみを生成
-            response = self.model.generate_content(prompt)
-            theme_data = self._parse_theme_options_response(response.text)
-            return theme_data
-
-        except Exception as e:
-            print(f"Gemini API エラー: {e}")
-            # エラー時はフォールバック
-            return self._generate_fallback_theme_options(protagonist_name, protagonist_type, setting_place, tone)
-
-    def generate_complete_story(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_complete_story(self, story_setting: Dict[str, Any], story_pages: int = 5) -> Dict[str, Any]:
         """テーマ案と物語本文を一緒に生成（非推奨 - 遅い）"""
         
         protagonist_name = story_setting.get("protagonist_name", "主人公")
@@ -58,10 +37,17 @@ class StoryGeneratorService:
         # プロンプトを作成
         prompt = self._create_complete_story_prompt(
             protagonist_name, protagonist_type, setting_place, 
-            tone, target_age, reading_level
+            tone, target_age, reading_level, story_pages
         )
 
         try:
+            # プロンプト全文をターミナルに表示
+            print("=" * 80)
+            print("【Gemini API プロンプト全文 - 完全なストーリー生成】")
+            print("=" * 80)
+            print(prompt)
+            print("=" * 80)
+            
             # Gemini 2.5 Flashで完全なストーリーを生成
             response = self.model.generate_content(prompt)
             story_data = self._parse_complete_story_response(response.text)
@@ -70,10 +56,16 @@ class StoryGeneratorService:
         except Exception as e:
             print(f"Gemini API エラー: {e}")
             # エラー時はフォールバック
-            return self._generate_fallback_complete_story(protagonist_name, protagonist_type, setting_place, tone)
+            return self._generate_fallback_complete_story(protagonist_name, protagonist_type, setting_place, tone, story_pages)
 
-    def generate_single_story(self, story_setting: Dict[str, Any], selected_theme: str) -> Dict[str, Any]:
-        """選択されたテーマの物語本文を生成"""
+    def generate_single_story(self, story_setting: Dict[str, Any], selected_theme: str, story_pages: int = 5) -> Dict[str, Any]:
+        """選択されたテーマの物語本文を生成
+        
+        Args:
+            story_setting: ストーリー設定の辞書
+            selected_theme: 選択されたテーマのタイトル
+            story_pages: 生成するページ数（3, 5, 7, 10のいずれか、デフォルトは5）
+        """
         
         protagonist_name = story_setting.get("protagonist_name", "主人公")
         protagonist_type = story_setting.get("protagonist_type", "子供")
@@ -85,10 +77,17 @@ class StoryGeneratorService:
         # プロンプトを作成
         prompt = self._create_single_story_prompt(
             protagonist_name, protagonist_type, setting_place, 
-            tone, target_age, reading_level, selected_theme
+            tone, target_age, reading_level, selected_theme, story_pages
         )
 
         try:
+            # プロンプト全文をターミナルに表示
+            print("=" * 80)
+            print("【Gemini API プロンプト全文 - 単一ストーリー生成】")
+            print("=" * 80)
+            print(prompt)
+            print("=" * 80)
+            
             # Gemini 2.5 Flashで単一ストーリーを生成
             response = self.model.generate_content(prompt)
             story_data = self._parse_single_story_response(response.text)
@@ -97,104 +96,44 @@ class StoryGeneratorService:
         except Exception as e:
             print(f"Gemini API エラー: {e}")
             # エラー時はフォールバック
-            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme)
+            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme, story_pages)
 
-    def _create_theme_options_prompt(self, protagonist_name: str, protagonist_type: str, 
-                                    setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
-        """テーマ案のみ生成用のプロンプトを作成（物語本文は生成しない）"""
-        
-        tone_descriptions = {
-            "gentle": "優しく温かい雰囲気",
-            "fun": "楽しく明るい雰囲気", 
-            "adventure": "冒険的でワクワクする雰囲気",
-            "mystery": "謎解きでドキドキする雰囲気"
-        }
-        
-        age_descriptions = {
-            "preschool": "3-6歳の未就学児向け",
-            "elementary_low": "7-9歳の小学生低学年向け"
-        }
-
-        prompt = f"""
-あなたは子供向けの絵本のストーリー企画者です。
-以下の設定を元に、3つの異なるテーマの物語案を提案してください。
-
-【基本設定】
-- 主人公: {protagonist_name}（{protagonist_type}）
-- 舞台: {setting_place}
-- 雰囲気: {tone_descriptions.get(tone, '優しく温かい雰囲気')}
-- 対象年齢: {age_descriptions.get(target_age, '3-6歳の未就学児向け')}
-- 読みやすさ: {reading_level}
-
-【要求事項】
-1. 3つの異なるテーマ（冒険、友情、発見など）
-2. 各テーマのタイトル、概要説明、キーワード
-3. 子供が楽しめる内容
-4. 教育的な要素を含む
-
-【出力形式】
-以下のJSON形式で出力してください：
-{{
-  "theme_options": {{
-    "theme1": {{
-      "theme_id": "adventure",
-      "title": "タイトル",
-      "description": "物語の概要（2-3文）",
-      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
-    }},
-    "theme2": {{
-      "theme_id": "friendship",
-      "title": "タイトル",
-      "description": "物語の概要（2-3文）",
-      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
-    }},
-    "theme3": {{
-      "theme_id": "discovery",
-      "title": "タイトル",
-      "description": "物語の概要（2-3文）",
-      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
-    }}
-  }}
-}}
-
-必ずJSON形式で出力し、他の説明文は含めないでください。
-"""
-
-        return prompt
 
     def _create_complete_story_prompt(self, protagonist_name: str, protagonist_type: str, 
-                                    setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
-        """完全なストーリー生成用のプロンプトを作成"""
+                                    setting_place: str, tone: str, target_age: str, reading_level: str, story_pages: int = 5) -> str:
+        """完全なストーリー生成用のプロンプトを作成
         
-        tone_descriptions = {
-            "gentle": "優しく温かい雰囲気",
-            "fun": "楽しく明るい雰囲気", 
-            "adventure": "冒険的でワクワクする雰囲気",
-            "mystery": "謎解きでドキドキする雰囲気"
-        }
+        Args:
+            story_pages: 生成するページ数（3, 5, 7, 10のいずれか）
+        """
         
-        age_descriptions = {
-            "preschool": "3-6歳の未就学児向け",
-            "elementary_low": "7-9歳の小学生低学年向け"
-        }
+        # 共通定数を使用（theme_generator.pyからインポート）
+        reading_level_desc = READING_LEVEL_DESCRIPTIONS.get(reading_level, reading_level)
+        
+        # ページ数のJSON配列を動的に生成（story_pagesに応じて動的に変更）
+        pages_json_items = []
+        for i in range(1, story_pages + 1):
+            pages_json_items.append(f'{{"page_{i}": "{i}ページ目の完全な物語本文"}}')
+        pages_json_array = ",\n        ".join(pages_json_items)
 
         prompt = f"""
 あなたは子供向けの絵本のストーリー企画者です。
-以下の設定を元に、3つの異なるテーマの物語案と、それぞれの完全な物語本文（5ページ）を作成してください。
+以下の設定を元に、3つの異なるテーマの物語案と、それぞれの完全な物語本文（{story_pages}ページ）を作成してください。
 
 【基本設定】
 - 主人公: {protagonist_name}（{protagonist_type}）
 - 舞台: {setting_place}
-- 雰囲気: {tone_descriptions.get(tone, '優しく温かい雰囲気')}
-- 対象年齢: {age_descriptions.get(target_age, '3-6歳の未就学児向け')}
-- 読みやすさ: {reading_level}
+- 雰囲気: {TONE_DESCRIPTIONS.get(tone, '優しく温かい雰囲気')}
+- 対象年齢: {AGE_DESCRIPTIONS.get(target_age, '3-6歳の未就学児向け')}
+- 読みやすさ: {reading_level_desc}
 
 【要求事項】
 1. 3つの異なるテーマ（冒険、友情、発見など）
-2. 各テーマで5ページの完全な物語本文
+2. 各テーマで{story_pages}ページの完全な物語本文
 3. 子供が楽しめる内容
 4. 教育的な要素を含む
 5. 読みやすく、感情に訴える文章
+6. 読みやすさの設定に従った文字種で作成
 
 【出力形式】
 以下のJSON形式で出力してください：
@@ -213,11 +152,7 @@ class StoryGeneratorService:
     "theme1": {{
       "title": "タイトル",
       "story_pages": [
-        {{"page_1": "1ページ目の完全な物語本文"}},
-        {{"page_2": "2ページ目の完全な物語本文"}},
-        {{"page_3": "3ページ目の完全な物語本文"}},
-        {{"page_4": "4ページ目の完全な物語本文"}},
-        {{"page_5": "5ページ目の完全な物語本文"}}
+        {pages_json_array}
       ]
     }},
     "theme2": {{...}},
@@ -231,27 +166,46 @@ class StoryGeneratorService:
         return prompt
 
     def _create_single_story_prompt(self, protagonist_name: str, protagonist_type: str, 
-                                  setting_place: str, tone: str, target_age: str, reading_level: str, selected_theme: str) -> str:
-        """単一ストーリー生成用のプロンプトを作成"""
+                                  setting_place: str, tone: str, target_age: str, reading_level: str, selected_theme: str, story_pages: int = 5) -> str:
+        """単一ストーリー生成用のプロンプトを作成
+        
+        Args:
+            story_pages: 生成するページ数（3, 5, 7, 10のいずれか）
+        """
+        
+        # 共通定数を使用（theme_generator.pyからインポート）
+        reading_level_desc = READING_LEVEL_DESCRIPTIONS.get(reading_level, reading_level)
+        
+        # ページ数のJSON配列を動的に生成（story_pagesに応じて動的に変更）
+        pages_json_items = []
+        for i in range(1, story_pages + 1):
+            pages_json_items.append(f'{{"page_{i}": "{i}ページ目の完全な物語本文"}}')
+        pages_json_array = ",\n    ".join(pages_json_items)
         
         prompt = f"""
-以下の設定で「{selected_theme}」テーマの物語を5ページで作成してください。
+以下の設定で「タイトル：{selected_theme}」の物語を{story_pages}ページで作成してください。
 
 【基本設定】
 - 主人公: {protagonist_name}（{protagonist_type}）
 - 舞台: {setting_place}
-- テーマ: {selected_theme}
+- 雰囲気: {TONE_DESCRIPTIONS.get(tone, '優しく温かい雰囲気')}
+- 対象年齢: {AGE_DESCRIPTIONS.get(target_age, '3-6歳の未就学児向け')}
+- 読みやすさ: {reading_level_desc}
+- タイトル: {selected_theme}
+
+【要求事項】
+1. テーマに沿った{story_pages}ページの完全な物語本文
+2. 子供が楽しめる内容
+3. 教育的な要素を含む
+4. 読みやすく、感情に訴える文章
+5. 読みやすさの設定に従った文字種で作成
 
 【出力形式】
 以下のJSON形式で出力してください：
 {{
   "title": "物語のタイトル",
   "story_pages": [
-    {{"page_1": "1ページ目の完全な物語本文"}},
-    {{"page_2": "2ページ目の完全な物語本文"}},
-    {{"page_3": "3ページ目の完全な物語本文"}},
-    {{"page_4": "4ページ目の完全な物語本文"}},
-    {{"page_5": "5ページ目の完全な物語本文"}}
+    {pages_json_array}
   ]
 }}
 
@@ -260,28 +214,6 @@ class StoryGeneratorService:
 
         return prompt
 
-    def _parse_theme_options_response(self, response_text: str) -> Dict[str, Any]:
-        """テーマ案のみのレスポンスをパース"""
-        try:
-            # JSON部分を抽出
-            if "```json" in response_text:
-                json_start = response_text.find("```json") + 7
-                json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end].strip()
-            elif "```" in response_text:
-                json_start = response_text.find("```") + 3
-                json_end = response_text.rfind("```")
-                json_text = response_text[json_start:json_end].strip()
-            else:
-                json_text = response_text.strip()
-
-            theme_data = json.loads(json_text)
-            return theme_data
-
-        except json.JSONDecodeError as e:
-            print(f"JSON解析エラー: {e}")
-            print(f"レスポンステキスト: {response_text}")
-            raise ValueError("Geminiからのレスポンスが正しいJSON形式ではありません")
 
     def _parse_complete_story_response(self, response_text: str) -> Dict[str, Any]:
         """完全なストーリー生成のレスポンスをパース"""
@@ -310,33 +242,60 @@ class StoryGeneratorService:
         """単一ストーリー生成のレスポンスをパース"""
         return self._parse_complete_story_response(response_text)
 
-    def _generate_fallback_theme_options(self, protagonist_name: str, protagonist_type: str, setting_place: str, tone: str) -> Dict[str, Any]:
-        """エラー時のフォールバック用テーマ案のみ"""
-        return {
-            "theme_options": {
-                "theme1": {
-                    "theme_id": "adventure",
-                    "title": f"{protagonist_name}の冒険",
-                    "description": f"{protagonist_name}が{setting_place}で冒険に出かける物語。勇気を出して新しいことに挑戦します。",
-                    "keywords": ["冒険", "勇気", "挑戦"]
-                },
-                "theme2": {
-                    "theme_id": "friendship",
-                    "title": f"{protagonist_name}の新しい友達",
-                    "description": f"{protagonist_name}が{setting_place}で新しい友達と出会う物語。友情の大切さを学びます。",
-                    "keywords": ["友情", "優しさ", "協力"]
-                },
-                "theme3": {
-                    "theme_id": "discovery",
-                    "title": f"{protagonist_name}の不思議な発見",
-                    "description": f"{protagonist_name}が{setting_place}で不思議なものを見つける物語。好奇心を持って探求します。",
-                    "keywords": ["発見", "探求", "好奇心"]
-                }
-            }
-        }
 
-    def _generate_fallback_complete_story(self, protagonist_name: str, protagonist_type: str, setting_place: str, tone: str) -> Dict[str, Any]:
+    def _generate_fallback_complete_story(self, protagonist_name: str, protagonist_type: str, setting_place: str, tone: str, story_pages: int = 5) -> Dict[str, Any]:
         """エラー時のフォールバック用完全ストーリー"""
+        
+        # ページ数に応じたデフォルトストーリーを生成
+        fallback_texts_theme1 = [
+            f"むかしむかし、{protagonist_name}が{setting_place}で遊んでいました。",
+            "すると、不思議な道を発見しました。",
+            "勇気を出して道を進んでいきます。",
+            "新しい友達と出会い、力を合わせました。",
+            "冒険を通じて大切なことを学びました。",
+            "さらに深く冒険を続けていきます。",
+            "困難を乗り越えて、さらに成長しました。",
+            "周りの人たちに感謝の気持ちを伝えました。",
+            "たくさんのことを学び、心が豊かになりました。",
+            "そして、毎日が楽しくなりました。"
+        ]
+        
+        fallback_texts_theme2 = [
+            f"{protagonist_name}は{setting_place}で一人で遊んでいました。",
+            "そこで新しい友達に出会いました。",
+            "最初はうまく話せませんでしたが...",
+            "一緒に遊ぶことで仲良くなりました。",
+            "友情の大切さを学びました。",
+            "お互いを理解し合えるようになりました。",
+            "一緒にいろいろなことに挑戦しました。",
+            "困難な時も支え合いました。",
+            "友情が深まっていきました。",
+            "毎日が楽しくなりました。"
+        ]
+        
+        fallback_texts_theme3 = [
+            f"{protagonist_name}は{setting_place}で不思議なものを発見しました。",
+            "それが何なのか調べてみました。",
+            "調べていくうちに驚くべきことがわかりました。",
+            "その発見をみんなに伝えました。",
+            "学ぶことの楽しさを知りました。",
+            "さらに詳しく調べていきました。",
+            "新しい発見が次々とありました。",
+            "知識がどんどん増えていきました。",
+            "探求心が育っていきました。",
+            "好奇心の大切さを学びました。"
+        ]
+        
+        def create_pages(fallback_texts: List[str], pages: int) -> List[Dict[str, str]]:
+            """ページ数のリストを生成"""
+            page_list = []
+            for i in range(1, min(pages + 1, 11)):
+                if i <= len(fallback_texts):
+                    page_list.append({f"page_{i}": fallback_texts[i - 1]})
+                else:
+                    page_list.append({f"page_{i}": "物語が続きます。"})
+            return page_list
+        
         return {
             "theme_options": {
                 "theme1": {
@@ -361,48 +320,45 @@ class StoryGeneratorService:
             "generated_stories": {
                 "theme1": {
                     "title": f"{protagonist_name}の冒険",
-                    "story_pages": [
-                        {"page_1": f"むかしむかし、{protagonist_name}が{setting_place}で遊んでいました。"},
-                        {"page_2": "すると、不思議な道を発見しました。"},
-                        {"page_3": "勇気を出して道を進んでいきます。"},
-                        {"page_4": "新しい友達と出会い、力を合わせました。"},
-                        {"page_5": "冒険を通じて大切なことを学びました。"}
-                    ]
+                    "story_pages": create_pages(fallback_texts_theme1, story_pages)
                 },
                 "theme2": {
                     "title": f"{protagonist_name}の新しい友達",
-                    "story_pages": [
-                        {"page_1": f"{protagonist_name}は{setting_place}で一人で遊んでいました。"},
-                        {"page_2": "そこで新しい友達に出会いました。"},
-                        {"page_3": "最初はうまく話せませんでしたが..."},
-                        {"page_4": "一緒に遊ぶことで仲良くなりました。"},
-                        {"page_5": "友情の大切さを学びました。"}
-                    ]
+                    "story_pages": create_pages(fallback_texts_theme2, story_pages)
                 },
                 "theme3": {
                     "title": f"{protagonist_name}の不思議な発見",
-                    "story_pages": [
-                        {"page_1": f"{protagonist_name}は{setting_place}で不思議なものを発見しました。"},
-                        {"page_2": "それが何なのか調べてみました。"},
-                        {"page_3": "調べていくうちに驚くべきことがわかりました。"},
-                        {"page_4": "その発見をみんなに伝えました。"},
-                        {"page_5": "学ぶことの楽しさを知りました。"}
-                    ]
+                    "story_pages": create_pages(fallback_texts_theme3, story_pages)
                 }
             }
         }
 
-    def _generate_fallback_single_story(self, protagonist_name: str, protagonist_type: str, setting_place: str, selected_theme: str) -> Dict[str, Any]:
+    def _generate_fallback_single_story(self, protagonist_name: str, protagonist_type: str, setting_place: str, selected_theme: str, story_pages: int = 5) -> Dict[str, Any]:
         """エラー時のフォールバック用単一ストーリー"""
+        # ページ数に応じたデフォルトストーリーを生成
+        fallback_pages = []
+        fallback_texts = [
+            f"むかしむかし、{protagonist_name}が{setting_place}で遊んでいました。",
+            "そこで素敵な出来事が起こりました。",
+            "主人公は勇気を出して立ち向かいました。",
+            "友達と協力して問題を解決しました。",
+            "大切なことを学んで成長しました。",
+            "新しい冒険が始まりました。",
+            "困難を乗り越えて、さらに成長しました。",
+            "周りの人たちに感謝の気持ちを伝えました。",
+            "たくさんのことを学び、心が豊かになりました。",
+            "そして、毎日が楽しくなりました。"
+        ]
+        
+        for i in range(1, min(story_pages + 1, 11)):
+            if i <= len(fallback_texts):
+                fallback_pages.append({f"page_{i}": fallback_texts[i - 1]})
+            else:
+                fallback_pages.append({f"page_{i}": "物語が続きます。"})
+        
         return {
             "title": f"{protagonist_name}の{selected_theme}",
-            "story_pages": [
-                {"page_1": f"むかしむかし、{protagonist_name}が{setting_place}で遊んでいました。"},
-                {"page_2": "そこで素敵な出来事が起こりました。"},
-                {"page_3": "主人公は勇気を出して立ち向かいました。"},
-                {"page_4": "友達と協力して問題を解決しました。"},
-                {"page_5": "大切なことを学んで成長しました。"}
-            ]
+            "story_pages": fallback_pages
         }
 
     def generate_story_setting_from_analysis(self, meta_data: Dict[str, Any], upload_image_id: int) -> Dict[str, Any]:
@@ -564,6 +520,13 @@ class StoryGeneratorService:
             顔の特徴、髪型、服装、表情などを総合的に判断してください。
             """
             
+            # プロンプト全文をターミナルに表示
+            print("=" * 80)
+            print("【Gemini API プロンプト全文 - 性別判定（写真用）】")
+            print("=" * 80)
+            print(prompt)
+            print("=" * 80)
+            
             # Gemini APIで画像解析
             response = self.model.generate_content([
                 prompt,
@@ -616,6 +579,13 @@ class StoryGeneratorService:
             子供が描いた絵なので、はっきりしない部分もありますが、できるだけ判定してください。
             """
             
+            # プロンプト全文をターミナルに表示
+            print("=" * 80)
+            print("【Gemini API プロンプト全文 - 性別判定（絵用）】")
+            print("=" * 80)
+            print(prompt)
+            print("=" * 80)
+            
             # Gemini APIで画像解析
             response = self.model.generate_content([
                 prompt,
@@ -642,3 +612,4 @@ class StoryGeneratorService:
 
 # シングルトンインスタンス
 story_generator_service = StoryGeneratorService()
+

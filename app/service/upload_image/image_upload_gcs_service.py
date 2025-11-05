@@ -20,30 +20,42 @@ class ImageUploadGCSService:
         # 環境変数チェック
         self.bucket_name = os.getenv("GCS_BUCKET_NAME")
         project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         
         # 必須環境変数のチェック
         missing_vars = []
         if not self.bucket_name:
             missing_vars.append("GCS_BUCKET_NAME")
-        if not project_id:
-            missing_vars.append("GOOGLE_CLOUD_PROJECT")
         
         if missing_vars:
             error_msg = (
                 f"❌ GCS初期化エラー: 以下の環境変数が設定されていません: {', '.join(missing_vars)}\n"
                 f"設定方法:\n"
-                f"  export GCS_BUCKET_NAME=your-bucket-name\n"
-                f"  export GOOGLE_CLOUD_PROJECT=your-project-id"
+                f"  export GCS_BUCKET_NAME=your-bucket-name"
             )
             raise ValueError(error_msg)
         
-        # GCSクライアント初期化
+        # GCSクライアント初期化（ADCフォールバック対応）
         try:
             print(f"✅ ImageUploadGCS初期化開始")
             print(f"  - プロジェクトID: {project_id}")
             print(f"  - バケット名: {self.bucket_name}")
             
-            self.client = storage.Client(project=project_id)
+            # Service Account認証ファイルが存在する場合はそれを使用、なければADC（Cloud Run等で自動認証）
+            if credentials_path and os.path.exists(credentials_path):
+                print(f"  - Service Account認証を使用: {credentials_path}")
+                credentials = service_account.Credentials.from_service_account_file(credentials_path)
+                if project_id:
+                    self.client = storage.Client(credentials=credentials, project=project_id)
+                else:
+                    self.client = storage.Client(credentials=credentials)
+            else:
+                print(f"  - ADC（Application Default Credentials）を使用")
+                if project_id:
+                    self.client = storage.Client(project=project_id)
+                else:
+                    self.client = storage.Client()
+            
             self.bucket = self.client.bucket(self.bucket_name)
             
             print(f"✅ ImageUploadGCS初期化完了")
@@ -62,11 +74,12 @@ class ImageUploadGCSService:
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
     def _get_user_path(self, user_id: str, file_type: str = "uploads") -> str:
-        """ユーザー別パスを生成"""
+        """ユーザー別パスを生成（user_id/uploads/yyyy/mm/dd形式）"""
         now = datetime.now()
         year = now.strftime("%Y")
         month = now.strftime("%m")
-        return f"users/{user_id}/{file_type}/{year}/{month}"
+        day = now.strftime("%d")
+        return f"{user_id}/{file_type}/{year}/{month}/{day}"
 
     async def upload_image(
         self, 
@@ -78,7 +91,7 @@ class ImageUploadGCSService:
         """画像をGoogle Cloud Storageにアップロード"""
         start_time = time.time()
         
-        print("=== GCSアップロード処理開始 ===")
+        # print("=== GCSアップロード処理開始 ===")
         
         try:
             # ファイル名を生成
@@ -89,7 +102,7 @@ class ImageUploadGCSService:
             user_path = self._get_user_path(user_id, "uploads")
             gcs_path = f"{user_path}/{unique_filename}"
             
-            print(f"アップロード先パス: {gcs_path}")
+            # print(f"⭐️ アップロード先パス: {gcs_path}")
             
             # ファイルをアップロード
             blob = self.bucket.blob(gcs_path)
@@ -102,10 +115,10 @@ class ImageUploadGCSService:
             public_url = f"https://storage.googleapis.com/{self.bucket_name}/{gcs_path}"
             
             processing_time = time.time() - start_time
-            print(f"⏱️ GCSアップロード時間: {processing_time:.3f}秒")
-            print(f"ファイルパス: {gcs_path}")
-            print(f"GCS public_url: {public_url}")
-            print("=== GCSアップロード処理完了 ===")
+            print(f"　⭐️ GCSアップロード時間: {processing_time:.3f}秒")
+            print(f"　⭐️ ファイルパス: {gcs_path}")
+            print(f"　⭐️ GCS public_url: {public_url}")
+            # print("=== GCSアップロード処理完了 ===")
             
             return {
                 "success": True,
@@ -121,8 +134,8 @@ class ImageUploadGCSService:
             
         except Exception as e:
             processing_time = time.time() - start_time
-            print(f"⏱️ GCSアップロード時間（エラー）: {processing_time:.3f}秒")
-            print(f"GCSエラー: {e}")
+            print(f"❌ GCSアップロード時間（エラー）: {processing_time:.3f}秒")
+            print(f"❌ GCSエラー: {e}")
             
             return {
                 "success": False,
