@@ -60,12 +60,24 @@ def verify_auth0_token(token: str) -> dict:
             )
         
         # デバッグ用: トークンのペイロードを検証なしでデコードして確認
+        unverified_payload = None
         try:
             unverified_payload = jwt.decode(token, options={"verify_signature": False})
-            print(f"🔍 トークン内のaudience: {unverified_payload.get('aud')}")
-            print(f"🔍 トークン内のissuer: {unverified_payload.get('iss')}")
-            print(f"🔍 期待されるaudience: {Auth0Config.API_AUDIENCE}")
-            print(f"🔍 期待されるissuer: {Auth0Config.get_issuer()}")
+            token_aud = unverified_payload.get('aud')
+            token_iss = unverified_payload.get('iss')
+            expected_aud = Auth0Config.API_AUDIENCE
+            expected_iss = Auth0Config.get_issuer()
+            
+            print(f"🔍 トークン内のaudience: {token_aud} (型: {type(token_aud)})")
+            print(f"🔍 トークン内のissuer: {token_iss}")
+            print(f"🔍 期待されるaudience: {expected_aud}")
+            print(f"🔍 期待されるissuer: {expected_iss}")
+            
+            # audienceがリスト形式の場合の処理
+            if isinstance(token_aud, list):
+                print(f"🔍 audienceはリスト形式です: {token_aud}")
+                if expected_aud not in token_aud:
+                    print(f"⚠️ 期待されるaudience '{expected_aud}' がリストに含まれていません")
         except Exception as e:
             print(f"⚠️ トークンのデバッグ情報取得エラー: {e}")
         
@@ -86,23 +98,32 @@ def verify_auth0_token(token: str) -> dict:
             detail="トークンの有効期限が切れています",
         )
     except jwt.JWTClaimsError as e:
-        # デバッグ情報を追加
+        # トークンの詳細情報を取得してエラーメッセージに含める
+        error_message = str(e)
         try:
             unverified_payload = jwt.decode(token, options={"verify_signature": False})
-            error_detail = (
+            token_aud = unverified_payload.get('aud')
+            token_iss = unverified_payload.get('iss')
+            
+            # audienceがリスト形式の場合の処理
+            aud_display = token_aud
+            if isinstance(token_aud, list):
+                aud_display = f"{token_aud} (リスト形式)"
+            
+            error_message = (
                 f"トークンのクレームが無効です（audience/issuerを確認してください）\n"
-                f"エラー詳細: {str(e)}\n"
-                f"トークン内のaudience: {unverified_payload.get('aud')}\n"
-                f"トークン内のissuer: {unverified_payload.get('iss')}\n"
+                f"エラー詳細: {error_message}\n"
+                f"トークン内のaudience: {aud_display}\n"
+                f"トークン内のissuer: {token_iss}\n"
                 f"期待されるaudience: {Auth0Config.API_AUDIENCE}\n"
                 f"期待されるissuer: {Auth0Config.get_issuer()}"
             )
-        except:
-            error_detail = f"トークンのクレームが無効です（audience/issuerを確認してください）\nエラー詳細: {str(e)}"
+        except Exception as parse_error:
+            error_message = f"トークンのクレームが無効です（audience/issuerを確認してください）\nエラー詳細: {error_message}\n(デバッグ情報取得エラー: {parse_error})"
         
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=error_detail,
+            detail=error_message,
         )
     except JWTError as e:
         raise HTTPException(
