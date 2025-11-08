@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
+from app.models.story.story_plot import StoryPlot
 from app.models.images.images import UploadImages
 from app.service.story_book_generation.story_line.story_line_generator import story_generator_service
 from app.service.gcs_storage_service import gcs_storage_service
@@ -182,7 +183,7 @@ def get_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_
 def delete_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_supabase_db)):
     """Supabase用の物語設定削除エンドポイント
     
-    story_settingと紐づくupload_image、およびGCS上のファイルも削除します。
+    story_settingと紐づくstory_plots、upload_image、およびGCS上のファイルも削除します。
     """
     
     story_setting = db.query(StorySetting).filter(
@@ -197,6 +198,19 @@ def delete_supabase_story_setting(story_setting_id: int, db: Session = Depends(g
     upload_image = db.query(UploadImages).filter(
         UploadImages.id == upload_image_id
     ).first()
+    
+    # 紐づくstory_plotsを削除（story_settingを削除する前に削除する必要がある）
+    story_plots = db.query(StoryPlot).filter(
+        StoryPlot.story_setting_id == story_setting_id
+    ).all()
+    
+    deleted_plot_count = 0
+    for story_plot in story_plots:
+        db.delete(story_plot)
+        deleted_plot_count += 1
+    
+    if deleted_plot_count > 0:
+        print(f"✅ {deleted_plot_count}件のstory_plotsレコードを削除しました")
     
     # GCS上のファイルを削除（画像が存在し、file_pathが設定されている場合）
     if upload_image and upload_image.file_path:
@@ -217,4 +231,7 @@ def delete_supabase_story_setting(story_setting_id: int, db: Session = Depends(g
     db.delete(story_setting)
     db.commit()
     
-    return {"message": "物語設定と関連する画像が削除されました"}
+    return {
+        "message": "物語設定と関連する画像、story_plotsが削除されました",
+        "deleted_story_plots_count": deleted_plot_count
+    }

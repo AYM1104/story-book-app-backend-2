@@ -42,6 +42,10 @@ class ThemeGenerator:
         if not api_key:
             raise ValueError("GOOGLE_API_KEY_Free、GEMINI_API_KEYまたはGOOGLE_API_KEYが設定されていません")
         
+        # APIキーの確認（最初の8文字のみ表示）
+        api_key_preview = api_key[:8] + "..." if len(api_key) > 8 else api_key
+        print(f"🔑 Gemini APIキー確認: {api_key_preview} (長さ: {len(api_key)})")
+        
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
 
@@ -71,11 +75,28 @@ class ThemeGenerator:
             
             # Gemini 2.5 Flashでテーマ案のみを生成
             response = self.model.generate_content(prompt)
+            print(f"✅ Gemini API レスポンス受信成功")
+            print(f"レスポンステキスト（最初の500文字）: {response.text[:500]}")
+            
             theme_data = self._parse_theme_options_response(response.text)
+            print(f"✅ JSON解析成功")
             return theme_data
 
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON解析エラー: {e}")
+            print(f"レスポンステキスト（全文）: {response.text if 'response' in locals() else 'レスポンス未取得'}")
+            print(f"⚠️ フォールバックテーマを使用します")
+            import traceback
+            print(f"トレースバック: {traceback.format_exc()}")
+            # エラー時はフォールバック
+            return self._generate_fallback_theme_options(protagonist_name, protagonist_type, setting_place, tone)
+        
         except Exception as e:
-            print(f"Gemini API エラー: {e}")
+            print(f"❌ Gemini API エラー: {e}")
+            print(f"エラータイプ: {type(e).__name__}")
+            import traceback
+            print(f"トレースバック: {traceback.format_exc()}")
+            print(f"⚠️ フォールバックテーマを使用します")
             # エラー時はフォールバック
             return self._generate_fallback_theme_options(protagonist_name, protagonist_type, setting_place, tone)
 
@@ -141,24 +162,39 @@ class ThemeGenerator:
                 json_start = response_text.find("```json") + 7
                 json_end = response_text.find("```", json_start)
                 json_text = response_text[json_start:json_end].strip()
+                print(f"📝 JSONコードブロックを検出（```json形式）")
             elif "```" in response_text:
                 json_start = response_text.find("```") + 3
                 json_end = response_text.rfind("```")
                 json_text = response_text[json_start:json_end].strip()
+                print(f"📝 コードブロックを検出（```形式）")
             else:
                 json_text = response_text.strip()
+                print(f"📝 プレーンテキストとして処理")
 
+            print(f"抽出されたJSONテキスト（最初の500文字）: {json_text[:500]}")
             theme_data = json.loads(json_text)
+            print(f"✅ JSON解析成功: theme_optionsのキー = {list(theme_data.get('theme_options', {}).keys())}")
             return theme_data
 
         except json.JSONDecodeError as e:
-            print(f"JSON解析エラー: {e}")
-            print(f"レスポンステキスト: {response_text}")
+            print(f"❌ JSON解析エラー: {e}")
+            print(f"エラー位置: 行 {e.lineno if hasattr(e, 'lineno') else '不明'}, 列 {e.colno if hasattr(e, 'colno') else '不明'}")
+            print(f"レスポンステキスト（全文）: {response_text}")
+            print(f"抽出されたJSONテキスト（全文）: {json_text if 'json_text' in locals() else '抽出失敗'}")
             raise ValueError("Geminiからのレスポンスが正しいJSON形式ではありません")
 
     def _generate_fallback_theme_options(self, protagonist_name: str, protagonist_type: str, setting_place: str, tone: str) -> Dict[str, Any]:
         """エラー時のフォールバック用テーマ案のみ"""
-        return {
+        print("=" * 80)
+        print("⚠️ フォールバックテーマを生成しています")
+        print(f"  主人公: {protagonist_name}")
+        print(f"  タイプ: {protagonist_type}")
+        print(f"  舞台: {setting_place}")
+        print(f"  雰囲気: {tone}")
+        print("=" * 80)
+        
+        fallback_data = {
             "theme_options": {
                 "theme1": {
                     "theme_id": "adventure",
@@ -180,6 +216,9 @@ class ThemeGenerator:
                 }
             }
         }
+        
+        print(f"✅ フォールバックテーマ生成完了")
+        return fallback_data
 
 # シングルトンインスタンス
 theme_generator = ThemeGenerator()
