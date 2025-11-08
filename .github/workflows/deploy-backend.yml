@@ -29,6 +29,18 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify GCP Configuration
+        run: |
+          echo "🔍 GCP設定を確認中..."
+          PROJECT_ID=$(gcloud config get-value project 2>/dev/null || echo "")
+          if [ -z "$PROJECT_ID" ]; then
+            echo "❌ エラー: PROJECT_IDが設定されていません"
+            echo "gcloud config set project YOUR_PROJECT_ID を実行してください"
+            exit 1
+          fi
+          echo "✅ Project ID: $PROJECT_ID"
+          echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
 
@@ -56,30 +68,53 @@ jobs:
         id: build
         run: |
           echo "🔨 Cloud Buildを開始します..."
-          BUILD_ID=$(gcloud builds submit --config cloudbuild.yaml --async --format="value(id)" .)
+          PROJECT_ID=$(gcloud config get-value project)
+          echo "Project ID: $PROJECT_ID"
+          BUILD_ID=$(gcloud builds submit --config cloudbuild.yaml --async --format="value(id)" --project=$PROJECT_ID .)
           echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
           echo "✅ Cloud Build submitted: $BUILD_ID"
-          echo "🔗 Logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID"
+          echo "🔗 Logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID"
 
       - name: Wait for Build Completion
+        id: wait_build
         run: |
           BUILD_ID=${{ steps.build.outputs.build_id }}
+          PROJECT_ID=$(gcloud config get-value project)
           echo "⏳ Waiting for build $BUILD_ID to complete..."
           for i in {1..60}; do
-            STATUS=$(gcloud builds describe $BUILD_ID --format="value(status)" 2>/dev/null || echo "QUEUED")
+            STATUS=$(gcloud builds describe $BUILD_ID --project=$PROJECT_ID --format="value(status)" 2>/dev/null || echo "QUEUED")
             echo "Status: $STATUS"
             if [ "$STATUS" = "SUCCESS" ]; then
               echo "✅ Build completed successfully!"
               exit 0
             elif [ "$STATUS" = "FAILURE" ] || [ "$STATUS" = "TIMEOUT" ] || [ "$STATUS" = "CANCELLED" ]; then
               echo "❌ Build failed: $STATUS"
-              echo "🔗 Check logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID"
+              echo "🔗 Check logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID"
+              echo "build_status=FAILED" >> $GITHUB_OUTPUT
               exit 1
             fi
             sleep 10
           done
           echo "⚠️ Build timeout after 10 minutes"
+          echo "build_status=TIMEOUT" >> $GITHUB_OUTPUT
           exit 1
+
+      - name: Show Build Logs on Failure
+        if: failure()
+        run: |
+          BUILD_ID=${{ steps.build.outputs.build_id }}
+          PROJECT_ID=$(gcloud config get-value project)
+          echo "📋 Cloud Buildのエラーログを取得中..."
+          echo "=========================================="
+          gcloud builds log $BUILD_ID --project=$PROJECT_ID --stream || echo "ログの取得に失敗しました"
+          echo "=========================================="
+          echo "🔗 詳細なログ: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID"
+          echo ""
+          echo "💡 よくある問題:"
+          echo "1. Secret Managerのシークレットが存在しない"
+          echo "2. Cloud Buildのサービスアカウントに権限が不足している"
+          echo "3. Cloud Runへのデプロイ権限が不足している"
+          echo "4. Dockerイメージのビルドエラー（requirements.txtの依存関係など）"
 
       - name: Get Service URL
         id: service_url
