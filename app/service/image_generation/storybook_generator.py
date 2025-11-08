@@ -366,7 +366,7 @@ class StoryBookGenerator(BaseImageGenerator):
         return base
 
     def generate_cover_for_story_plot(self, db: Session, story_plot_id: int, user_id: str = None, prefix: str = "storyplot_i2i_all") -> Dict[str, Any]:
-        """物語全体の文脈を踏まえた表紙画像を生成し、page_00 で保存"""
+        """表紙画像を生成し、page_00で保存"""
         try:
             from app.models.story.story_plot import StoryPlot
             from app.models.story.story_book import StoryBook
@@ -458,34 +458,32 @@ class StoryBookGenerator(BaseImageGenerator):
                         # 画像データを取得
                         image_data = part.inline_data.data
                         
-                        # 画像サイズを取得（他の画像生成メソッドと同じパターン）
+                        # 画像サイズを取得
                         try:
                             image_size = Image.open(BytesIO(image_data)).size
-                            image_format = "png"  # Gemini APIはPNGを返すため
+                            image_format = "png"
                         except Exception as e:
                             print(f"⚠️ part[{idx}] 画像バイトが不正のためスキップ: {e}")
                             continue
                         
-                        # 他のページと同じファイル名形式に統一（prefix_{story_plot_id}_page_00形式）
-                        filename_prefix = f"{prefix}_{story_plot_id}_page_00"
-                        filename = self.generate_unique_filename(filename_prefix, "png")
                         size_bytes = len(image_data)
                         cover_page_content = f"表紙: {title}" if title else "表紙イラスト"
                         
+                        # page_index=0でpage_00.pngが自動生成される
                         save_result = self.save_image_to_storage(
                             image_data=image_data,
-                            filename=filename,
+                            filename="cover.png",
                             user_id=user_id,
-                            story_id=story_id,  # storybook_idまたはstory_plot_idを使用
+                            story_id=story_id,
                             content_type="image/png",
-                            page_index=0  # 表紙はpage_00
+                            page_index=0
                         )
                         
                         if save_result.get("success"):
                             return {
                                 "story_plot_id": story_plot_id,
                                 "page_number": 0,
-                                "filename": save_result.get("filename", filename),
+                                "filename": save_result.get("filename", "page_00.png"),
                                 "filepath": save_result.get("filepath", save_result.get("gcs_path")),
                                 "public_url": save_result.get("public_url"),
                                 "size_bytes": size_bytes,
@@ -502,7 +500,7 @@ class StoryBookGenerator(BaseImageGenerator):
                                 "reference_image_path": reference_url
                             }
                         else:
-                            return {"error": save_result.get("error"), "filename": filename}
+                            return {"error": save_result.get("error"), "filename": "page_00.png"}
 
             return {"error": "画像データが見つかりませんでした", "filename": None}
 
