@@ -60,18 +60,49 @@ jobs:
             "iam.googleapis.com"
           )
           
+          FAILED_APIS=()
           for api in "${REQUIRED_APIS[@]}"; do
             echo "📋 $api を確認中..."
             if gcloud services list --enabled --filter="name:$api" --format="value(name)" --project=$PROJECT_ID | grep -q "$api"; then
               echo "✅ $api は既に有効です"
             else
               echo "🔧 $api を有効化中..."
-              gcloud services enable $api --project=$PROJECT_ID || echo "⚠️ $api の有効化に失敗しました（権限が必要かもしれません）"
-              echo "⏳ APIの有効化が反映されるまで少し待機します..."
-              sleep 10
+              if gcloud services enable $api --project=$PROJECT_ID 2>&1; then
+                echo "✅ $api の有効化に成功しました"
+                echo "⏳ APIの有効化が反映されるまで少し待機します..."
+                sleep 10
+              else
+                echo "❌ $api の有効化に失敗しました"
+                FAILED_APIS+=("$api")
+              fi
             fi
           done
-          echo "✅ APIの確認が完了しました"
+          
+          if [ ${#FAILED_APIS[@]} -gt 0 ]; then
+            echo ""
+            echo "⚠️ 以下のAPIの有効化に失敗しました:"
+            for api in "${FAILED_APIS[@]}"; do
+              echo "  - $api"
+            done
+            echo ""
+            echo "💡 解決方法:"
+            echo "1. Google Cloud Consoleから手動で有効化:"
+            echo "   https://console.developers.google.com/apis/library?project=$PROJECT_ID"
+            echo ""
+            echo "2. または、サービスアカウントに権限を付与:"
+            echo "   gcloud projects add-iam-policy-binding $PROJECT_ID \\"
+            echo "     --member=\"serviceAccount:YOUR_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com\" \\"
+            echo "     --role=\"roles/serviceusage.serviceUsageAdmin\""
+            echo ""
+            echo "3. または、プロジェクトオーナー権限を付与:"
+            echo "   gcloud projects add-iam-policy-binding $PROJECT_ID \\"
+            echo "     --member=\"serviceAccount:YOUR_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com\" \\"
+            echo "     --role=\"roles/owner\""
+            echo ""
+            echo "⚠️ 警告: APIが有効化されていない場合、デプロイが失敗する可能性があります"
+          else
+            echo "✅ すべてのAPIの確認が完了しました"
+          fi
 
       - name: Grant Secret Manager Permissions
         run: |
@@ -178,27 +209,38 @@ jobs:
           echo ""
           echo "💡 よくある問題と解決方法:"
           echo ""
-          echo "1. Secret Manager APIが有効化されていない"
+          echo "1. Cloud Resource Manager APIが有効化されていない（SERVICE_DISABLEDエラー）"
+          echo "   → https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=$PROJECT_ID"
+          echo "   → または: gcloud services enable cloudresourcemanager.googleapis.com --project=$PROJECT_ID"
+          echo "   → 注意: GitHub Actionsのサービスアカウントに権限がない場合は、手動で有効化が必要です"
+          echo ""
+          echo "2. Secret Manager APIが有効化されていない"
           echo "   → https://console.developers.google.com/apis/api/secretmanager.googleapis.com/overview?project=$PROJECT_ID"
           echo "   → または: gcloud services enable secretmanager.googleapis.com --project=$PROJECT_ID"
           echo ""
-          echo "2. Cloud RunサービスアカウントにSecret Manager権限が不足している"
+          echo "3. Cloud RunサービスアカウントにSecret Manager権限が不足している"
           echo "   → PROJECT_NUMBER=\$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')"
           echo "   → gcloud projects add-iam-policy-binding $PROJECT_ID \\"
           echo "       --member=\"serviceAccount:\$PROJECT_NUMBER-compute@developer.gserviceaccount.com\" \\"
           echo "       --role=\"roles/secretmanager.secretAccessor\""
           echo ""
-          echo "3. Secret Managerのシークレットが存在しない"
+          echo "4. Secret Managerのシークレットが存在しない"
           echo "   → gcloud secrets list --project=$PROJECT_ID で確認"
           echo "   → 作成: echo 'value' | gcloud secrets create SECRET_NAME --data-file=- --project=$PROJECT_ID"
           echo ""
-          echo "4. Cloud Buildのサービスアカウントに権限が不足している"
+          echo "5. GitHub ActionsのサービスアカウントにAPI有効化権限が不足している"
+          echo "   → サービスアカウントに以下の権限を付与:"
+          echo "   → gcloud projects add-iam-policy-binding $PROJECT_ID \\"
+          echo "       --member=\"serviceAccount:YOUR_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com\" \\"
+          echo "       --role=\"roles/serviceusage.serviceUsageAdmin\""
+          echo ""
+          echo "6. Cloud Buildのサービスアカウントに権限が不足している"
           echo "   → Cloud Build APIが有効か確認"
           echo ""
-          echo "5. Cloud Runへのデプロイ権限が不足している"
+          echo "7. Cloud Runへのデプロイ権限が不足している"
           echo "   → Cloud Run Admin権限が必要"
           echo ""
-          echo "6. Dockerイメージのビルドエラー"
+          echo "8. Dockerイメージのビルドエラー"
           echo "   → requirements.txtやDockerfileを確認"
           echo ""
           echo "📋 ビルドステップの詳細を確認するには:"
