@@ -565,19 +565,54 @@ async def get_generation_progress(
             *[1 if getattr(storybook, f"page_{i}_image_url", None) else 0 for i in range(1, 11)]
         ])
         
-        # 実際のページ数を動的に計算（内容があるページをカウント）
+        # 実際のページ数を動的に計算（内容があるページをカウント、空文字列は除外）
         actual_pages = sum([
-            1 if getattr(storybook, f"page_{i}", "") else 0 for i in range(1, 11)
+            1 if getattr(storybook, f"page_{i}", None) and getattr(storybook, f"page_{i}", "").strip() else 0 for i in range(1, 11)
         ])
         total_pages = 1 + actual_pages  # 表紙 + 実際のページ数（最大11ページ: 表紙+10ページ）
-        progress_percent = int((generated_pages / total_pages) * 100) if total_pages > 0 else 0
+        
+        # 詳細進捗情報を取得
+        generation_progress = storybook.generation_progress or {}
+        current_page = generation_progress.get("current_page", 0)
+        current_step = generation_progress.get("current_step", "")
+        completed_pages = generation_progress.get("completed_pages", generated_pages)
+        
+        # 各ステップの進捗率（1ページあたり）
+        step_progress_map = {
+            "prompt": 10,      # 0-20%の中間
+            "api_call": 40,    # 20-60%の中間
+            "saving": 75,      # 60-90%の中間
+            "completed": 95    # 90-100%の中間
+        }
+        
+        # 画像生成が開始されていない、またはまだ1つも画像が生成されていない場合は0%
+        if storybook.image_generation_status == "pending":
+            progress_percent = 0
+            current_page = 0
+        elif storybook.image_generation_status == "completed":
+            progress_percent = 100
+            current_page = total_pages
+        elif current_step and current_page > 0:
+            # 詳細進捗情報がある場合、各ステップの進捗を考慮
+            current_step_progress = step_progress_map.get(current_step, 0)
+            # 完了ページの進捗 + 現在ページのステップ進捗
+            progress_percent = int((completed_pages / total_pages) * 100 + (current_step_progress / total_pages)) if total_pages > 0 else 0
+            progress_percent = min(100, max(0, progress_percent))  # 0-100%の範囲に制限
+        elif generated_pages == 0:
+            progress_percent = 0
+            current_page = 0
+        else:
+            # 詳細進捗情報がない場合は従来の計算方法
+            progress_percent = int((generated_pages / total_pages) * 100) if total_pages > 0 else 0
+            current_page = generated_pages
         
         return {
             "storybook_id": storybook_id,
-            "current_page": generated_pages,
+            "current_page": current_page,
             "total_pages": total_pages,
             "progress_percent": progress_percent,
-            "status": str(storybook.image_generation_status)
+            "status": str(storybook.image_generation_status),
+            "current_step": current_step  # 現在のステップを追加
         }
         
     except HTTPException:

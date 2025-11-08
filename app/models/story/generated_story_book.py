@@ -57,6 +57,7 @@ class StoryBook(SupabaseBase):
     # 画像生成の状態管理
     image_generation_status = Column(Enum("pending", "generating", "completed", "failed", name="image_generation_status_enum"), 
                                    nullable=False, default="pending", comment="画像生成状態")
+    generation_progress = Column(JSON, nullable=True, comment="画像生成の詳細進捗情報 {current_page: int, current_step: str, completed_pages: int}")
     
     # リレーションシップ
     story_plot = relationship("StoryPlot", back_populates="storybooks")

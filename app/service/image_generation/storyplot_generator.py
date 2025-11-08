@@ -45,6 +45,9 @@ class StoryPlotGenerator(ImageToImageGenerator):
             # 総ページ数を計算
             total_pages = self._get_total_pages(story_plot)
             
+            # 進捗更新: プロンプト生成開始
+            self._update_generation_progress(db, story_plot_id, page_number, "prompt", total_pages)
+            
             # 絵本風のプロンプトを作成（story_plotsデータを活用、アップロード画像の特徴を反映）
             enhanced_prompt = self._create_storyplot_prompt(
                 page_content, protagonist_name, protagonist_type, setting_place, story_plot, 
@@ -63,6 +66,9 @@ class StoryPlotGenerator(ImageToImageGenerator):
             print(f"🖼️ 参考画像: {reference_image_path}")
             print(f"💪 強度: {strength}")
             
+            # 進捗更新: API呼び出し開始
+            self._update_generation_progress(db, story_plot_id, page_number, "api_call", total_pages)
+            
             # Image-to-Image生成を実行
             image_info = self.generate_image_to_image(
                 prompt=enhanced_prompt,
@@ -73,6 +79,9 @@ class StoryPlotGenerator(ImageToImageGenerator):
                 story_id=story_id,  # storybook_idまたはstory_plot_idを使用
                 page_index=page_number  # ページ番号を指定してpage_XX.png形式のファイル名を生成
             )
+            
+            # 進捗更新: ストレージ保存開始
+            self._update_generation_progress(db, story_plot_id, page_number, "saving", total_pages)
             
             # StoryPlot固有の情報を追加
             image_info.update({
@@ -94,6 +103,9 @@ class StoryPlotGenerator(ImageToImageGenerator):
             
             # 生成された画像URLをSupabaseのstory_booksテーブルに自動保存
             self._save_image_url_to_storybook(db, story_plot_id, page_number, image_info.get('public_url'), user_id)
+            
+            # 進捗更新: 完了
+            self._update_generation_progress(db, story_plot_id, page_number, "completed", total_pages)
             
             return image_info
             
@@ -194,6 +206,21 @@ class StoryPlotGenerator(ImageToImageGenerator):
             print(f"🖼️ 参考画像: {reference_image_path}")
             print(f"💪 強度: {strength}")
             
+            # 総ページ数を計算（表紙 + 実際のページ数）
+            total_pages = 1 + min(story_pages, 10)  # 表紙 + 最大10ページ
+            
+            # 画像生成開始時に進捗を初期化
+            storybook = db.query(StoryBook).filter(StoryBook.story_plot_id == story_plot_id).first()
+            if storybook:
+                storybook.image_generation_status = "generating"
+                storybook.generation_progress = {
+                    "current_page": 0,
+                    "current_step": "prompt",
+                    "completed_pages": 0,
+                    "total_pages": total_pages
+                }
+                db.commit()
+            
             generated_images = []
 
             # 先に表紙を生成（page_00）: StoryBookGenerator を用いて参照画像ありのカバー生成
@@ -272,6 +299,62 @@ class StoryPlotGenerator(ImageToImageGenerator):
             print(f"❌ StoryPlot全ページi2i生成エラー: {e}")
             raise e
 
+    def _update_generation_progress(
+        self, 
+        db: Session, 
+        story_plot_id: int, 
+        current_page: int, 
+        current_step: str, 
+        total_pages: int,
+        completed_pages: int = None
+    ):
+        """画像生成の進捗を更新
+        
+        Args:
+            current_step: "prompt", "api_call", "saving", "completed"のいずれか
+        """
+        try:
+            storybook = db.query(StoryBook).filter(
+                StoryBook.story_plot_id == story_plot_id
+            ).first()
+            
+            if not storybook:
+                return
+            
+            # 完了ページ数を計算（未指定の場合）
+            if completed_pages is None:
+                completed_pages = sum([
+                    1 if storybook.cover_image_url else 0,
+                    *[1 if getattr(storybook, f"page_{i}_image_url", None) else 0 for i in range(1, 11)]
+                ])
+                # 現在処理中のページが完了している場合は除外
+                if current_step == "completed":
+                    completed_pages = max(0, completed_pages - 1)
+            
+            # 進捗情報を更新
+            storybook.generation_progress = {
+                "current_page": current_page,
+                "current_step": current_step,
+                "completed_pages": completed_pages,
+                "total_pages": total_pages
+            }
+            
+            # 画像生成状態を更新
+            if current_step == "completed":
+                # 全ページ完了かチェック
+                if completed_pages + 1 >= total_pages:
+                    storybook.image_generation_status = "completed"
+                else:
+                    storybook.image_generation_status = "generating"
+            else:
+                storybook.image_generation_status = "generating"
+            
+            db.commit()
+            
+        except Exception as e:
+            print(f"⚠️ 進捗更新エラー: {e}")
+            db.rollback()
+    
     def _save_image_url_to_storybook(self, db: Session, story_plot_id: int, page_number: int, image_url: str, user_id: str = None):
         """生成された画像URLをSupabaseのstory_booksテーブルに保存（最大10ページまで対応）"""
         try:
