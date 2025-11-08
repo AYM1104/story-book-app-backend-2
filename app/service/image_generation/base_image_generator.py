@@ -62,17 +62,22 @@ class BaseImageGenerator:
         )
 
     def encode_image_to_base64(self, image_path: str) -> str:
-        """画像ファイルをBase64エンコード"""
+        """画像ファイルをBase64エンコード（GCSのURLの場合はGCSクライアントを使用）"""
         try:
             if image_path.startswith("https://") or image_path.startswith("http://"):
-                # GCSのURLの場合は直接ダウンロード（コンテンツタイプ検証とタイムアウト）
-                import requests
-                response = requests.get(image_path, timeout=10)
-                response.raise_for_status()
-                content_type = response.headers.get('Content-Type', '')
-                if not content_type.startswith('image/'):
-                    raise ValueError(f"画像URLのContent-Typeが不正です: {content_type}")
-                image_data = response.content
+                # GCSのURLの場合はGCSクライアントを使用してダウンロード（認証済み）
+                if 'storage.googleapis.com' in image_path:
+                    # GCSサービスを使用してダウンロード
+                    image_data = self.gcs_service.download_file(image_path)
+                else:
+                    # その他のHTTP/HTTPS URLの場合はrequestsを使用
+                    import requests
+                    response = requests.get(image_path, timeout=10)
+                    response.raise_for_status()
+                    content_type = response.headers.get('Content-Type', '')
+                    if not content_type.startswith('image/'):
+                        raise ValueError(f"画像URLのContent-Typeが不正です: {content_type}")
+                    image_data = response.content
             else:
                 # ローカルファイルの場合
                 with open(image_path, "rb") as image_file:

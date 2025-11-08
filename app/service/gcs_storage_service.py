@@ -3,10 +3,12 @@ import uuid
 import re
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
+from urllib.parse import unquote
 from google.cloud import storage
 from google.oauth2 import service_account
 from dotenv import load_dotenv
 import json
+from app.database.supabase_base import get_jst_now
 
 load_dotenv()
 
@@ -109,8 +111,8 @@ class GCSStorageService:
             raise ValueError(error_msg)
 
     def generate_unique_filename(self, prefix: str = "uploaded_image", extension: str = "jpg") -> str:
-        """ユニークなファイル名を生成"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        """ユニークなファイル名を生成（日本時間）"""
+        timestamp = get_jst_now().strftime("%Y%m%d_%H%M%S")
         unique_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
@@ -120,8 +122,8 @@ class GCSStorageService:
         return f"page_{page_index:02d}.{safe_ext}"
 
     def _get_user_path(self, user_id: str, file_type: str = "uploads") -> str:
-        """ユーザー別パスを生成（user_id/uploads/yyyy/mm/dd形式）"""
-        now = datetime.now()
+        """ユーザー別パスを生成（user_id/uploads/yyyy/mm/dd形式、日本時間）"""
+        now = get_jst_now()
         year = now.strftime("%Y")
         month = now.strftime("%m")
         day = now.strftime("%d")
@@ -155,7 +157,7 @@ class GCSStorageService:
                 "public_url": public_url,  # storage.googleapis.com形式のURLを使用
                 "size_bytes": len(file_content),
                 "content_type": content_type,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_jst_now().isoformat(),
                 "user_id": user_id
             }
             
@@ -204,7 +206,7 @@ class GCSStorageService:
                 "public_url": public_url,  # storage.googleapis.com形式のURLを使用
                 "size_bytes": len(file_content),
                 "content_type": content_type,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_jst_now().isoformat(),
                 "user_id": user_id,
                 "story_id": story_id
             }
@@ -251,7 +253,7 @@ class GCSStorageService:
                 "public_url": public_url,
                 "size_bytes": len(file_content),
                 "content_type": content_type,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_jst_now().isoformat(),
                 "user_id": user_id,
                 "story_id": story_id,
                 "is_cover": True
@@ -372,6 +374,52 @@ class GCSStorageService:
                 "success": False,
                 "error": str(e)
             }
+
+    def download_file(self, file_path_or_url: str) -> bytes:
+        """GCSからファイルをダウンロード（URLまたはパス形式に対応）
+        
+        Args:
+            file_path_or_url: GCS上のファイルパスまたはURL
+            
+        Returns:
+            bytes: ファイルのバイトデータ
+            
+        Raises:
+            ValueError: ファイルが見つからない場合
+            Exception: ダウンロードエラー
+        """
+        try:
+            # URL形式の場合はパスを抽出
+            file_path = file_path_or_url
+            if file_path_or_url.startswith('http'):
+                # storage.googleapis.com形式のURLからパスを抽出
+                if 'storage.googleapis.com' in file_path_or_url:
+                    # クエリパラメータを除去
+                    url_without_query = file_path_or_url.split('?')[0]
+                    # https://storage.googleapis.com/bucket_name/path/to/file から path/to/file を抽出
+                    parts = url_without_query.split('/')
+                    bucket_index = parts.index(self.bucket_name) if self.bucket_name in parts else -1
+                    if bucket_index >= 0 and bucket_index < len(parts) - 1:
+                        # URLエンコードされた文字をデコード（例: %7C -> |）
+                        file_path = '/'.join(parts[bucket_index + 1:])
+                        file_path = unquote(file_path)
+                    else:
+                        raise ValueError(f"無効なURL形式です: {file_path_or_url}")
+                else:
+                    raise ValueError(f"サポートされていないURL形式です: {file_path_or_url}")
+            
+            # GCSからファイルをダウンロード
+            blob = self.bucket.blob(file_path)
+            if not blob.exists():
+                raise ValueError(f"ファイルが存在しません: {file_path}")
+            
+            file_data = blob.download_as_bytes()
+            print(f"✅ GCSファイルダウンロード成功: {file_path} ({len(file_data)} bytes)")
+            return file_data
+            
+        except Exception as e:
+            print(f"❌ GCSファイルダウンロードエラー: {str(e)}")
+            raise e
 
 
 # グローバルインスタンス（シングルトンパターン的な使用）
