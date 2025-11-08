@@ -65,40 +65,21 @@ class ThemeGenerator:
             tone, target_age, reading_level
         )
 
-        try:
-            # プロンプト全文をターミナルに表示
-            print("=" * 80)
-            print("【Gemini API プロンプト全文 - テーマ案生成】")
-            print("=" * 80)
-            print(prompt)
-            print("=" * 80)
-            
-            # Gemini 2.5 Flashでテーマ案のみを生成
-            response = self.model.generate_content(prompt)
-            print(f"✅ Gemini API レスポンス受信成功")
-            print(f"レスポンステキスト（最初の500文字）: {response.text[:500]}")
-            
-            theme_data = self._parse_theme_options_response(response.text)
-            print(f"✅ JSON解析成功")
-            return theme_data
-
-        except json.JSONDecodeError as e:
-            print(f"❌ JSON解析エラー: {e}")
-            print(f"レスポンステキスト（全文）: {response.text if 'response' in locals() else 'レスポンス未取得'}")
-            print(f"⚠️ フォールバックテーマを使用します")
-            import traceback
-            print(f"トレースバック: {traceback.format_exc()}")
-            # エラー時はフォールバック
-            return self._generate_fallback_theme_options(protagonist_name, protagonist_type, setting_place, tone)
+        # プロンプト全文をターミナルに表示
+        print("=" * 80)
+        print("【Gemini API プロンプト全文 - テーマ案生成】")
+        print("=" * 80)
+        print(prompt)
+        print("=" * 80)
         
-        except Exception as e:
-            print(f"❌ Gemini API エラー: {e}")
-            print(f"エラータイプ: {type(e).__name__}")
-            import traceback
-            print(f"トレースバック: {traceback.format_exc()}")
-            print(f"⚠️ フォールバックテーマを使用します")
-            # エラー時はフォールバック
-            return self._generate_fallback_theme_options(protagonist_name, protagonist_type, setting_place, tone)
+        # Gemini 2.5 Flashでテーマ案のみを生成
+        response = self.model.generate_content(prompt)
+        print(f"✅ Gemini API レスポンス受信成功")
+        print(f"レスポンステキスト（最初の500文字）: {response.text[:500]}")
+        
+        theme_data = self._parse_theme_options_response(response.text)
+        print(f"✅ JSON解析成功")
+        return theme_data
 
     def _create_theme_options_prompt(self, protagonist_name: str, protagonist_type: str, 
                                     setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
@@ -184,41 +165,6 @@ class ThemeGenerator:
             print(f"抽出されたJSONテキスト（全文）: {json_text if 'json_text' in locals() else '抽出失敗'}")
             raise ValueError("Geminiからのレスポンスが正しいJSON形式ではありません")
 
-    def _generate_fallback_theme_options(self, protagonist_name: str, protagonist_type: str, setting_place: str, tone: str) -> Dict[str, Any]:
-        """エラー時のフォールバック用テーマ案のみ"""
-        print("=" * 80)
-        print("⚠️ フォールバックテーマを生成しています")
-        print(f"  主人公: {protagonist_name}")
-        print(f"  タイプ: {protagonist_type}")
-        print(f"  舞台: {setting_place}")
-        print(f"  雰囲気: {tone}")
-        print("=" * 80)
-        
-        fallback_data = {
-            "theme_options": {
-                "theme1": {
-                    "theme_id": "adventure",
-                    "title": f"{protagonist_name}の冒険",
-                    "description": f"{protagonist_name}が{setting_place}で冒険に出かける物語。勇気を出して新しいことに挑戦します。",
-                    "keywords": ["冒険", "勇気", "挑戦"]
-                },
-                "theme2": {
-                    "theme_id": "friendship",
-                    "title": f"{protagonist_name}の新しい友達",
-                    "description": f"{protagonist_name}が{setting_place}で新しい友達と出会う物語。友情の大切さを学びます。",
-                    "keywords": ["友情", "優しさ", "協力"]
-                },
-                "theme3": {
-                    "theme_id": "discovery",
-                    "title": f"{protagonist_name}の不思議な発見",
-                    "description": f"{protagonist_name}が{setting_place}で不思議なものを見つける物語。好奇心を持って探求します。",
-                    "keywords": ["発見", "探求", "好奇心"]
-                }
-            }
-        }
-        
-        print(f"✅ フォールバックテーマ生成完了")
-        return fallback_data
 
 # シングルトンインスタンス
 theme_generator = ThemeGenerator()
