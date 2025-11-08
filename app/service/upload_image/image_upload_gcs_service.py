@@ -10,6 +10,7 @@ from typing import Dict, Any
 from google.cloud import storage
 from google.oauth2 import service_account
 from dotenv import load_dotenv
+from app.database.supabase_base import get_jst_now
 
 load_dotenv()
 
@@ -113,14 +114,14 @@ class ImageUploadGCSService:
             raise ValueError(error_msg)
 
     def generate_unique_filename(self, prefix: str = "uploaded_image", extension: str = "jpg") -> str:
-        """ユニークなファイル名を生成"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        """ユニークなファイル名を生成（日本時間）"""
+        timestamp = get_jst_now().strftime("%Y%m%d_%H%M%S")
         unique_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
     def _get_user_path(self, user_id: str, file_type: str = "uploads") -> str:
-        """ユーザー別パスを生成（user_id/uploads/yyyy/mm/dd形式）"""
-        now = datetime.now()
+        """ユーザー別パスを生成（user_id/uploads/yyyy/mm/dd形式、日本時間）"""
+        now = get_jst_now()
         year = now.strftime("%Y")
         month = now.strftime("%m")
         day = now.strftime("%d")
@@ -172,7 +173,7 @@ class ImageUploadGCSService:
                 "public_url": public_url,
                 "size_bytes": len(file_content),
                 "content_type": content_type,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_jst_now().isoformat(),
                 "user_id": user_id,
                 "processing_time": processing_time
             }

@@ -8,7 +8,8 @@ JST = timezone(timedelta(hours=9))
 
 def get_jst_now() -> datetime:
     """現在時刻を日本時間（JST）で取得"""
-    return datetime.now(JST)
+    # UTC時刻を取得してからJSTに変換することで、システムのタイムゾーンに依存しない
+    return datetime.now(timezone.utc).astimezone(JST)
 
 # Supabase用のベースクラス
 class SupabaseBase(DeclarativeBase):
