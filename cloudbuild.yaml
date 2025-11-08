@@ -10,6 +10,7 @@ steps:
   
   # Cloud Runにデプロイ
   # Secret Managerから環境変数を読み込む
+  # カスタムサービスアカウントを使用（わかりやすい名前）
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -23,6 +24,8 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--service-account'
+      - 'ehonnotane-backend-sa@$PROJECT_ID.iam.gserviceaccount.com'
       - '--port'
       - '8080'
       - '--memory'
