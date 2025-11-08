@@ -4,6 +4,7 @@
 import os
 import uuid
 import time
+import re
 from datetime import datetime
 from typing import Dict, Any
 from google.cloud import storage
@@ -32,6 +33,50 @@ class ImageUploadGCSService:
                 f"❌ GCS初期化エラー: 以下の環境変数が設定されていません: {', '.join(missing_vars)}\n"
                 f"設定方法:\n"
                 f"  export GCS_BUCKET_NAME=your-bucket-name"
+            )
+            raise ValueError(error_msg)
+        
+        # バケット名の検証（GCSの命名規則に準拠）
+        self.bucket_name = self.bucket_name.strip() if self.bucket_name else ""
+        if not self.bucket_name:
+            raise ValueError(
+                "❌ GCS初期化エラー: GCS_BUCKET_NAMEが空です。\n"
+                "設定方法: export GCS_BUCKET_NAME=your-bucket-name"
+            )
+        
+        # GCSバケット名の命名規則チェック
+        # - 3〜63文字の長さ
+        # - 小文字、数字、ハイフン（-）のみ使用可能
+        # - 数字または文字で始まり、数字または文字で終わる必要がある
+        # - 連続するハイフンは使用できない
+        bucket_name_errors = []
+        
+        if len(self.bucket_name) < 3 or len(self.bucket_name) > 63:
+            bucket_name_errors.append(f"バケット名の長さは3〜63文字である必要があります（現在: {len(self.bucket_name)}文字）")
+        
+        if not (self.bucket_name[0].isalnum() and self.bucket_name[-1].isalnum()):
+            bucket_name_errors.append(
+                f"バケット名は数字または文字で始まり、数字または文字で終わる必要があります（現在: '{self.bucket_name[0]}'で始まり、'{self.bucket_name[-1]}'で終わる）"
+            )
+        
+        # 使用可能な文字のチェック（小文字、数字、ハイフンのみ）
+        if not re.match(r'^[a-z0-9-]+$', self.bucket_name):
+            bucket_name_errors.append("バケット名は小文字、数字、ハイフン（-）のみ使用可能です")
+        
+        # 連続するハイフンのチェック
+        if '--' in self.bucket_name:
+            bucket_name_errors.append("バケット名に連続するハイフン（--）は使用できません")
+        
+        if bucket_name_errors:
+            error_msg = (
+                f"❌ GCSバケット名の検証エラー:\n"
+                f"バケット名: '{self.bucket_name}'\n"
+                f"問題点:\n" + "\n".join(f"  - {err}" for err in bucket_name_errors) + "\n"
+                f"GCSバケット名の命名規則:\n"
+                f"  - 3〜63文字の長さ\n"
+                f"  - 小文字、数字、ハイフン（-）のみ使用可能\n"
+                f"  - 数字または文字で始まり、数字または文字で終わる必要がある\n"
+                f"  - 連続するハイフンは使用できない"
             )
             raise ValueError(error_msg)
         

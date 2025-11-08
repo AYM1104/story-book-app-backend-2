@@ -82,10 +82,7 @@ class ThemeGenerator:
         for attempt in range(max_retries):
             try:
                 print(f"🔄 Gemini API呼び出し試行 {attempt + 1}/{max_retries}（タイムアウト: {timeout_seconds}秒）")
-                response = self.model.generate_content(
-                    prompt,
-                    request_options={"timeout": timeout_seconds}
-                )
+                response = self.model.generate_content(prompt)
                 print(f"✅ Gemini API レスポンス受信成功")
                 print(f"レスポンステキスト（最初の500文字）: {response.text[:500]}")
                 

@@ -27,6 +27,7 @@ gcloud services enable cloudbuild.googleapis.com
 gcloud services enable run.googleapis.com
 gcloud services enable containerregistry.googleapis.com
 gcloud services enable secretmanager.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
 ```
 
 ### 3. GCSバケットへの権限を設定

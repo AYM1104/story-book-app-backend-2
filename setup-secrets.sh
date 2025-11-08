@@ -41,6 +41,13 @@ echo ""
 read -p "GCS_BUCKET_NAME: " GCS_BUCKET_NAME
 
 echo ""
+
+# Auth0関連
+read -p "AUTH0_DOMAIN: " AUTH0_DOMAIN
+read -p "AUTH0_API_AUDIENCE: " AUTH0_API_AUDIENCE
+read -p "AUTH0_NATIVE_CLIENT_ID: " AUTH0_NATIVE_CLIENT_ID
+
+echo ""
 echo "シークレットを作成・更新しています..."
 echo ""
 
@@ -71,6 +78,9 @@ create_or_update_secret "SUPABASE_JWT_SECRET" "$SUPABASE_JWT_SECRET"
 create_or_update_secret "GEMINI_API_KEY" "$GEMINI_API_KEY"
 create_or_update_secret "GOOGLE_API_KEY" "$GOOGLE_API_KEY"
 create_or_update_secret "GCS_BUCKET_NAME" "$GCS_BUCKET_NAME"
+create_or_update_secret "AUTH0_DOMAIN" "$AUTH0_DOMAIN"
+create_or_update_secret "AUTH0_API_AUDIENCE" "$AUTH0_API_AUDIENCE"
+create_or_update_secret "AUTH0_NATIVE_CLIENT_ID" "$AUTH0_NATIVE_CLIENT_ID"
 
 echo ""
 echo "================================================"

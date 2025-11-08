@@ -48,7 +48,13 @@ def env_check():
         "STORAGE_TYPE": os.getenv("STORAGE_TYPE", "not_set"),
         "VISION_API_ENABLED": os.getenv("VISION_API_ENABLED", "not_set"),
         "GOOGLE_APPLICATION_CREDENTIALS_JSON": bool(os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")),
-        "GOOGLE_APPLICATION_CREDENTIALS": os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "not_set")
+        "GOOGLE_APPLICATION_CREDENTIALS": os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "not_set"),
+        # Auth0関連の環境変数
+        "AUTH0_DOMAIN": bool(os.getenv("AUTH0_DOMAIN")),
+        "AUTH0_API_AUDIENCE": bool(os.getenv("AUTH0_API_AUDIENCE")),
+        "AUTH0_NATIVE_CLIENT_ID": bool(os.getenv("AUTH0_NATIVE_CLIENT_ID")),
+        "AUTH0_MANAGEMENT_CLIENT_ID": bool(os.getenv("AUTH0_MANAGEMENT_CLIENT_ID")),
+        "AUTH0_MANAGEMENT_CLIENT_SECRET": bool(os.getenv("AUTH0_MANAGEMENT_CLIENT_SECRET"))
     }
     return {"environment_variables": env_vars}
 

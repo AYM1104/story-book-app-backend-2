@@ -24,6 +24,7 @@ gcloud config set project YOUR_PROJECT_ID
 gcloud services enable cloudbuild.googleapis.com
 gcloud services enable run.googleapis.com
 gcloud services enable containerregistry.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
 ```
 
 ### 2. Secret Managerへの環境変数の設定

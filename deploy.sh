@@ -85,6 +85,7 @@ gcloud services enable cloudbuild.googleapis.com --quiet
 gcloud services enable run.googleapis.com --quiet
 gcloud services enable containerregistry.googleapis.com --quiet
 gcloud services enable secretmanager.googleapis.com --quiet
+gcloud services enable cloudresourcemanager.googleapis.com --quiet
 
 echo ""
 echo -e "${GREEN}🔨 Cloud Buildでビルドとデプロイを実行中...${NC}"
