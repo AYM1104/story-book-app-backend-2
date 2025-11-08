@@ -5,7 +5,9 @@ import json
 import google.generativeai as genai
 from typing import Dict, Any
 import os
+import time
 from dotenv import load_dotenv
+from google.api_core import exceptions as google_exceptions
 
 load_dotenv()
 
@@ -72,14 +74,68 @@ class ThemeGenerator:
         print(prompt)
         print("=" * 80)
         
-        # Gemini 2.5 Flashでテーマ案のみを生成
-        response = self.model.generate_content(prompt)
-        print(f"✅ Gemini API レスポンス受信成功")
-        print(f"レスポンステキスト（最初の500文字）: {response.text[:500]}")
+        # Gemini 2.5 Flashでテーマ案のみを生成（リトライロジック付き）
+        max_retries = 3
+        retry_delay = 2.0  # 秒
+        timeout_seconds = 180.0  # 3分（180秒）
         
-        theme_data = self._parse_theme_options_response(response.text)
-        print(f"✅ JSON解析成功")
-        return theme_data
+        for attempt in range(max_retries):
+            try:
+                print(f"🔄 Gemini API呼び出し試行 {attempt + 1}/{max_retries}（タイムアウト: {timeout_seconds}秒）")
+                response = self.model.generate_content(
+                    prompt,
+                    request_options={"timeout": timeout_seconds}
+                )
+                print(f"✅ Gemini API レスポンス受信成功")
+                print(f"レスポンステキスト（最初の500文字）: {response.text[:500]}")
+                
+                theme_data = self._parse_theme_options_response(response.text)
+                print(f"✅ JSON解析成功")
+                return theme_data
+                
+            except google_exceptions.ServiceUnavailable as e:
+                # 503エラーの場合
+                error_str = str(e)
+                print(f"❌ Gemini API呼び出しエラー（503 Service Unavailable）（試行 {attempt + 1}/{max_retries}）: {error_str}")
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (attempt + 1)  # 指数バックオフ
+                    print(f"⏳ {wait_time}秒待機してリトライします...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"❌ 最大リトライ回数に達しました")
+                    raise Exception(f"Gemini API呼び出しが{max_retries}回失敗しました（503エラー）。最後のエラー: {error_str}")
+                    
+            except google_exceptions.DeadlineExceeded as e:
+                # タイムアウトエラーの場合
+                error_str = str(e)
+                print(f"❌ Gemini API呼び出しエラー（タイムアウト）（試行 {attempt + 1}/{max_retries}）: {error_str}")
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (attempt + 1)
+                    print(f"⏳ {wait_time}秒待機してリトライします...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"❌ 最大リトライ回数に達しました")
+                    raise Exception(f"Gemini API呼び出しが{max_retries}回失敗しました（タイムアウト）。最後のエラー: {error_str}")
+                    
+            except Exception as e:
+                error_str = str(e)
+                print(f"❌ Gemini API呼び出しエラー（試行 {attempt + 1}/{max_retries}）: {error_str}")
+                
+                # "503"や"Illegal metadata"を含むエラーの場合はリトライ
+                if "503" in error_str or "Illegal metadata" in error_str or "timeout" in error_str.lower():
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (attempt + 1)  # 指数バックオフ
+                        print(f"⏳ {wait_time}秒待機してリトライします...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        print(f"❌ 最大リトライ回数に達しました")
+                        raise Exception(f"Gemini API呼び出しが{max_retries}回失敗しました。最後のエラー: {error_str}")
+                else:
+                    # その他のエラーは即座に再スロー
+                    raise
 
     def _create_theme_options_prompt(self, protagonist_name: str, protagonist_type: str, 
                                     setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
