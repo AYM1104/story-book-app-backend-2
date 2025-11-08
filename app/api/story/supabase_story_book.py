@@ -269,7 +269,7 @@ async def get_supabase_storybook(
     
     return response_data
 
-@router.get("/user/{user_id}", response_model=list[StoryBookResponse])
+@router.get("/user/{user_id}")
 async def get_supabase_user_storybooks(
     user_id: str,
     year: Optional[int] = None,
@@ -277,13 +277,19 @@ async def get_supabase_user_storybooks(
     day: Optional[int] = None,
     db: Session = Depends(get_supabase_db)
 ):
-    """Supabase用のユーザーのストーリーブック一覧を取得するエンドポイント（月別・日別フィルタリング対応）"""
+    """Supabase用のユーザーのストーリーブック一覧を取得するエンドポイント（月別・日別フィルタリング対応）
+    
+    レスポンス形式:
+    - dayが指定されている場合: {"books": [...], "folder_count": int} (folder_countはDBから取得したカウント)
+    - それ以外: [...]
+    """
     
     query = db.query(StoryBook).filter(
         StoryBook.user_id == user_id
     )
     
     # 日付フィルタリング
+    folder_count = None
     if year is not None:
         if month is not None:
             if day is not None:
@@ -291,10 +297,14 @@ async def get_supabase_user_storybooks(
                 try:
                     target_date = datetime(year, month, day)
                     next_date = target_date + timedelta(days=1)
-                    query = query.filter(
+                    date_filtered_query = query.filter(
                         StoryBook.created_at >= target_date,
                         StoryBook.created_at < next_date
                     )
+                    # DBからカウントを取得（GCSより高速）
+                    folder_count = date_filtered_query.count()
+                    # データ取得用のクエリも同じフィルタを適用
+                    query = date_filtered_query
                 except ValueError:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -328,7 +338,7 @@ async def get_supabase_user_storybooks(
     
     storybooks = query.order_by(StoryBook.created_at.desc()).all()
     
-    return [
+    books = [
         {
             "id": storybook.id,
             "story_plot_id": storybook.story_plot_id,
@@ -348,6 +358,16 @@ async def get_supabase_user_storybooks(
         }
         for storybook in storybooks
     ]
+    
+    # 日別フィルタリングの場合はフォルダ数も返す
+    if folder_count is not None:
+        return {
+            "books": books,
+            "folder_count": folder_count
+        }
+    
+    # それ以外の場合は従来通りリストを返す（後方互換性のため）
+    return books
 
 # ユーザーの特定年月に作成した日の一覧（Supabase用）
 @router.get("/user/{user_id}/created-days")

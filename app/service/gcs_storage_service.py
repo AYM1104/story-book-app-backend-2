@@ -469,6 +469,43 @@ class GCSStorageService:
             print(f"❌ GCSファイルダウンロードエラー: {str(e)}")
             raise e
 
+    def count_folders_by_date(self, user_id: str, year: int, month: int, day: int) -> int:
+        """指定された日付に作成された絵本フォルダ数をカウント
+        
+        Args:
+            user_id: ユーザーID
+            year: 年
+            month: 月
+            day: 日
+            
+        Returns:
+            int: フォルダ数（story_idの数）
+        """
+        try:
+            # フォルダパスを生成（user_id/generated/YYYY/MM/DD/）
+            folder_prefix = f"{user_id}/generated/{year:04d}/{month:02d}/{day:02d}/"
+            
+            # 指定されたプレフィックスを持つすべてのblobを取得
+            blobs = self.bucket.list_blobs(prefix=folder_prefix)
+            
+            # ユニークなstory_idフォルダをカウント
+            folder_set = set()
+            for blob in blobs:
+                # パスからstory_idを抽出
+                # 例: user_id/generated/2025/11/09/123/page_00.png -> 123
+                relative_path = blob.name[len(folder_prefix):]
+                if '/' in relative_path:
+                    story_id = relative_path.split('/')[0]
+                    folder_set.add(story_id)
+            
+            folder_count = len(folder_set)
+            print(f"✅ フォルダ数カウント成功: {folder_prefix} -> {folder_count}個")
+            return folder_count
+            
+        except Exception as e:
+            print(f"❌ フォルダ数カウントエラー: {str(e)}")
+            return 0
+
 
 # グローバルインスタンス（シングルトンパターン的な使用）
 gcs_storage_service = GCSStorageService()
