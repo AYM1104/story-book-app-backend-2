@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, DateTime, text, event
+from sqlalchemy import Column, DateTime, event
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -21,17 +21,17 @@ class SupabaseBase(DeclarativeBase):
     """
     
     # 作成日時（自動設定、日本時間）
+    # Python側のイベントリスナーでJST時刻を設定するため、server_defaultは使用しない
     created_at = Column(
         DateTime(timezone=True), 
-        server_default=text("timezone('Asia/Tokyo', now())"),
         nullable=False,
         comment="作成日時（日本時間）"
     )
     
     # 更新日時（自動更新、日本時間）
+    # Python側のイベントリスナーでJST時刻を設定するため、server_defaultは使用しない
     updated_at = Column(
         DateTime(timezone=True), 
-        server_default=text("timezone('Asia/Tokyo', now())"),
         nullable=False,
         comment="更新日時（日本時間）"
     )
@@ -59,9 +59,10 @@ class SupabaseBase(DeclarativeBase):
 def receive_before_insert(mapper, connection, target):
     """インサート前にcreated_atとupdated_atをJSTで設定"""
     jst_now = get_jst_now()
-    if hasattr(target, 'created_at') and target.created_at is None:
+    # created_atとupdated_atを常にJST時刻で設定（Noneチェックは不要）
+    if hasattr(target, 'created_at'):
         target.created_at = jst_now
-    if hasattr(target, 'updated_at') and target.updated_at is None:
+    if hasattr(target, 'updated_at'):
         target.updated_at = jst_now
 
 
