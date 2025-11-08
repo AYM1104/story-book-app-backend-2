@@ -40,16 +40,28 @@ def get_my_credits(
             "plan": プランタイプ（FREE, STARTER, PLUS, PREMIUM）
         }
     """
-    # ユーザーを取得または作成（初回ログイン時は自動作成＋300クレジット付与）
-    user = get_user_or_create(payload, db)
-    
-    balance = CreditsService.get_balance(db, user.id)
-    plan = CreditsService.get_plan(db, user.id)
-    
-    return {
-        "balance": balance,
-        "plan": plan.value
-    }
+    try:
+        # ユーザーを取得または作成（初回ログイン時は自動作成＋300クレジット付与）
+        user = get_user_or_create(payload, db)
+        
+        balance = CreditsService.get_balance(db, user.id)
+        plan = CreditsService.get_plan(db, user.id)
+        
+        return {
+            "balance": balance,
+            "plan": plan.value
+        }
+    except HTTPException:
+        # HTTPExceptionはそのまま再スロー
+        raise
+    except Exception as e:
+        # その他のエラーは500エラーとして返す（詳細なエラーメッセージを含む）
+        import traceback
+        error_detail = f"クレジット情報の取得中にエラーが発生しました: {str(e)}\n{traceback.format_exc()}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_detail
+        )
 
 
 @router.post("/purchase", response_model=PurchaseCreditsResponse)

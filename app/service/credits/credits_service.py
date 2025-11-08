@@ -42,7 +42,14 @@ class CreditsService:
             Subscription.user_id == user_id
         ).first()
         
-        return subscription.plan if subscription else PlanType.FREE
+        if not subscription:
+            return PlanType.FREE
+        
+        # subscription.planがNoneの場合の処理
+        if subscription.plan is None:
+            return PlanType.FREE
+        
+        return subscription.plan
     
     @staticmethod
     def add_credits(
