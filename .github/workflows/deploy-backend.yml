@@ -71,13 +71,32 @@ jobs:
           done
           echo "✅ APIの確認が完了しました"
 
+      - name: Grant Secret Manager Permissions
+        run: |
+          echo "🔐 Cloud RunサービスアカウントにSecret Manager権限を付与中..."
+          PROJECT_ID=$(gcloud config get-value project)
+          PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+          
+          # Cloud Runのデフォルトサービスアカウントに権限を付与
+          SERVICE_ACCOUNT="$PROJECT_NUMBER-compute@developer.gserviceaccount.com"
+          echo "サービスアカウント: $SERVICE_ACCOUNT"
+          
+          echo "Secret Manager Secret Accessor権限を付与中..."
+          gcloud projects add-iam-policy-binding $PROJECT_ID \
+            --member="serviceAccount:$SERVICE_ACCOUNT" \
+            --role="roles/secretmanager.secretAccessor" \
+            --condition=None || echo "⚠️ 権限の付与に失敗しました（既に付与されている可能性があります）"
+          
+          echo "✅ 権限の付与が完了しました"
+
       - name: Verify Secret Manager Secrets
         run: |
           echo "🔍 Secret Managerの設定を確認中..."
-          REQUIRED_SECRETS=("SUPABASE_URL" "SUPABASE_ANON_KEY" "SUPABASE_DB_URL" "GEMINI_API_KEY" "GCS_BUCKET_NAME")
+          PROJECT_ID=$(gcloud config get-value project)
+          REQUIRED_SECRETS=("SUPABASE_URL" "SUPABASE_ANON_KEY" "SUPABASE_DB_URL" "GEMINI_API_KEY" "GCS_BUCKET_NAME" "SUPABASE_SERVICE_ROLE_KEY" "GOOGLE_API_KEY")
           MISSING_SECRETS=()
           for secret in "${REQUIRED_SECRETS[@]}"; do
-            if ! gcloud secrets describe "$secret" >/dev/null 2>&1; then
+            if ! gcloud secrets describe "$secret" --project=$PROJECT_ID >/dev/null 2>&1; then
               MISSING_SECRETS+=("$secret")
             fi
           done
@@ -86,6 +105,10 @@ jobs:
             for secret in "${MISSING_SECRETS[@]}"; do
               echo "  - $secret"
             done
+            echo ""
+            echo "シークレットを作成するには:"
+            echo "  echo 'your-value' | gcloud secrets create SECRET_NAME --data-file=- --project=$PROJECT_ID"
+            echo ""
             echo "デプロイは続行しますが、サービスが正常に動作しない可能性があります。"
           else
             echo "✅ すべての必須シークレットが設定されています"
@@ -157,16 +180,23 @@ jobs:
           echo "   → https://console.developers.google.com/apis/api/secretmanager.googleapis.com/overview?project=$PROJECT_ID"
           echo "   → または: gcloud services enable secretmanager.googleapis.com --project=$PROJECT_ID"
           echo ""
-          echo "2. Secret Managerのシークレットが存在しない"
-          echo "   → gcloud secrets list --project=$PROJECT_ID で確認"
+          echo "2. Cloud RunサービスアカウントにSecret Manager権限が不足している"
+          echo "   → PROJECT_NUMBER=\$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')"
+          echo "   → gcloud projects add-iam-policy-binding $PROJECT_ID \\"
+          echo "       --member=\"serviceAccount:\$PROJECT_NUMBER-compute@developer.gserviceaccount.com\" \\"
+          echo "       --role=\"roles/secretmanager.secretAccessor\""
           echo ""
-          echo "3. Cloud Buildのサービスアカウントに権限が不足している"
+          echo "3. Secret Managerのシークレットが存在しない"
+          echo "   → gcloud secrets list --project=$PROJECT_ID で確認"
+          echo "   → 作成: echo 'value' | gcloud secrets create SECRET_NAME --data-file=- --project=$PROJECT_ID"
+          echo ""
+          echo "4. Cloud Buildのサービスアカウントに権限が不足している"
           echo "   → Cloud Build APIが有効か確認"
           echo ""
-          echo "4. Cloud Runへのデプロイ権限が不足している"
+          echo "5. Cloud Runへのデプロイ権限が不足している"
           echo "   → Cloud Run Admin権限が必要"
           echo ""
-          echo "5. Dockerイメージのビルドエラー"
+          echo "6. Dockerイメージのビルドエラー"
           echo "   → requirements.txtやDockerfileを確認"
           echo ""
           echo "📋 ビルドステップの詳細を確認するには:"
