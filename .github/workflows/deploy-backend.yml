@@ -126,7 +126,7 @@ jobs:
         run: |
           echo "🔍 Secret Managerの設定を確認中..."
           PROJECT_ID=$(gcloud config get-value project)
-          REQUIRED_SECRETS=("SUPABASE_URL" "SUPABASE_ANON_KEY" "SUPABASE_DB_URL" "GEMINI_API_KEY" "GCS_BUCKET_NAME" "SUPABASE_SERVICE_ROLE_KEY" "GOOGLE_API_KEY")
+          REQUIRED_SECRETS=("SUPABASE_URL" "SUPABASE_ANON_KEY" "SUPABASE_DB_URL" "GOOGLE_API_KEY_Free" "GOOGLE_API_KEY_Paid" "GCS_BUCKET_NAME" "SUPABASE_SERVICE_ROLE_KEY")
           MISSING_SECRETS=()
           for secret in "${REQUIRED_SECRETS[@]}"; do
             if ! gcloud secrets describe "$secret" --project=$PROJECT_ID >/dev/null 2>&1; then
