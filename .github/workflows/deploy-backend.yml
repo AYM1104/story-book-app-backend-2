@@ -44,6 +44,33 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
 
+      - name: Enable Required APIs
+        run: |
+          echo "🔧 必要なAPIを有効化中..."
+          PROJECT_ID=$(gcloud config get-value project)
+          
+          # 必要なAPIのリスト
+          REQUIRED_APIS=(
+            "secretmanager.googleapis.com"
+            "cloudbuild.googleapis.com"
+            "run.googleapis.com"
+            "containerregistry.googleapis.com"
+            "logging.googleapis.com"
+          )
+          
+          for api in "${REQUIRED_APIS[@]}"; do
+            echo "📋 $api を確認中..."
+            if gcloud services list --enabled --filter="name:$api" --format="value(name)" --project=$PROJECT_ID | grep -q "$api"; then
+              echo "✅ $api は既に有効です"
+            else
+              echo "🔧 $api を有効化中..."
+              gcloud services enable $api --project=$PROJECT_ID || echo "⚠️ $api の有効化に失敗しました（権限が必要かもしれません）"
+              echo "⏳ APIの有効化が反映されるまで少し待機します..."
+              sleep 10
+            fi
+          done
+          echo "✅ APIの確認が完了しました"
+
       - name: Verify Secret Manager Secrets
         run: |
           echo "🔍 Secret Managerの設定を確認中..."
@@ -125,13 +152,21 @@ jobs:
           echo "https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID"
           echo ""
           echo "💡 よくある問題と解決方法:"
-          echo "1. Secret Managerのシークレットが存在しない"
-          echo "   → gcloud secrets list で確認"
-          echo "2. Cloud Buildのサービスアカウントに権限が不足している"
+          echo ""
+          echo "1. Secret Manager APIが有効化されていない"
+          echo "   → https://console.developers.google.com/apis/api/secretmanager.googleapis.com/overview?project=$PROJECT_ID"
+          echo "   → または: gcloud services enable secretmanager.googleapis.com --project=$PROJECT_ID"
+          echo ""
+          echo "2. Secret Managerのシークレットが存在しない"
+          echo "   → gcloud secrets list --project=$PROJECT_ID で確認"
+          echo ""
+          echo "3. Cloud Buildのサービスアカウントに権限が不足している"
           echo "   → Cloud Build APIが有効か確認"
-          echo "3. Cloud Runへのデプロイ権限が不足している"
+          echo ""
+          echo "4. Cloud Runへのデプロイ権限が不足している"
           echo "   → Cloud Run Admin権限が必要"
-          echo "4. Dockerイメージのビルドエラー"
+          echo ""
+          echo "5. Dockerイメージのビルドエラー"
           echo "   → requirements.txtやDockerfileを確認"
           echo ""
           echo "📋 ビルドステップの詳細を確認するには:"
