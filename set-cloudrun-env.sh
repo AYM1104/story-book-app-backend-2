@@ -52,8 +52,8 @@ if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
 fi
 
 # Cloud Runサービスを更新
-gcloud run services update story-book-backend \
-  --region=asia-northeast1 \
+gcloud run services update ehonnotane-backend \
+  --region=us-west1 \
   --set-env-vars="$ENV_VARS"
 
 if [ $? -eq 0 ]; then
@@ -64,10 +64,10 @@ if [ $? -eq 0 ]; then
   echo "Cloud Runサービスが自動的に再起動され、新しい環境変数が適用されます。"
   echo ""
   echo "ログを確認:"
-  echo "  gcloud run services logs read story-book-backend --region=asia-northeast1 --limit=50"
+  echo "  gcloud run services logs read ehonnotane-backend --region=us-west1 --limit=50"
   echo ""
   echo "サービスのURLを確認:"
-  echo "  gcloud run services describe story-book-backend --region=asia-northeast1 --format='value(status.url)'"
+  echo "  gcloud run services describe ehonnotane-backend --region=us-west1 --format='value(status.url)'"
   echo ""
 else
   echo ""

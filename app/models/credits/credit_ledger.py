@@ -6,7 +6,7 @@ class CreditLedger(SupabaseBase):
     """クレジット台帳モデル
     
     ユーザーのクレジット変動履歴を記録する
-    SupabaseBaseを継承してcreated_atとupdated_atを自動管理
+
     """
     __tablename__ = "credit_ledger"
 

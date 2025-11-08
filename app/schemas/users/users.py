@@ -14,6 +14,7 @@ class UserRead(BaseModel):
     id: str  # Auth0のユーザーID
     user_name: str
     email: EmailStr
+    balance: int  # クレジット残高
     created_at: datetime
     updated_at: datetime
 

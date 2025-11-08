@@ -4,6 +4,7 @@ from typing import Optional
 from app.models.credits.credit_ledger import CreditLedger
 from app.models.credits.subscription import Subscription, PlanType
 from app.models.users.users import Users
+from app.database.supabase_base import get_jst_now
 
 class CreditsService:
     """クレジット管理サービス"""
@@ -152,6 +153,10 @@ class CreditsService:
             
         Returns:
             Subscriptionレコード
+            
+        注意: SubscriptionのDateTimeフィールド（cycle_started_at, cycle_ends_at, next_credit_refill_at）
+        を設定する際は、必ず`get_jst_now()`を使用して日本時間（JST）で設定してください。
+        例: subscription.cycle_started_at = get_jst_now()
         """
         subscription = db.query(Subscription).filter(
             Subscription.user_id == user_id

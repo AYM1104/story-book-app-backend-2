@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
 from fastapi import UploadFile
 
@@ -111,8 +111,16 @@ class StoryPlotAllPagesImageToImageRequest(BaseModel):
     # 省略可。未指定の場合は story_plot_id → story_setting → upload_image.file_path を自動解決
     reference_image_path: Optional[str] = None
     strength: Optional[float] = Field(default=1.0, ge=0.0, le=1.0, description="強度は0.0-1.0の範囲で指定してください")
-    story_pages: Optional[int] = Field(default=5, ge=3, le=10, description="物語ページ数（3, 5, 7, 10のいずれか、デフォルトは5）")
+    story_pages: Optional[int] = Field(default=5, description="物語ページ数（3, 5, 7, 10のいずれか、デフォルトは5）")
     prefix: Optional[str] = "storyplot_i2i_all"
+    
+    @field_validator('story_pages')
+    @classmethod
+    def validate_story_pages(cls, v):
+        """story_pagesは3, 5, 7, 10のいずれかのみ許可"""
+        if v is not None and v not in [3, 5, 7, 10]:
+            raise ValueError('story_pagesは3, 5, 7, 10のいずれかを指定してください')
+        return v
 
 class StorybookAllPagesImageToImageRequest(BaseModel):
     """ストーリーブック全ページImage-to-Image生成リクエスト"""

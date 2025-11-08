@@ -29,6 +29,10 @@ class StoryPlotGenerator(ImageToImageGenerator):
             if not story_plot:
                 raise ValueError(f"StoryPlot ID {story_plot_id} が見つかりません")
             
+            # storybook_idを取得（story_idとして使用）
+            storybook = db.query(StoryBook).filter(StoryBook.story_plot_id == story_plot_id).first()
+            story_id = storybook.id if storybook else story_plot_id  # storybookが存在しない場合はstory_plot_idを使用
+            
             # 指定されたページの内容を取得
             page_content = self._get_page_content(story_plot, page_number)
             
@@ -66,7 +70,7 @@ class StoryPlotGenerator(ImageToImageGenerator):
                 strength=strength,
                 prefix=f"{prefix}_{story_plot_id}_page_{page_number:02d}",
                 user_id=user_id,
-                story_id=None  # 日付ベースのフォルダに保存
+                story_id=story_id  # storybook_idまたはstory_plot_idを使用
             )
             
             # StoryPlot固有の情報を追加
@@ -220,6 +224,9 @@ class StoryPlotGenerator(ImageToImageGenerator):
                 if page_content:  # 内容があるページのみ生成
                     try:
                         # 引数で指定された強度を使用
+                        # 1枚目の場合は特にログ出力
+                        if page_num == 1:
+                            print(f"🔍 [DEBUG] 1枚目（ページ{page_num}）の強度パラメータ: {strength} (型: {type(strength).__name__})")
                         
                         # 軽いリトライロジック（失敗時は強度をそのまま再試行）
                         try:

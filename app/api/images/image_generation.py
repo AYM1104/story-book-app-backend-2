@@ -117,6 +117,13 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
                 detail="強度は0.0-1.0の範囲で指定してください"
             )
         
+        # story_pagesのバリデーション（3, 5, 7, 10のいずれかのみ許可）
+        if request.story_pages not in [3, 5, 7, 10]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"無効なページ数です。3, 5, 7, 10のいずれかを指定してください。指定値: {request.story_pages}"
+            )
+        
         # story_plot_idまたはstorybook_idのどちらか一方を指定する必要がある
         if not request.story_plot_id and not request.storybook_id:
             raise HTTPException(

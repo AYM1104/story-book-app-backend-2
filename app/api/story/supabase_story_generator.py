@@ -3,9 +3,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
+from app.models.story.story_book import StoryBook
 from app.service.story_book_generation.story_line.story_line_generator import StoryGeneratorService
 from pydantic import BaseModel
 from typing import Dict, Any
+from datetime import datetime, timedelta
+from sqlalchemy import func, and_
 import traceback
 import time
 
@@ -185,6 +188,7 @@ async def supabase_select_theme(
     print(f"=== テーマ選択＆物語生成処理開始 (Supabase) ===")
     print(f"Story Setting ID: {request.story_setting_id}")
     print(f"Selected Theme: {request.selected_theme}")
+    print(f"Request Story Pages: {request.story_pages}")  # デバッグ: リクエストのページ数を確認
     
     try:
         # ストーリー設定からuser_idを取得
@@ -442,3 +446,81 @@ async def list_supabase_story_plots(
         "count": len(items),
         "items": items,
     }
+
+# 6. 週間統計を取得（Supabase用）
+@router.get("/users/{user_id}/weekly_stats", response_model=Dict[str, Any])
+async def get_supabase_weekly_stats(
+    user_id: str,
+    db: Session = Depends(get_supabase_db)
+):
+    """Supabase用の週間統計を取得するエンドポイント（日曜日始まり）
+    
+    現在の週（日曜日から土曜日）の日別絵本作成数を返す
+    """
+    try:
+        # 現在の日時を取得
+        now = datetime.now()
+        
+        # 日曜日を週の始まりとして計算
+        # weekday(): 月曜日=0, 日曜日=6
+        days_since_sunday = (now.weekday() + 1) % 7  # 日曜日からの日数を計算
+        week_start = now - timedelta(days=days_since_sunday)
+        week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # 週の終わり（次の日曜日の0時）
+        week_end = week_start + timedelta(days=7)
+        
+        # 週間の絵本作成数を日別で取得
+        daily_counts_query = (
+            db.query(
+                func.date(StoryBook.created_at).label('date'),
+                func.count(StoryBook.id).label('count')
+            )
+            .filter(
+                and_(
+                    StoryBook.user_id == user_id,
+                    StoryBook.created_at >= week_start,
+                    StoryBook.created_at < week_end
+                )
+            )
+            .group_by(func.date(StoryBook.created_at))
+            .all()
+        )
+        
+        # 日別のカウントを辞書に変換
+        daily_counts_dict = {str(row.date): row.count for row in daily_counts_query}
+        
+        # 週の各日（日曜日から土曜日）のカウントを取得
+        daily_counts = []
+        week_total = 0
+        
+        for i in range(7):
+            current_date = week_start + timedelta(days=i)
+            date_str = current_date.strftime('%Y-%m-%d')
+            count = daily_counts_dict.get(date_str, 0)
+            
+            # 曜日の略称を取得（日=0, 月=1, ..., 土=6）
+            day_names = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+            day_name = day_names[i]
+            
+            daily_counts.append({
+                "day": day_name,
+                "date": date_str,
+                "count": count
+            })
+            week_total += count
+        
+        return {
+            "week_total": week_total,
+            "week_start": week_start.isoformat(),
+            "week_end": week_end.isoformat(),
+            "daily_counts": daily_counts
+        }
+        
+    except Exception as e:
+        print(f"❌ 週間統計取得エラー: {str(e)}")
+        print(f"エラーのトレースバック: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"週間統計の取得に失敗しました: {str(e)}"
+        )

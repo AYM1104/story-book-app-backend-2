@@ -124,6 +124,14 @@ class GCSStorageService:
     def upload_generated_image(self, file_content: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png", page_index: Optional[int] = None) -> Dict[str, Any]:
         """生成された画像をGoogle Cloud Storageにアップロード（改善版）"""
         try:
+            # story_idは必須（絵本ごとにフォルダを分けるため）
+            if story_id is None:
+                return {
+                    "success": False,
+                    "error": "story_id is required for generated images",
+                    "filename": filename
+                }
+            
             # ページ番号が与えられた場合は命名規約に合わせて上書き
             final_filename = filename
             if page_index is not None:
@@ -131,14 +139,8 @@ class GCSStorageService:
                 final_filename = self._compose_page_filename(ext, page_index)
 
             # ストーリー別パスを生成
-            if story_id:
-                user_path = self._get_user_path(user_id, "generated")
-                gcs_path = f"{user_path}/{story_id}/pages/{final_filename}"
-            else:
-                user_path = self._get_user_path(user_id, "generated")
-                # 日付(DD)フォルダを用いて、generated/YYYY/MM/DD/pages/ に保存
-                day = datetime.now().strftime("%d")
-                gcs_path = f"{user_path}/{day}/pages/{final_filename}"
+            user_path = self._get_user_path(user_id, "generated")
+            gcs_path = f"{user_path}/{story_id}/{final_filename}"
             
             # ファイルをアップロード
             blob = self.bucket.blob(gcs_path)
@@ -172,19 +174,22 @@ class GCSStorageService:
     def upload_cover_image(self, file_content: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png") -> Dict[str, Any]:
         """表紙画像をGoogle Cloud Storageにアップロード
         
-        - story_id がある場合: users/{user_id}/generated/YYYY/MM/{story_id}/pages/page_00.{ext}
-        - story_id がない場合: users/{user_id}/generated/YYYY/MM/DD/pages/page_00.{ext}
+        - story_id は必須: {user_id}/generated/YYYY/MM/DD/{story_id}/page_00.{ext}
         """
         try:
+            # story_idは必須（絵本ごとにフォルダを分けるため）
+            if story_id is None:
+                return {
+                    "success": False,
+                    "error": "story_id is required for cover images",
+                    "filename": filename
+                }
+            
             user_path = self._get_user_path(user_id, "generated")
             # 表紙は常に page_00.{ext} 命名
             ext = filename.split(".")[-1] if "." in filename else "png"
             cover_filename = self._compose_page_filename(ext, 0)
-            if story_id:
-                gcs_path = f"{user_path}/{story_id}/pages/{cover_filename}"
-            else:
-                day = datetime.now().strftime("%d")
-                gcs_path = f"{user_path}/{day}/pages/{cover_filename}"
+            gcs_path = f"{user_path}/{story_id}/{cover_filename}"
 
             blob = self.bucket.blob(gcs_path)
             blob.upload_from_string(

@@ -1,7 +1,14 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, DateTime, func
-from datetime import datetime
+from sqlalchemy import Column, DateTime, text, event
+from datetime import datetime, timezone, timedelta
 from typing import Any
+
+# 日本時間（JST）のタイムゾーンオフセット（UTC+9）
+JST = timezone(timedelta(hours=9))
+
+def get_jst_now() -> datetime:
+    """現在時刻を日本時間（JST）で取得"""
+    return datetime.now(JST)
 
 # Supabase用のベースクラス
 class SupabaseBase(DeclarativeBase):
@@ -9,23 +16,23 @@ class SupabaseBase(DeclarativeBase):
     
     すべてのSupabaseモデルが継承するベースクラス
     共通のカラム（created_at, updated_at）を提供
+    日時は日本時間（JST）で保存されます
     """
     
-    # 作成日時（自動設定）
+    # 作成日時（自動設定、日本時間）
     created_at = Column(
         DateTime(timezone=True), 
-        server_default=func.now(),
+        server_default=text("timezone('Asia/Tokyo', now())"),
         nullable=False,
-        comment="作成日時"
+        comment="作成日時（日本時間）"
     )
     
-    # 更新日時（自動更新）
+    # 更新日時（自動更新、日本時間）
     updated_at = Column(
         DateTime(timezone=True), 
-        server_default=func.now(),
-        onupdate=func.now(),
+        server_default=text("timezone('Asia/Tokyo', now())"),
         nullable=False,
-        comment="更新日時"
+        comment="更新日時（日本時間）"
     )
     
     def to_dict(self) -> dict[str, Any]:
@@ -44,3 +51,22 @@ class SupabaseBase(DeclarativeBase):
     def __repr__(self) -> str:
         """デバッグ用の文字列表現"""
         return f"<{self.__class__.__name__}(id={getattr(self, 'id', 'N/A')})>"
+
+
+# イベントリスナー：インサート時にcreated_atとupdated_atをJSTで設定
+@event.listens_for(SupabaseBase, "before_insert", propagate=True)
+def receive_before_insert(mapper, connection, target):
+    """インサート前にcreated_atとupdated_atをJSTで設定"""
+    jst_now = get_jst_now()
+    if hasattr(target, 'created_at') and target.created_at is None:
+        target.created_at = jst_now
+    if hasattr(target, 'updated_at') and target.updated_at is None:
+        target.updated_at = jst_now
+
+
+# イベントリスナー：アップデート時にupdated_atをJSTで設定
+@event.listens_for(SupabaseBase, "before_update", propagate=True)
+def receive_before_update(mapper, connection, target):
+    """アップデート前にupdated_atをJSTで設定"""
+    if hasattr(target, 'updated_at'):
+        target.updated_at = get_jst_now()

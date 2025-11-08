@@ -38,7 +38,7 @@ class ImageToImageGenerator(BaseImageGenerator):
             
             print(f"🎨 Image-to-Image生成開始")
             print(f"🖼️ 参考画像: {reference_image_path}")
-            print(f"💪 強度: {strength}")
+            print(f"💪 強度: {strength} (型: {type(strength).__name__}, 値: {strength})")
             
             # 参考画像のURLを確認
             print(f"🔗 使用する画像URL: {reference_image_path}")
@@ -67,8 +67,10 @@ class ImageToImageGenerator(BaseImageGenerator):
             # Gemini APIでImage-to-Image生成
             # 参考画像をBase64エンコードしてAPIに送信
             # Image-to-Image生成のためのプロンプトを作成
+            strength_percentage = strength * 100
+            print(f"🔍 [DEBUG] プロンプトに含まれる強度: {strength_percentage}% (strength={strength})")
             i2i_prompt = f"Based on this reference image, create a new illustration with the following description: {enhanced_prompt}. " \
-                        f"Maintain the style and composition similar to the reference image with {strength*100}% similarity. " \
+                        f"Maintain the style and composition similar to the reference image with {strength_percentage}% similarity. " \
                         f"Reference image characteristics should be preserved while adapting to the new scene."
             
             # プロンプト全文をターミナルに表示

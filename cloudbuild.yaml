@@ -9,18 +9,17 @@ steps:
     args: ['push', 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID']
   
   # Cloud Runにデプロイ
-  # 注意: 環境変数は事前に `./set-cloudrun-env.sh` で設定しておくか、
-  # 初回デプロイ後に `gcloud run services update` で設定してください
+  # Secret Managerから環境変数を読み込む
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
       - 'run'
       - 'deploy'
-      - 'story-book-backend'
+      - 'ehonnotane-backend'
       - '--image'
       - 'gcr.io/$PROJECT_ID/story-book-backend:$BUILD_ID'
       - '--region'
-      - 'asia-northeast1'
+      - 'us-west1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -32,6 +31,10 @@ steps:
       - '2'
       - '--max-instances'
       - '10'
+      - '--set-secrets'
+      - 'SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_DB_URL=SUPABASE_DB_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest'
+      - '--set-env-vars'
+      - 'STORAGE_TYPE=gcs'
 
 # 使用するイメージ
 images:

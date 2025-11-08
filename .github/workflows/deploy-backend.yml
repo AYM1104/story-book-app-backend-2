@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'requirements.txt'
+      - 'Dockerfile'
+      - 'cloudbuild.yaml'
+      - '.github/workflows/deploy-backend.yml'
 
 jobs:
   deploy:
@@ -26,9 +32,30 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
 
+      - name: Verify Secret Manager Secrets
+        run: |
+          echo "🔍 Secret Managerの設定を確認中..."
+          REQUIRED_SECRETS=("SUPABASE_URL" "SUPABASE_ANON_KEY" "SUPABASE_DB_URL" "GEMINI_API_KEY" "GCS_BUCKET_NAME")
+          MISSING_SECRETS=()
+          for secret in "${REQUIRED_SECRETS[@]}"; do
+            if ! gcloud secrets describe "$secret" >/dev/null 2>&1; then
+              MISSING_SECRETS+=("$secret")
+            fi
+          done
+          if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
+            echo "⚠️ 警告: 以下のシークレットが設定されていません:"
+            for secret in "${MISSING_SECRETS[@]}"; do
+              echo "  - $secret"
+            done
+            echo "デプロイは続行しますが、サービスが正常に動作しない可能性があります。"
+          else
+            echo "✅ すべての必須シークレットが設定されています"
+          fi
+
       - name: Submit Cloud Build
         id: build
         run: |
+          echo "🔨 Cloud Buildを開始します..."
           BUILD_ID=$(gcloud builds submit --config cloudbuild.yaml --async --format="value(id)" .)
           echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
           echo "✅ Cloud Build submitted: $BUILD_ID"
@@ -53,4 +80,29 @@ jobs:
           done
           echo "⚠️ Build timeout after 10 minutes"
           exit 1
+
+      - name: Get Service URL
+        id: service_url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ehonnotane-backend --region=us-west1 --format="value(status.url)" 2>/dev/null || echo "")
+          if [ -n "$SERVICE_URL" ]; then
+            echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+            echo "🌐 Service URL: $SERVICE_URL"
+          else
+            echo "⚠️ Service URL could not be retrieved"
+          fi
+
+      - name: Health Check
+        if: steps.service_url.outputs.service_url != ''
+        run: |
+          SERVICE_URL=${{ steps.service_url.outputs.service_url }}
+          echo "🔍 ヘルスチェックを実行中..."
+          sleep 5  # サービスが起動するまで少し待つ
+          if curl -s -f "$SERVICE_URL/health" > /dev/null 2>&1; then
+            echo "✅ サービスが正常に動作しています"
+          else
+            echo "⚠️ ヘルスチェックに失敗しました（サービスが起動中かもしれません）"
+            echo "ログを確認してください:"
+            echo "gcloud run services logs read ehonnotane-backend --region=us-west1 --limit=50"
+          fi
 

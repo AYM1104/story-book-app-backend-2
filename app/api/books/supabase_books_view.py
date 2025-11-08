@@ -189,15 +189,65 @@ async def get_supabase_user_books(
     user_id: str,
     limit: Optional[int] = 20,
     cursor: Optional[int] = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    day: Optional[int] = None,
     db: Session = Depends(get_supabase_db)
 ):
-    """Supabase用のユーザー別絵本一覧を取得するエンドポイント"""
+    """Supabase用のユーザー別絵本一覧を取得するエンドポイント（月別・日別フィルタリング対応）"""
     
     try:
         # クエリを構築
         query = db.query(StoryBook).filter(
             StoryBook.user_id == user_id
-        ).order_by(StoryBook.created_at.desc())
+        )
+        
+        # 日付フィルタリング
+        from datetime import datetime, timedelta
+        if year is not None:
+            if month is not None:
+                if day is not None:
+                    # 特定の日をフィルタリング
+                    try:
+                        target_date = datetime(year, month, day)
+                        next_date = target_date + timedelta(days=1)
+                        query = query.filter(
+                            StoryBook.created_at >= target_date,
+                            StoryBook.created_at < next_date
+                        )
+                    except ValueError:
+                        # 無効な日付の場合はエラーを返す
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"無効な日付です: {year}-{month}-{day}"
+                        )
+                else:
+                    # 特定の月をフィルタリング
+                    try:
+                        start_date = datetime(year, month, 1)
+                        if month == 12:
+                            end_date = datetime(year + 1, 1, 1)
+                        else:
+                            end_date = datetime(year, month + 1, 1)
+                        query = query.filter(
+                            StoryBook.created_at >= start_date,
+                            StoryBook.created_at < end_date
+                        )
+                    except ValueError:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"無効な月です: {year}-{month}"
+                        )
+            else:
+                # 特定の年をフィルタリング
+                start_date = datetime(year, 1, 1)
+                end_date = datetime(year + 1, 1, 1)
+                query = query.filter(
+                    StoryBook.created_at >= start_date,
+                    StoryBook.created_at < end_date
+                )
+        
+        query = query.order_by(StoryBook.created_at.desc())
         
         # カーソルベースのページネーション
         if cursor:

@@ -17,7 +17,8 @@ from app.schemas.story.story_book import (
 from app.service.credits import PricingService, CreditsService
 from app.models.credits.subscription import PlanType
 from datetime import datetime, date, timedelta
-from sqlalchemy import and_
+from sqlalchemy import and_, func
+from typing import Dict, List, Optional
 
 router = APIRouter(prefix="/storybook", tags=["generated-storybook"])
 
@@ -271,13 +272,61 @@ async def get_supabase_storybook(
 @router.get("/user/{user_id}", response_model=list[StoryBookResponse])
 async def get_supabase_user_storybooks(
     user_id: str,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    day: Optional[int] = None,
     db: Session = Depends(get_supabase_db)
 ):
-    """Supabase用のユーザーのストーリーブック一覧を取得するエンドポイント"""
+    """Supabase用のユーザーのストーリーブック一覧を取得するエンドポイント（月別・日別フィルタリング対応）"""
     
-    storybooks = db.query(StoryBook).filter(
+    query = db.query(StoryBook).filter(
         StoryBook.user_id == user_id
-    ).order_by(StoryBook.created_at.desc()).all()
+    )
+    
+    # 日付フィルタリング
+    if year is not None:
+        if month is not None:
+            if day is not None:
+                # 特定の日をフィルタリング
+                try:
+                    target_date = datetime(year, month, day)
+                    next_date = target_date + timedelta(days=1)
+                    query = query.filter(
+                        StoryBook.created_at >= target_date,
+                        StoryBook.created_at < next_date
+                    )
+                except ValueError:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"無効な日付です: {year}-{month}-{day}"
+                    )
+            else:
+                # 特定の月をフィルタリング
+                try:
+                    start_date = datetime(year, month, 1)
+                    if month == 12:
+                        end_date = datetime(year + 1, 1, 1)
+                    else:
+                        end_date = datetime(year, month + 1, 1)
+                    query = query.filter(
+                        StoryBook.created_at >= start_date,
+                        StoryBook.created_at < end_date
+                    )
+                except ValueError:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"無効な月です: {year}-{month}"
+                    )
+        else:
+            # 特定の年をフィルタリング
+            start_date = datetime(year, 1, 1)
+            end_date = datetime(year + 1, 1, 1)
+            query = query.filter(
+                StoryBook.created_at >= start_date,
+                StoryBook.created_at < end_date
+            )
+    
+    storybooks = query.order_by(StoryBook.created_at.desc()).all()
     
     return [
         {
@@ -291,6 +340,7 @@ async def get_supabase_user_storybooks(
             "story_content": storybook.story_content,
             "cover_image_url": storybook.cover_image_url,
             "image_generation_status": storybook.image_generation_status,
+            "is_favorite": storybook.is_favorite,
             "created_at": storybook.created_at,
             "updated_at": storybook.updated_at,
             **{f"page_{i}": getattr(storybook, f"page_{i}", "") for i in range(1, 11)},
@@ -536,4 +586,72 @@ async def get_generation_progress(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"進捗情報の取得に失敗しました: {str(e)}"
+        )
+
+@router.get("/weekly-stats/{user_id}")
+async def get_weekly_storybook_stats(
+    user_id: str,
+    db: Session = Depends(get_supabase_db)
+):
+    """週間（日曜日から土曜日）の日別絵本作成数を取得するエンドポイント"""
+    try:
+        # 今週の日曜日を計算
+        today = datetime.now().date()
+        # 曜日を取得（0=月曜日、6=日曜日）
+        weekday_num = today.weekday()
+        # 日曜日を計算（月曜日=0の場合、1日戻る=日曜日）
+        # 日曜日=6の場合、0日戻る=日曜日
+        days_since_sunday = (weekday_num + 1) % 7
+        sunday = today - timedelta(days=days_since_sunday)
+        saturday = sunday + timedelta(days=6)
+        
+        # 日曜日から土曜日までの日付リストを生成
+        week_dates = [sunday + timedelta(days=i) for i in range(7)]
+        
+        # 各日の絵本数を取得（日曜日から順に）
+        daily_counts = {}
+        weekday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        
+        for i, day_date in enumerate(week_dates):
+            # その日の開始時刻と終了時刻
+            day_start = datetime.combine(day_date, datetime.min.time())
+            day_end = datetime.combine(day_date, datetime.max.time())
+            
+            # その日に作成された絵本数をカウント
+            count = db.query(StoryBook).filter(
+                and_(
+                    StoryBook.user_id == user_id,
+                    StoryBook.created_at >= day_start,
+                    StoryBook.created_at <= day_end
+                )
+            ).count()
+            
+            # 曜日名を取得（i=0が日曜日、i=6が土曜日）
+            weekday_name = weekday_names[i]
+            daily_counts[weekday_name] = count
+        
+        # 週間の合計
+        total_count = sum(daily_counts.values())
+        
+        return {
+            "user_id": user_id,
+            "week_start": sunday.isoformat(),
+            "week_end": saturday.isoformat(),
+            "daily_counts": daily_counts,
+            "total_count": total_count,
+            "daily_counts_array": [
+                {"day": "Sun", "count": daily_counts.get("Sun", 0)},
+                {"day": "Mon", "count": daily_counts.get("Mon", 0)},
+                {"day": "Tue", "count": daily_counts.get("Tue", 0)},
+                {"day": "Wed", "count": daily_counts.get("Wed", 0)},
+                {"day": "Thu", "count": daily_counts.get("Thu", 0)},
+                {"day": "Fri", "count": daily_counts.get("Fri", 0)},
+                {"day": "Sat", "count": daily_counts.get("Sat", 0)},
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"週間統計の取得に失敗しました: {str(e)}"
         )

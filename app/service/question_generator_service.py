@@ -62,7 +62,12 @@ class QuestionGeneratorService:
                 {"value": "gentle", "label": "優しく温かい"},
                 {"value": "fun", "label": "楽しく明るい"},
                 {"value": "adventure", "label": "冒険的でワクワク"},
-                {"value": "mystery", "label": "謎解きでドキドキ"}
+                {"value": "mystery", "label": "謎解きでドキドキ"},
+                {"value": "heartwarming", "label": "感動的で心が温まる"},
+                {"value": "dreamy", "label": "幻想的で夢のような"},
+                {"value": "magical", "label": "魔法のように不思議な"},
+                {"value": "brave", "label": "勇気をもって挑戦する"}
+                
             ],
             "required": True
         })

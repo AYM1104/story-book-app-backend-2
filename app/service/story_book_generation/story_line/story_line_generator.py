@@ -67,6 +67,9 @@ class StoryGeneratorService:
             story_pages: 生成するページ数（3, 5, 7, 10のいずれか、デフォルトは5）
         """
         
+        # デバッグ: 受け取ったページ数を確認
+        print(f"🔍 generate_single_story 受け取ったページ数: {story_pages}")
+        
         protagonist_name = story_setting.get("protagonist_name", "主人公")
         protagonist_type = story_setting.get("protagonist_type", "子供")
         setting_place = story_setting.get("setting_place", "公園")

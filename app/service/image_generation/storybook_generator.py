@@ -71,12 +71,16 @@ class StoryBookGenerator(BaseImageGenerator):
                                     image_data = part.inline_data.data
                                     filename = f"storybook_{storybook_id}_page_{i}.png"
                                     
+                                    # storybook_idを整数に変換してstory_idとして渡す（絵本ごとにフォルダを分けるため）
+                                    story_id = int(storybook_id) if isinstance(storybook_id, str) else storybook_id
+                                    
                                     # 保存処理時間計測
                                     save_start_time = time.time()
                                     save_result = self.save_image_to_storage(
                                         image_data=image_data,
                                         filename=filename,
                                         user_id=user_id,
+                                        story_id=story_id,  # 絵本ごとにフォルダを分ける
                                         content_type="image/png",
                                         page_index=i
                                     )
@@ -336,7 +340,11 @@ class StoryBookGenerator(BaseImageGenerator):
             "gentle": "gentle and warm",
             "fun": "fun and cheerful",
             "adventure": "adventurous and dynamic",
-            "mystery": "mysterious and intriguing"
+            "mystery": "mysterious and intriguing",
+            "heartwarming": "heartwarming and touching",
+            "dreamy": "dreamy and ethereal",
+            "magical": "magical and enchanting",
+            "brave": "brave and courageous"
         }.get(tone or "gentle", "gentle and warm")
 
         normalized_keywords = self._normalize_keywords(keywords)
@@ -375,6 +383,9 @@ class StoryBookGenerator(BaseImageGenerator):
                 .order_by(StoryBook.id.desc())
                 .first()
             )
+
+            # storybook_idを取得（story_idとして使用）
+            story_id = generated.id if generated else story_plot_id  # storybookが存在しない場合はstory_plot_idを使用
 
             title = (generated.title if generated and getattr(generated, "title", None) else story_plot.title) or ""
             description = (generated.description if generated and getattr(generated, "description", None) else story_plot.description) or ""
@@ -465,8 +476,9 @@ class StoryBookGenerator(BaseImageGenerator):
                             image_data=image_data,
                             filename=filename,
                             user_id=user_id,
-                            story_id=None,  # 日付ベースのフォルダに保存
-                            content_type="image/png"
+                            story_id=story_id,  # storybook_idまたはstory_plot_idを使用
+                            content_type="image/png",
+                            page_index=0  # 表紙はpage_00
                         )
                         
                         if save_result.get("success"):
