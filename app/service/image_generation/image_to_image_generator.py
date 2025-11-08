@@ -16,7 +16,8 @@ class ImageToImageGenerator(BaseImageGenerator):
         strength: float = 1.0,
         prefix: str = "i2i_image",
         user_id: str = None,
-        story_id: Optional[int] = None
+        story_id: Optional[int] = None,
+        page_index: Optional[int] = None
     ) -> Dict[str, Any]:
         """Image-to-Image生成"""
         try:
@@ -135,7 +136,13 @@ class ImageToImageGenerator(BaseImageGenerator):
                                 print(f"⚠️ part[{idx}] 画像バイトが不正のためスキップ: {e}")
                                 continue
 
-                            filename = self.generate_unique_filename(prefix, "png")
+                            # page_indexが指定されている場合はpage_XX.png形式のファイル名を使用
+                            if page_index is not None:
+                                # page_indexに基づいたファイル名を生成（page_00.png, page_01.png, ...）
+                                filename = f"page_{page_index:02d}.png"
+                            else:
+                                filename = self.generate_unique_filename(prefix, "png")
+                            
                             # 保存処理時間計測
                             save_start_time = time.time()
                             save_result = self.save_image_to_storage(
@@ -143,7 +150,8 @@ class ImageToImageGenerator(BaseImageGenerator):
                                 filename=filename,
                                 user_id=user_id,
                                 story_id=story_id,
-                                content_type="image/png"
+                                content_type="image/png",
+                                page_index=page_index
                             )
                             save_end_time = time.time()
                             save_duration = save_end_time - save_start_time

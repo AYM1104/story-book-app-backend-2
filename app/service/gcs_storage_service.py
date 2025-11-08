@@ -375,6 +375,54 @@ class GCSStorageService:
                 "error": str(e)
             }
 
+    def generate_signed_url(self, file_path_or_url: str, expiration_hours: int = 1) -> str:
+        """GCSファイルの署名付きURLを生成
+        
+        Args:
+            file_path_or_url: GCS上のファイルパスまたはURL
+            expiration_hours: URLの有効期限（時間単位、デフォルト1時間）
+            
+        Returns:
+            str: 署名付きURL
+        """
+        try:
+            # URL形式の場合はパスを抽出
+            file_path = file_path_or_url
+            if file_path_or_url.startswith('http'):
+                # storage.googleapis.com形式のURLからパスを抽出
+                if 'storage.googleapis.com' in file_path_or_url:
+                    # クエリパラメータを除去
+                    url_without_query = file_path_or_url.split('?')[0]
+                    # https://storage.googleapis.com/bucket_name/path/to/file から path/to/file を抽出
+                    parts = url_without_query.split('/')
+                    bucket_index = parts.index(self.bucket_name) if self.bucket_name in parts else -1
+                    if bucket_index >= 0 and bucket_index < len(parts) - 1:
+                        # URLエンコードされた文字をデコード（例: %7C -> |）
+                        file_path = '/'.join(parts[bucket_index + 1:])
+                        file_path = unquote(file_path)
+                    else:
+                        raise ValueError(f"無効なURL形式です: {file_path_or_url}")
+                else:
+                    raise ValueError(f"サポートされていないURL形式です: {file_path_or_url}")
+            
+            # 署名付きURLを生成
+            blob = self.bucket.blob(file_path)
+            if not blob.exists():
+                raise ValueError(f"ファイルが存在しません: {file_path}")
+            
+            signed_url = blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(hours=expiration_hours),
+                method="GET"
+            )
+            
+            print(f"✅ 署名付きURL生成成功: {file_path}")
+            return signed_url
+            
+        except Exception as e:
+            print(f"❌ 署名付きURL生成エラー: {str(e)}")
+            raise e
+
     def download_file(self, file_path_or_url: str) -> bytes:
         """GCSからファイルをダウンロード（URLまたはパス形式に対応）
         

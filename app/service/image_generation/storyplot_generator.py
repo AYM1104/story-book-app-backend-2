@@ -70,7 +70,8 @@ class StoryPlotGenerator(ImageToImageGenerator):
                 strength=strength,
                 prefix=f"{prefix}_{story_plot_id}_page_{page_number:02d}",
                 user_id=user_id,
-                story_id=story_id  # storybook_idまたはstory_plot_idを使用
+                story_id=story_id,  # storybook_idまたはstory_plot_idを使用
+                page_index=page_number  # ページ番号を指定してpage_XX.png形式のファイル名を生成
             )
             
             # StoryPlot固有の情報を追加

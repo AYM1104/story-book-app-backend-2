@@ -131,6 +131,16 @@ except Exception as e:
         return {"message": "Image generation router not available", "error": str(e)}
 
 try:
+    from app.api.images.image_proxy import router as image_proxy_router
+    app.include_router(image_proxy_router)
+    print("✅ Image proxy router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load image_proxy_router: {e}")
+    @app.get("/api/images/proxy/test")
+    def image_proxy_test():
+        return {"message": "Image proxy router not available", "error": str(e)}
+
+try:
     from app.api.story.supabase_story_setting import router as supabase_story_setting_router
     app.include_router(supabase_story_setting_router)
     print("✅ Supabase story setting router loaded successfully")
@@ -142,7 +152,7 @@ except Exception as e:
 
 try:
     from app.api.story.supabase_story_book import router as supabase_generated_storybook_router
-    app.include_router(supabase_generated_storybook_router)
+    app.include_router(supabase_generated_storybook_router, prefix="/api")
     print("✅ Supabase generated storybook router loaded successfully")
 except Exception as e:
     print(f"❌ Failed to load supabase_generated_storybook_router: {e}")
