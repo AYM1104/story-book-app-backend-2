@@ -59,6 +59,16 @@ def verify_auth0_token(token: str) -> dict:
                 detail="適切な公開鍵が見つかりません",
             )
         
+        # デバッグ用: トークンのペイロードを検証なしでデコードして確認
+        try:
+            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            print(f"🔍 トークン内のaudience: {unverified_payload.get('aud')}")
+            print(f"🔍 トークン内のissuer: {unverified_payload.get('iss')}")
+            print(f"🔍 期待されるaudience: {Auth0Config.API_AUDIENCE}")
+            print(f"🔍 期待されるissuer: {Auth0Config.get_issuer()}")
+        except Exception as e:
+            print(f"⚠️ トークンのデバッグ情報取得エラー: {e}")
+        
         # トークンを検証してデコード
         payload = jwt.decode(
             token,
@@ -75,10 +85,24 @@ def verify_auth0_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="トークンの有効期限が切れています",
         )
-    except jwt.JWTClaimsError:
+    except jwt.JWTClaimsError as e:
+        # デバッグ情報を追加
+        try:
+            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            error_detail = (
+                f"トークンのクレームが無効です（audience/issuerを確認してください）\n"
+                f"エラー詳細: {str(e)}\n"
+                f"トークン内のaudience: {unverified_payload.get('aud')}\n"
+                f"トークン内のissuer: {unverified_payload.get('iss')}\n"
+                f"期待されるaudience: {Auth0Config.API_AUDIENCE}\n"
+                f"期待されるissuer: {Auth0Config.get_issuer()}"
+            )
+        except:
+            error_detail = f"トークンのクレームが無効です（audience/issuerを確認してください）\nエラー詳細: {str(e)}"
+        
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="トークンのクレームが無効です（audience/issuerを確認してください）",
+            detail=error_detail,
         )
     except JWTError as e:
         raise HTTPException(
