@@ -104,17 +104,38 @@ jobs:
         run: |
           BUILD_ID=${{ steps.build.outputs.build_id }}
           PROJECT_ID=$(gcloud config get-value project)
-          echo "📋 Cloud Buildのエラーログを取得中..."
+          echo "📋 Cloud Buildのエラー情報を取得中..."
           echo "=========================================="
-          gcloud builds log $BUILD_ID --project=$PROJECT_ID --stream || echo "ログの取得に失敗しました"
-          echo "=========================================="
-          echo "🔗 詳細なログ: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID"
+          
+          # ビルドの詳細情報を取得
+          echo "🔍 ビルドの詳細情報:"
+          gcloud builds describe $BUILD_ID --project=$PROJECT_ID --format="yaml" || echo "ビルド情報の取得に失敗しました"
+          
           echo ""
-          echo "💡 よくある問題:"
+          echo "📝 エラーログを取得中..."
+          # Cloud Loggingからログを取得（最後の100行）
+          gcloud logging read "resource.type=build AND resource.labels.build_id=$BUILD_ID" \
+            --project=$PROJECT_ID \
+            --limit=100 \
+            --format="table(timestamp,severity,textPayload)" \
+            --order=desc || echo "ログの取得に失敗しました（Cloud Logging APIの権限が必要です）"
+          
+          echo "=========================================="
+          echo "🔗 詳細なログ（Cloud Console）:"
+          echo "https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID"
+          echo ""
+          echo "💡 よくある問題と解決方法:"
           echo "1. Secret Managerのシークレットが存在しない"
+          echo "   → gcloud secrets list で確認"
           echo "2. Cloud Buildのサービスアカウントに権限が不足している"
+          echo "   → Cloud Build APIが有効か確認"
           echo "3. Cloud Runへのデプロイ権限が不足している"
-          echo "4. Dockerイメージのビルドエラー（requirements.txtの依存関係など）"
+          echo "   → Cloud Run Admin権限が必要"
+          echo "4. Dockerイメージのビルドエラー"
+          echo "   → requirements.txtやDockerfileを確認"
+          echo ""
+          echo "📋 ビルドステップの詳細を確認するには:"
+          echo "gcloud builds describe $BUILD_ID --project=$PROJECT_ID"
 
       - name: Get Service URL
         id: service_url
