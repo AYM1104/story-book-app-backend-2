@@ -41,26 +41,42 @@ class ThemeGenerator:
     """Gemini 2.5 Flashを使用してテーマ案を生成するサービス"""
 
     def __init__(self):
-        # Gemini APIの設定（物語生成用のFree APIキーを使用）
+        # Gemini APIの設定（物語生成用のFree APIキーを使用、なければPaid APIキーを使用）
         # Cloud Run環境では環境変数が直接設定されているため、os.getenv()で取得可能
-        api_key = os.getenv("GOOGLE_API_KEY_Free") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        api_key = os.getenv("GOOGLE_API_KEY_Free") or os.getenv("GOOGLE_API_KEY_Paid")
         if not api_key:
-            # Cloud Run環境でのデバッグ情報を追加
-            env_keys = ["GOOGLE_API_KEY_Free", "GEMINI_API_KEY", "GOOGLE_API_KEY"]
-            available_envs = {key: "設定済み" if os.getenv(key) else "未設定" for key in env_keys}
-            error_msg = (
-                f"GOOGLE_API_KEY_Free、GEMINI_API_KEYまたはGOOGLE_API_KEYが設定されていません。\n"
-                f"環境変数の状態: {available_envs}"
-            )
+            error_msg = "GOOGLE_API_KEY_FreeまたはGOOGLE_API_KEY_Paidが設定されていません。"
             print(f"❌ {error_msg}")
             raise ValueError(error_msg)
         
+        # 使用しているAPIキーの種類を判定
+        api_key_type = "GOOGLE_API_KEY_Free" if os.getenv("GOOGLE_API_KEY_Free") else "GOOGLE_API_KEY_Paid"
+        
+        # APIキーのクリーンアップ（改行、スペース、引用符を削除）
+        api_key = api_key.strip().strip('"').strip("'")
+        
+        # APIキーの形式検証
+        if not api_key.startswith("AIza"):
+            print(f"⚠️ 警告: APIキーの形式が正しくない可能性があります（AIzaで始まる必要があります）")
+        
         # APIキーの確認（最初の8文字のみ表示）
         api_key_preview = api_key[:8] + "..." if len(api_key) > 8 else api_key
-        print(f"🔑 Gemini APIキー確認: {api_key_preview} (長さ: {len(api_key)})")
+        print(f"🔑 Gemini APIキー確認: {api_key_type} を使用 - {api_key_preview} (長さ: {len(api_key)})")
         
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        # APIキーが空でないことを再確認
+        if not api_key or len(api_key) < 20:
+            error_msg = f"APIキーが無効です（長さ: {len(api_key)}文字）。APIキーは通常39文字以上です。"
+            print(f"❌ {error_msg}")
+            raise ValueError(error_msg)
+        
+        try:
+            genai.configure(api_key=api_key)
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
+        except Exception as e:
+            error_msg = f"Gemini APIの初期化に失敗しました: {str(e)}"
+            print(f"❌ {error_msg}")
+            print(f"エラーの詳細: {traceback.format_exc()}")
+            raise ValueError(error_msg) from e
 
     def generate_theme_options_only(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
         """3つのテーマ案のみを生成する関数"""

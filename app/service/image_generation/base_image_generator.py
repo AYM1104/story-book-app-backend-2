@@ -16,14 +16,30 @@ class BaseImageGenerator:
     
     def __init__(self):
         # APIキーを設定（画像生成用のPaid APIキーを使用）
-        api_key = os.getenv("GOOGLE_API_KEY_Paid") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        api_key = os.getenv("GOOGLE_API_KEY_Paid")
         if not api_key:
-            raise ValueError("GOOGLE_API_KEY_Paid、GEMINI_API_KEYまたはGOOGLE_API_KEYが設定されていません")
+            raise ValueError("GOOGLE_API_KEY_Paidが設定されていません")
         
-        # Gemini クライアントを初期化
-        genai.configure(api_key=api_key)
-        self.client = genai
-        self.model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
+        # APIキーのクリーンアップ（改行、スペース、引用符を削除）
+        api_key = api_key.strip().strip('"').strip("'")
+        
+        # APIキーの形式検証
+        if not api_key.startswith("AIza"):
+            print(f"⚠️ 警告: APIキーの形式が正しくない可能性があります（AIzaで始まる必要があります）")
+        
+        # APIキーが空でないことを再確認
+        if not api_key or len(api_key) < 20:
+            error_msg = f"APIキーが無効です（長さ: {len(api_key)}文字）。APIキーは通常39文字以上です。"
+            raise ValueError(error_msg)
+        
+        try:
+            # Gemini クライアントを初期化
+            genai.configure(api_key=api_key)
+            self.client = genai
+            self.model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
+        except Exception as e:
+            error_msg = f"Gemini APIの初期化に失敗しました: {str(e)}"
+            raise ValueError(error_msg) from e
         
         # GCSサービス（グローバルインスタンスを使用）
         self.gcs_service = gcs_storage_service

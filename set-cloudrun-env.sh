@@ -17,20 +17,32 @@ echo ""
 echo "【必須】以下の環境変数は必ず設定してください"
 echo ""
 
+# 環境変数の値をクリーンアップする関数（改行、空白、引用符を削除）
+clean_env_value() {
+  echo "$1" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed "s/^['\"]//;s/['\"]$//"
+}
+
 # Supabase関連の環境変数（必須 - データベース用）
 read -p "SUPABASE_URL: " SUPABASE_URL
+SUPABASE_URL=$(clean_env_value "$SUPABASE_URL")
+
 read -p "SUPABASE_ANON_KEY: " SUPABASE_ANON_KEY
+SUPABASE_ANON_KEY=$(clean_env_value "$SUPABASE_ANON_KEY")
+
 read -p "SUPABASE_DB_URL: " SUPABASE_DB_URL
+SUPABASE_DB_URL=$(clean_env_value "$SUPABASE_DB_URL")
 
 echo ""
 
 # Gemini API関連（必須）
 read -p "GEMINI_API_KEY: " GEMINI_API_KEY
+GEMINI_API_KEY=$(clean_env_value "$GEMINI_API_KEY")
 
 echo ""
 
 # Google Cloud Storage（必須 - 画像ストレージ用）
 read -p "GCS_BUCKET_NAME (Google Cloud Storageバケット名): " GCS_BUCKET_NAME
+GCS_BUCKET_NAME=$(clean_env_value "$GCS_BUCKET_NAME")
 
 echo ""
 echo "【推奨】以下の環境変数は推奨されます（Enterでスキップ可）"
@@ -38,6 +50,7 @@ echo ""
 
 # Supabase Service Role Key（推奨）
 read -p "SUPABASE_SERVICE_ROLE_KEY (データベース管理用): " SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SERVICE_ROLE_KEY=$(clean_env_value "$SUPABASE_SERVICE_ROLE_KEY")
 
 echo ""
 echo "Cloud Runサービスに環境変数を設定しています..."

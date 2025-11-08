@@ -20,32 +20,56 @@ echo ""
 echo "環境変数を入力してください:"
 echo ""
 
+# 環境変数の値をクリーンアップする関数（改行、空白、引用符を削除）
+clean_input() {
+  echo "$1" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed "s/^['\"]//;s/['\"]$//"
+}
+
 # Supabase関連の環境変数
 read -p "SUPABASE_URL: " SUPABASE_URL
+SUPABASE_URL=$(clean_input "$SUPABASE_URL")
+
 read -p "SUPABASE_ANON_KEY: " SUPABASE_ANON_KEY
+SUPABASE_ANON_KEY=$(clean_input "$SUPABASE_ANON_KEY")
+
 read -p "SUPABASE_SERVICE_ROLE_KEY: " SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SERVICE_ROLE_KEY=$(clean_input "$SUPABASE_SERVICE_ROLE_KEY")
+
 read -p "SUPABASE_DB_URL: " SUPABASE_DB_URL
+SUPABASE_DB_URL=$(clean_input "$SUPABASE_DB_URL")
+
 read -p "SUPABASE_STORAGE_BUCKET (デフォルト: storybook-images): " SUPABASE_STORAGE_BUCKET
-SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET:-storybook-images}
+SUPABASE_STORAGE_BUCKET=$(clean_input "${SUPABASE_STORAGE_BUCKET:-storybook-images}")
+
 read -p "SUPABASE_JWT_SECRET: " SUPABASE_JWT_SECRET
+SUPABASE_JWT_SECRET=$(clean_input "$SUPABASE_JWT_SECRET")
 
 echo ""
 
 # Gemini API関連
 read -p "GEMINI_API_KEY: " GEMINI_API_KEY
+GEMINI_API_KEY=$(clean_input "$GEMINI_API_KEY")
+
 read -p "GOOGLE_API_KEY: " GOOGLE_API_KEY
+GOOGLE_API_KEY=$(clean_input "$GOOGLE_API_KEY")
 
 echo ""
 
 # GCS関連
 read -p "GCS_BUCKET_NAME: " GCS_BUCKET_NAME
+GCS_BUCKET_NAME=$(clean_input "$GCS_BUCKET_NAME")
 
 echo ""
 
 # Auth0関連
 read -p "AUTH0_DOMAIN: " AUTH0_DOMAIN
+AUTH0_DOMAIN=$(clean_input "$AUTH0_DOMAIN")
+
 read -p "AUTH0_API_AUDIENCE: " AUTH0_API_AUDIENCE
+AUTH0_API_AUDIENCE=$(clean_input "$AUTH0_API_AUDIENCE")
+
 read -p "AUTH0_NATIVE_CLIENT_ID: " AUTH0_NATIVE_CLIENT_ID
+AUTH0_NATIVE_CLIENT_ID=$(clean_input "$AUTH0_NATIVE_CLIENT_ID")
 
 echo ""
 echo "シークレットを作成・更新しています..."
@@ -56,14 +80,17 @@ create_or_update_secret() {
   local secret_name=$1
   local secret_value=$2
   
+  # 改行、前後の空白、引用符を削除
+  secret_value=$(echo "$secret_value" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed "s/^['\"]//;s/['\"]$//")
+  
   # シークレットが存在するか確認
   if gcloud secrets describe "$secret_name" >/dev/null 2>&1; then
     # 存在する場合は新しいバージョンを追加
-    echo "$secret_value" | gcloud secrets versions add "$secret_name" --data-file=-
+    echo -n "$secret_value" | gcloud secrets versions add "$secret_name" --data-file=-
     echo "✓ $secret_name を更新しました"
   else
     # 存在しない場合は新規作成
-    echo "$secret_value" | gcloud secrets create "$secret_name" --data-file=-
+    echo -n "$secret_value" | gcloud secrets create "$secret_name" --data-file=-
     echo "✓ $secret_name を作成しました"
   fi
 }
