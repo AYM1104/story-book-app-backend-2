@@ -4,6 +4,7 @@ from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
 from app.models.images.images import UploadImages
 from app.service.story_book_generation.story_line.story_line_generator import story_generator_service
+from app.service.gcs_storage_service import gcs_storage_service
 import json
 
 router = APIRouter(prefix="/story", tags=["story"])
@@ -179,7 +180,10 @@ def get_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_
 # 物語設定削除エンドポイント（Supabase用）
 @router.delete("/story_settings/{story_setting_id}")
 def delete_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_supabase_db)):
-    """Supabase用の物語設定削除エンドポイント"""
+    """Supabase用の物語設定削除エンドポイント
+    
+    story_settingと紐づくupload_image、およびGCS上のファイルも削除します。
+    """
     
     story_setting = db.query(StorySetting).filter(
         StorySetting.id == story_setting_id
@@ -188,7 +192,29 @@ def delete_supabase_story_setting(story_setting_id: int, db: Session = Depends(g
     if not story_setting:
         raise HTTPException(status_code=404, detail="物語設定が見つかりません")
     
+    # 紐づく画像を取得
+    upload_image_id = story_setting.upload_image_id
+    upload_image = db.query(UploadImages).filter(
+        UploadImages.id == upload_image_id
+    ).first()
+    
+    # GCS上のファイルを削除（画像が存在し、file_pathが設定されている場合）
+    if upload_image and upload_image.file_path:
+        try:
+            delete_result = gcs_storage_service.delete_file(upload_image.file_path)
+            if not delete_result.get("success"):
+                # GCS削除失敗は警告として記録するが、処理は続行
+                print(f"⚠️ GCSファイル削除警告: {delete_result.get('error')}")
+        except Exception as e:
+            # GCS削除エラーは警告として記録するが、処理は続行
+            print(f"⚠️ GCSファイル削除エラー: {str(e)}")
+    
+    # 画像レコードを削除
+    if upload_image:
+        db.delete(upload_image)
+    
+    # 物語設定を削除
     db.delete(story_setting)
     db.commit()
     
-    return {"message": "物語設定が削除されました"}
+    return {"message": "物語設定と関連する画像が削除されました"}
