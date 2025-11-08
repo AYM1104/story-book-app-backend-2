@@ -12,7 +12,7 @@ from sqlalchemy import func, and_
 import traceback
 import time
 
-router = APIRouter(prefix="/story", tags=["story-generation"])
+router = APIRouter(prefix="/api/story", tags=["story-generation"])
 
 # スキーマ定義
 class StoryGenerationRequest(BaseModel):

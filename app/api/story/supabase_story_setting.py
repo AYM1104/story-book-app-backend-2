@@ -8,7 +8,7 @@ from app.service.story_book_generation.story_line.story_line_generator import st
 from app.service.gcs_storage_service import gcs_storage_service
 import json
 
-router = APIRouter(prefix="/story", tags=["story"])
+router = APIRouter(prefix="/api/story", tags=["story"])
 
 @router.post("/story_settings/{upload_image_id}", response_model=dict)
 async def create_supabase_story_setting_from_image(

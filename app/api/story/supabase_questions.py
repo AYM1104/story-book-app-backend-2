@@ -6,7 +6,7 @@ from app.service.question_generator_service import question_generator_service
 from app.schemas.story.question import QuestionResponse, AnswerRequest, AnswerResponse
 import time
 
-router = APIRouter(prefix="/story", tags=["story-questions"])
+router = APIRouter(prefix="/api/story", tags=["story-questions"])
 
 @router.get("/story_settings/{story_setting_id}/questions", response_model=QuestionResponse)
 async def get_supabase_questions_for_story_setting(
