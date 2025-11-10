@@ -26,14 +26,14 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {
-        "message": "Story Book Backend is running!", 
+        "message": "ehonnotane Backend is running!", 
         "status": "success",
         "version": "progressive"
     }
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "service": "story-book-backend"}
+    return {"status": "healthy", "service": "ehonnotane-backend"}
 
 @app.get("/env-check")
 def env_check():
@@ -61,7 +61,7 @@ def env_check():
 
 # Auth0認証ルーター
 try:
-    from app.api.auth.auth0_auth import router as auth0_router
+    from app.features._00_auth.api.auth0_auth import router as auth0_router
     app.include_router(auth0_router)
     print("✅ Auth0 router loaded successfully")
 except Exception as e:
@@ -79,9 +79,9 @@ except Exception as e:
         return {"message": "Users router not available", "error": str(e)}
 
 try:
-    from app.api.story.supabase_questions import router as supabase_story_questions_router
-    app.include_router(supabase_story_questions_router)
-    print("✅ Supabase story questions router loaded successfully")
+    from app.api.story.questions import router as story_questions_router
+    app.include_router(story_questions_router)
+    print("✅ Story questions router loaded successfully")
 except Exception as e:
     print(f"❌ Failed to load supabase_story_questions_router: {e}")
     @app.get("/api/story/questions/test")

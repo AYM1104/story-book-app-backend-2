@@ -11,7 +11,7 @@ from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
 from app.models.story.story_book import StoryBook
 from app.service.gcs_storage_service import gcs_storage_service
-from app.service.auth0_management_service import Auth0ManagementService
+from app.features._00_auth.services.auth0_management_service import Auth0ManagementService
 
 
 class UserAccountCleanupService:

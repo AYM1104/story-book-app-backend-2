@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, DateTime, event
+from sqlalchemy import Column, DateTime, event, text
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -21,19 +21,21 @@ class SupabaseBase(DeclarativeBase):
     """
     
     # 作成日時（自動設定、日本時間）
-    # Python側のイベントリスナーでJST時刻を設定するため、server_defaultは使用しない
+    # Supabase経由の直接挿入にも対応するため、サーバーデフォルトでもJSTを設定
     created_at = Column(
         DateTime(timezone=True), 
         nullable=False,
-        comment="作成日時（日本時間）"
+        comment="作成日時（日本時間）",
+        server_default=text("timezone('Asia/Tokyo', now())")
     )
     
     # 更新日時（自動更新、日本時間）
-    # Python側のイベントリスナーでJST時刻を設定するため、server_defaultは使用しない
+    # Supabase経由の直接挿入にも対応するため、サーバーデフォルトでもJSTを設定
     updated_at = Column(
         DateTime(timezone=True), 
         nullable=False,
-        comment="更新日時（日本時間）"
+        comment="更新日時（日本時間）",
+        server_default=text("timezone('Asia/Tokyo', now())")
     )
     
     def to_dict(self) -> dict[str, Any]:

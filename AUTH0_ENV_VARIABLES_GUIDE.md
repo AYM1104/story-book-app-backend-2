@@ -117,6 +117,82 @@
    - **Client Secret**: Google Cloud Consoleで作成したOAuth 2.0クライアントシークレット
 4. 「Applications」タブでNative Appを有効化
 
+#### Step 3.5: Appleソーシャル接続の設定
+1. 「Authentication」→「Social」→「Create Connection」
+2. 「Apple」を選択
+3. Apple接続の設定画面で以下の項目を設定：
+
+   **Client ID**（オプション）:
+   - Auth0のClient IDを入力（空白の場合はAuth0のdev keysが使用されます）
+   - 通常は空白のままで問題ありません
+
+   **Client Secret Signing Key**（必須）:
+   - Apple Developerで作成したPrivate Key（.p8ファイルの内容）を貼り付け
+   - 取得方法: Apple Developer → Certificates, Identifiers & Profiles → Keys → 作成したKey → Download → .p8ファイルを開いて内容をコピー
+   - **重要**: このフィールドは既存の値が表示されないため、新規作成時は必ず入力が必要です
+
+   **Apple Team ID**（必須）:
+   - Apple DeveloperのTeam IDを入力
+   - 取得方法: Apple Developer → Membership → Team IDをコピー
+   - 形式: `XXXXXXXXXX`（10文字の英数字）
+
+   **Key ID**（必須）:
+   - Apple Developerで作成したKey IDを入力
+   - 取得方法: Apple Developer → Certificates, Identifiers & Profiles → Keys → 作成したKey → Key IDをコピー
+   - 形式: `XXXXXXXXXX`（10文字の英数字）
+
+4. **重要**: 「Applications」タブを開き、Native App（`b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh`）のチェックボックスをオンにする
+   - この設定を忘れると「the connection is not enabled」エラーが発生します
+5. 「Save」をクリックして設定を保存
+
+**⚠️ 注意**: 
+- Apple接続を有効化しないと、アプリで「the connection is not enabled」エラーが発生します
+- Apple DeveloperでService IDとKeyを作成する必要があります（詳細は後述）
+
+#### Step 3.7: X（Twitter）ソーシャル接続の設定
+1. 「Authentication」→「Social」→「Create Connection」
+2. 「Twitter」を選択
+3. X（Twitter）接続の設定画面で以下の項目を設定：
+
+   **API Key**（必須）:
+   - Twitter Developer Portalで作成したアプリのAPI Keyを入力
+   - 取得方法: Twitter Developer Portal → Projects & Apps → 作成したApp → Keys and tokens → API Keyをコピー
+
+   **API Secret**（必須）:
+   - Twitter Developer Portalで作成したアプリのAPI Secretを入力
+   - 取得方法: Twitter Developer Portal → Projects & Apps → 作成したApp → Keys and tokens → API Secretをコピー
+   - **重要**: この値は秘密に保持してください
+
+4. **重要**: 「Applications」タブを開き、Native App（`b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh`）のチェックボックスをオンにする
+   - この設定を忘れると「the connection is not enabled」エラーが発生します
+5. 「Save」をクリックして設定を保存
+
+**⚠️ 注意**: 
+- X（Twitter）接続を有効化しないと、アプリで「the connection is not enabled」エラーが発生します
+- Twitter Developer Portalでアプリを作成する必要があります（詳細は後述）
+
+#### Step 3.6: LINEソーシャル接続の設定
+1. 「Authentication」→「Social」→「Create Connection」
+2. 「LINE」を選択
+3. LINE接続の設定画面で以下の項目を設定：
+
+   **Channel ID**（必須）:
+   - LINE Developersで作成したチャネルのChannel IDを入力
+   - 取得方法: LINE Developers Console → チャネル → Basic settings → Channel IDをコピー
+
+   **Channel Secret**（必須）:
+   - LINE Developersで作成したチャネルのChannel Secretを入力
+   - 取得方法: LINE Developers Console → チャネル → Basic settings → Channel Secretをコピー
+   - **重要**: この値は秘密に保持してください
+
+4. **重要**: 「Applications」タブを開き、Native App（`b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh`）のチェックボックスをオンにする
+   - この設定を忘れると「the connection is not enabled」エラーが発生します
+5. 「Save」をクリックして設定を保存
+
+**⚠️ 注意**: 
+- LINE接続を有効化しないと、アプリで「the connection is not enabled」エラーが発生します
+- LINE Developersでチャネルを作成する必要があります（詳細は後述）
+
 #### Step 4: Management API用Machine to Machineアプリの作成
 1. 「Applications」→「Applications」→「Create Application」
 2. **Machine to Machine Applications**を選択し、名称を例: `Story Book Backend`
@@ -153,6 +229,131 @@
 1. 作成したOAuth 2.0クライアントの設定ページを開く
 2. 「Authorized redirect URIs」に以下を追加：
    - `https://ehonnotane.jp.auth0.com/login/callback`
+
+### 3. Apple Developerでの設定（Apple Sign In用）
+
+Apple Sign Inを使用するには、Apple Developerで以下の設定が必要です：
+
+#### Step 1: Service IDの作成
+1. Apple Developer (https://developer.apple.com/) にログイン
+2. 「Certificates, Identifiers & Profiles」→「Identifiers」→「+」をクリック
+3. 「Services IDs」を選択して「Continue」
+4. 以下の情報を入力：
+   - **Description**: `Story Book App`（任意の名前）
+   - **Identifier**: `com.ehonnotane.ayu`（アプリのBundle IDと一致させる）
+5. 「Sign In with Apple」にチェックを入れて「Configure」
+6. 「Primary App ID」でアプリのApp IDを選択
+7. 「Return URLs」に以下を追加：
+   - `https://ehonnotane.jp.auth0.com/login/callback`
+8. 「Save」→「Continue」→「Register」
+
+#### Step 2: Keyの作成
+1. 「Certificates, Identifiers & Profiles」→「Keys」→「+」をクリック
+2. 以下の情報を入力：
+   - **Key Name**: `Auth0 Apple Sign In Key`（任意の名前）
+   - **Sign In with Apple**にチェックを入れる
+3. 「Continue」→「Register」
+4. **重要**: Key IDをメモする（後で確認できないため）
+5. 「Download」をクリックして`.p8`ファイルをダウンロード
+   - **重要**: このファイルは1回しかダウンロードできません。安全に保管してください
+
+#### Step 3: Team IDの確認
+1. Apple Developer → 「Membership」
+2. 「Team ID」をコピー（10文字の英数字）
+
+#### Step 4: 取得した情報をAuth0に設定
+上記で取得した以下の情報を、Auth0のApple接続設定画面に入力：
+- **Apple Team ID**: Step 3で取得したTeam ID
+- **Key ID**: Step 2で取得したKey ID
+- **Client Secret Signing Key**: Step 2でダウンロードした`.p8`ファイルの内容（テキストエディタで開いて全体をコピー）
+
+### 5. Twitter Developer Portalでの設定（X（Twitter）ログイン用）
+
+X（Twitter）ログインを使用するには、Twitter Developer Portalで以下の設定が必要です：
+
+#### Step 1: Twitter Developerアカウントの作成
+1. Twitter Developer Portal (https://developer.twitter.com/) にアクセス
+2. Twitterアカウントでログイン
+3. Developerアカウントの申請（必要に応じて）
+
+#### Step 2: プロジェクトとアプリの作成
+1. Twitter Developer Portalにログイン
+2. 「Projects & Apps」→「+ Create Project」をクリック
+3. プロジェクト名を入力して「Next」をクリック
+4. アプリ名を入力して「Next」をクリック
+5. アプリの用途を選択（例: Making a bot）して「Next」をクリック
+6. 「Create」をクリックしてプロジェクトとアプリを作成
+
+#### Step 3: OAuth 2.0設定
+1. 作成したアプリを選択
+2. 「Settings」タブを開く
+3. 「App permissions」で「Read」を選択（必要に応じて「Read and write」も選択可能）
+4. 「Callback URI / Redirect URL」に以下を追加：
+   - `https://ehonnotane.jp.auth0.com/login/callback`
+5. 「Website URL」にアプリのURLを入力（例: `https://ehonnotane.jp`）
+6. 「Save」をクリック
+
+#### Step 4: API KeyとAPI Secretの取得
+1. 作成したアプリの「Keys and tokens」タブを開く
+2. 「API Key」と「API Secret」をコピー
+   - **重要**: API Secretは一度しか表示されません。安全に保管してください
+3. これらの値をAuth0ダッシュボードのTwitter接続設定に入力
+
+#### Step 5: 取得した情報をAuth0に設定
+上記で取得した以下の情報を、Auth0のTwitter接続設定画面に入力：
+- **API Key**: Step 4で取得したAPI Key
+- **API Secret**: Step 4で取得したAPI Secret
+
+---
+
+### 4. LINE Developersでの設定（LINEログイン用）
+
+LINEログインを使用するには、LINE Developersで以下の設定が必要です：
+
+#### Step 1: プロバイダーの作成
+1. LINE Developers Console (https://developers.line.biz/console/) にログイン
+2. 「プロバイダーを作成」をクリック
+3. プロバイダー名を入力して「作成」をクリック
+
+#### Step 2: チャネルの作成
+1. 作成したプロバイダーを選択
+2. 「チャネルを作成」をクリック
+3. 「LINE Login」を選択して「次へ」
+4. 以下の情報を入力：
+   - **チャネル名**: `Story Book App`（任意の名前）
+   - **チャネル説明**: 任意の説明
+   - **アプリタイプ**: `Web app` ⚠️ **重要**: ネイティブアプリでも「Web app」を選択してください
+   - **メールアドレス**: 連絡先メールアドレス
+5. 「作成」をクリック
+
+**⚠️ 重要**: 
+- iOSネイティブアプリでも、Auth0を経由する場合は「Web app」タイプのチャネルを作成する必要があります
+- 「iOS app」や「Android app」を選択するとCallback URLの設定項目が表示されません
+- Auth0が中間プロキシとして機能するため、LINE → Auth0 → iOSアプリという流れになります
+
+#### Step 3: チャネル設定
+1. 作成したチャネルを選択
+2. 「Basic settings」タブで以下を確認・設定：
+   - **Channel ID**: 後でAuth0に設定するため、コピーしておく
+   - **Channel Secret**: 後でAuth0に設定するため、コピーしておく
+     - **重要**: Channel Secretは一度しか表示されません。安全に保管してください
+
+#### Step 4: Callback URLの設定
+1. 「LINE Login settings」タブを開く
+2. 「Callback URL」欄に以下を追加：
+   - `https://ehonnotane.jp.auth0.com/login/callback`
+3. 「保存」をクリック
+
+**⚠️ 重要**: 
+- Callback URLはLINE Developers Consoleで設定します
+- このURLは、LINE認証後にAuth0にリダイレクトするために必要です
+- 複数のCallback URLを設定する場合は、1行に1つずつ入力してください
+- 「Web app」タイプのチャネルを作成した場合のみ、この設定項目が表示されます
+
+#### Step 5: 取得した情報をAuth0に設定
+上記で取得した以下の情報を、Auth0のLINE接続設定画面に入力：
+- **Channel ID**: Step 3で取得したChannel ID
+- **Channel Secret**: Step 3で取得したChannel Secret
 
 ---
 
@@ -200,6 +401,62 @@ Auth0設定エラー: AUTH0_DOMAINが設定されていません
 1. Auth0ダッシュボードでGoogleソーシャル接続を確認
 2. Google Cloud ConsoleでOAuth 2.0クライアントの設定を確認
 3. リダイレクトURIが正しく設定されているか確認
+
+### Q: Apple Sign Inで「the connection is not enabled」エラーが発生する
+
+**原因**: Auth0ダッシュボードでApple接続が有効になっていない、またはNative Appに接続が紐付けられていない可能性があります。
+
+**解決方法:**
+1. Auth0ダッシュボードにログイン
+2. 「Authentication」→「Social」→「Apple」を選択
+3. Apple接続が作成されているか確認（なければ作成）
+4. **重要**: 「Applications」タブを開き、Native App（`b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh`）が有効になっているか確認
+   - チェックボックスがオフになっている場合は、オンにして「Save」をクリック
+5. Apple Developerで作成したService ID、Team ID、Key ID、Private Keyが正しく設定されているか確認
+6. 設定を保存後、数分待ってから再度試す（設定の反映に時間がかかる場合があります）
+
+**エラーメッセージ例:**
+```
+❌ Apple Sign Inエラー詳細: An unexpected error occurred. CAUSE: the connection is not enabled.
+```
+
+### Q: X（Twitter）ログインで「the connection is not enabled」エラーが発生する
+
+**原因**: Auth0ダッシュボードでX（Twitter）接続が有効になっていない、またはNative Appに接続が紐付けられていない可能性があります。
+
+**解決方法:**
+1. Auth0ダッシュボードにログイン
+2. 「Authentication」→「Social」→「Twitter」を選択
+3. X（Twitter）接続が作成されているか確認（なければ作成）
+4. **重要**: 「Applications」タブを開き、Native App（`b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh`）が有効になっているか確認
+   - チェックボックスがオフになっている場合は、オンにして「Save」をクリック
+5. Twitter Developer Portalで作成したAPI KeyとAPI Secretが正しく設定されているか確認
+6. Twitter Developer PortalのCallback URLに`https://ehonnotane.jp.auth0.com/login/callback`が設定されているか確認
+7. 設定を保存後、数分待ってから再度試す（設定の反映に時間がかかる場合があります）
+
+**エラーメッセージ例:**
+```
+❌ X（Twitter）ログインエラー詳細: An unexpected error occurred. CAUSE: the connection is not enabled.
+```
+
+### Q: LINEログインで「the connection is not enabled」エラーが発生する
+
+**原因**: Auth0ダッシュボードでLINE接続が有効になっていない、またはNative Appに接続が紐付けられていない可能性があります。
+
+**解決方法:**
+1. Auth0ダッシュボードにログイン
+2. 「Authentication」→「Social」→「LINE」を選択
+3. LINE接続が作成されているか確認（なければ作成）
+4. **重要**: 「Applications」タブを開き、Native App（`b1sTk9gTW2rjddFtvu0w7ZrsFYk2ldfh`）が有効になっているか確認
+   - チェックボックスがオフになっている場合は、オンにして「Save」をクリック
+5. LINE Developersで作成したChannel IDとChannel Secretが正しく設定されているか確認
+6. LINE DevelopersのCallback URLに`https://ehonnotane.jp.auth0.com/login/callback`が設定されているか確認
+7. 設定を保存後、数分待ってから再度試す（設定の反映に時間がかかる場合があります）
+
+**エラーメッセージ例:**
+```
+❌ LINEログインエラー詳細: An unexpected error occurred. CAUSE: the connection is not enabled.
+```
 
 ### Q: リダイレクトURIエラーが発生する
 

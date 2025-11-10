@@ -1,32 +1,36 @@
-"""
-ファイル処理サービス
-"""
+# /app/service/upload_image/_00_file_processing_service.py
+
 import time
 from typing import Dict, Any, Optional
 from fastapi import UploadFile, HTTPException, status
 from app.core.config import MAX_UPLOAD_SIZE, ALLOWED_MIME
 
 
-class FileProcessingService:
-    """ファイル処理を担当するサービス"""
+""" 
+【ファイル処理サービス】
+アップロードされた画像を GCS へ送る前段階として「ファイルの基本的な検証と読み込み」を担当。
+
+    Args:
+        file: アップロードされたファイル
     
+    Returns:
+        ファイル処理結果の辞書
+
+"""
+
+
+class FileProcessingService:
+
     async def validate_and_read_file(
         self, 
         file: UploadFile
     ) -> Dict[str, Any]:
-        """
-        ファイルの検証と読み込みを行う
         
-        Args:
-            file: アップロードされたファイル
-        
-        Returns:
-            ファイル処理結果の辞書
-        """
+        # ファイル処理開始時間を取得
         start_time = time.time()
                 
         try:
-            # ファイル形式の検証
+            # ファイル形式の検証（許可されている形式かどうかを確認）
             if not file.content_type or file.content_type not in ALLOWED_MIME:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, s
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.schemas.images.images import UploadImageResponse
-from app.service.upload_image.file_processing_service import file_processing_service
-from app.service.upload_image.image_analysis_service import image_analysis_service
-from app.service.upload_image.image_database_service import image_database_service
-from app.service.upload_image.image_upload_gcs_service import image_upload_gcs_service
+from app.service.upload_image._00_file_processing_service import file_processing_service
+from app.service.upload_image._01_image_upload_gcs_service import image_upload_gcs_service
+from app.service.upload_image._02_image_analysis_service import image_analysis_service
+from app.service.upload_image._03_image_database_service import image_database_service
 
 router = APIRouter(prefix="/api/images", tags=["images"])
 
@@ -30,7 +30,7 @@ async def upload_gcs_image(
         # 1. アップロードされたファイルを検証
         file_validation_start_time = time.time()
         print("1. アップロードされたファイルを検証 -------------------")
-        file_result = await file_processing_service.validate_and_read_file(file)    # file_processing_service.pyを呼び出す
+        file_result = await file_processing_service.validate_and_read_file(file)    # _00_file_processing_service.pyを呼び出す
         content = file_result["content"]
         content_type = file_result["content_type"]
         filename = file_result["filename"]
@@ -40,7 +40,7 @@ async def upload_gcs_image(
         upload_start_time = time.time()
         print("2. GCSへ画像をアップロード -------------------")
         try:
-            upload_result = await image_upload_gcs_service.upload_image(    # image_upload_gcs_service.pyを呼び出す
+            upload_result = await image_upload_gcs_service.upload_image(    # _01_image_upload_gcs_service.pyを呼び出す
                 file_content=content,
                 filename=filename or "uploaded_image",
                 user_id=user_id,
@@ -80,12 +80,12 @@ async def upload_gcs_image(
         # 3. Vision API 解析
         analysis_start_time = time.time()
         print("3. Vision API解析 -------------------")
-        analysis_result = await image_analysis_service.analyze_image(content, filename)
+        analysis_result = await image_analysis_service.analyze_image(content, filename)    # _02_image_analysis_service.pyを呼び出す
         meta_data_json = analysis_result["meta_data_json"]
         print(f"✅ Vision API解析完了: {time.time() - analysis_start_time:.3f}秒 ===")
 
         # 4. データベースへ保存
-        db_result = await image_database_service.save_image_to_database(
+        db_result = await image_database_service.save_image_to_database(    # _03_image_database_service.pyを呼び出す
             db=db,
             file_name=filename,
             file_path=file_path,

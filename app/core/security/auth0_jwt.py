@@ -243,45 +243,108 @@ def get_user_or_create(
     
     if not user:
         # ユーザーが存在しない場合：初回ログイン時の自動作成
-        # ユーザー名を取得（Google認証などでnameが含まれている場合）
-        user_name = payload.get("name") or ""
-        
-        # nameが取得できない場合、emailから名前部分を抽出
-        if not user_name:
-            email = payload.get("email", "")
-            if email:
-                # emailの@マークより前の部分をユーザー名として使用
-                user_name = email.split("@")[0]
-        
-        # それでも取得できない場合、デフォルト値を使用
-        if not user_name:
-            user_name = "ユーザー"
-        
-        user = Users(
-            id=sub,  # Auth0のsubクレーム
-            user_name=user_name,  # Google認証などから取得した名前
-            email=payload.get("email", "")  # Auth0から取得可能なメールアドレス
-        )
-        db.add(user)
-        db.flush()  # IDを取得するためにflush
-        
-        # 初回登録時の300クレジット付与
-        CreditsService.add_credits(
-            db=db,
-            user_id=sub,
-            amount=300,
-            reason="signup_bonus"
-        )
-        
-        # FREEプランのサブスクリプションを作成
-        CreditsService.ensure_subscription(
-            db=db,
-            user_id=sub,
-            plan=PlanType.FREE
-        )
-        
-        db.commit()
-        db.refresh(user)
+        try:
+            # デバッグ: トークンのペイロード内容をログ出力
+            print(f"🔍 ユーザー作成: sub={sub}")
+            print(f"🔍 トークンペイロード: email={payload.get('email')}, name={payload.get('name')}, picture={payload.get('picture')}")
+            print(f"🔍 全ペイロードキー: {list(payload.keys())}")
+            
+            # ユーザー名を取得（Google認証などでnameが含まれている場合）
+            user_name = payload.get("name") or ""
+            
+            # nameが取得できない場合、emailから名前部分を抽出
+            if not user_name:
+                email = payload.get("email") or ""
+                if email:
+                    # emailの@マークより前の部分をユーザー名として使用
+                    user_name = email.split("@")[0]
+            
+            # それでも取得できない場合、デフォルト値を使用
+            if not user_name:
+                user_name = f"ユーザー_{sub[-8:]}"  # subの最後8文字を使用して一意性を確保
+            
+            # emailを取得（実機ではemailが含まれていない可能性がある）
+            email = payload.get("email") or ""
+            
+            # emailが空の場合、subベースのダミーemailを生成（unique制約を満たすため）
+            if not email:
+                # subからダミーemailを生成（例: auth0|123456789 -> auth0-123456789@dummy.local）
+                email = f"{sub.replace('|', '-')}@dummy.local"
+                print(f"⚠️ emailが含まれていないため、ダミーemailを生成: {email}")
+            
+            user = Users(
+                id=sub,  # Auth0のsubクレーム
+                user_name=user_name,  # Google認証などから取得した名前
+                email=email  # Auth0から取得可能なメールアドレス（存在しない場合はダミー）
+            )
+            db.add(user)
+            db.flush()  # IDを取得するためにflush
+            
+            # 初回登録時の300クレジット付与
+            try:
+                CreditsService.add_credits(
+                    db=db,
+                    user_id=sub,
+                    amount=300,
+                    reason="signup_bonus"
+                )
+            except Exception as credits_error:  # noqa: BLE001
+                db.rollback()
+                import traceback
+                error_traceback = traceback.format_exc()
+                print(f"❌ クレジット付与エラー: {str(credits_error)}")
+                print(f"❌ トレースバック:\n{error_traceback}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"クレジット付与に失敗しました: {str(credits_error)}",
+                )
+            
+            # FREEプランのサブスクリプションを作成
+            try:
+                CreditsService.ensure_subscription(
+                    db=db,
+                    user_id=sub,
+                    plan=PlanType.FREE
+                )
+            except Exception as subscription_error:  # noqa: BLE001
+                db.rollback()
+                import traceback
+                error_traceback = traceback.format_exc()
+                print(f"❌ サブスクリプション作成エラー: {str(subscription_error)}")
+                print(f"❌ トレースバック:\n{error_traceback}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"サブスクリプション作成に失敗しました: {str(subscription_error)}",
+                )
+            
+            # 最後にコミット（CreditsService内で既にコミットされているが、念のため）
+            try:
+                db.commit()
+                db.refresh(user)
+            except Exception as commit_error:  # noqa: BLE001
+                db.rollback()
+                import traceback
+                error_traceback = traceback.format_exc()
+                print(f"❌ コミットエラー: {str(commit_error)}")
+                print(f"❌ トレースバック:\n{error_traceback}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"データベースコミットに失敗しました: {str(commit_error)}",
+                )
+        except HTTPException:
+            # HTTPExceptionはそのまま再スロー
+            raise
+        except Exception as e:  # noqa: BLE001
+            # その他のエラーはロールバックしてから再スロー
+            db.rollback()
+            import traceback
+            error_traceback = traceback.format_exc()
+            print(f"❌ ユーザー作成エラー: {str(e)}")
+            print(f"❌ トレースバック:\n{error_traceback}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"ユーザー作成に失敗しました: {str(e)}",
+            )
     
     return user
 

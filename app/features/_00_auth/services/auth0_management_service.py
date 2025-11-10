@@ -79,3 +79,4 @@ class Auth0ManagementService:
 
 
 auth0_management_service = Auth0ManagementService()
+
