@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
@@ -19,6 +19,15 @@ if not DATABASE_URL:
 else:
     try:
         engine = create_engine(DATABASE_URL)
+        
+        # 接続時にタイムゾーンをJSTに設定するイベントリスナー
+        @event.listens_for(engine, "connect")
+        def set_timezone(dbapi_conn, connection_record):
+            """データベース接続時にタイムゾーンをJSTに設定"""
+            cursor = dbapi_conn.cursor()
+            cursor.execute("SET timezone = 'Asia/Tokyo'")
+            cursor.close()
+        
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         print("✅ データベース接続が正常に設定されました")
     except Exception as e:

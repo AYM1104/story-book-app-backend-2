@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from app.core.supabase_config import SUPABASE_DB_URL, validate_supabase_config
 import os
@@ -21,6 +21,14 @@ engine = create_engine(
     pool_recycle=300,    # 5分で接続をリサイクル
     echo=False           # SQLログの出力（開発時はTrueに設定可能）
 )
+
+# 接続時にタイムゾーンをJSTに設定するイベントリスナー
+@event.listens_for(engine, "connect")
+def set_timezone(dbapi_conn, connection_record):
+    """データベース接続時にタイムゾーンをJSTに設定"""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("SET timezone = 'Asia/Tokyo'")
+    cursor.close()
 
 # セッションファクトリーの作成
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
