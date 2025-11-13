@@ -7,16 +7,17 @@ from typing import Any
 JST = timezone(timedelta(hours=9))
 
 def get_jst_now() -> datetime:
-    """現在時刻を日本時間（JST）で取得
+    """現在時刻を日本時間（JST）で取得し、UTCに変換して返す
     
     PostgreSQLのtimestamptz型はUTCに正規化して保存するため、
     JSTの時刻をUTCに変換してから保存する必要がある。
     これにより、PostgreSQLに保存される値はUTC時刻となり、
     読み取り時にJSTとして表示する場合は、アプリケーション側で変換する必要がある。
     """
-    # UTC時刻を取得してからJSTに変換
-    # PostgreSQLはUTCに正規化して保存するため、JSTの時刻をUTCに変換して保存する
-    return datetime.now(timezone.utc).astimezone(JST)
+    # JSTの現在時刻を取得
+    jst_now = datetime.now(JST)
+    # UTCに変換（PostgreSQLはUTCに正規化して保存するため）
+    return jst_now.astimezone(timezone.utc)
 
 # Supabase用のベースクラス
 class SupabaseBase(DeclarativeBase):

@@ -3,7 +3,7 @@ import google.generativeai as genai
 from typing import Dict, Any, Optional, List
 import os
 from dotenv import load_dotenv
-from .theme_generator import theme_generator, TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
+from app.features._04_theme_selection.services.theme_generator import theme_generator, TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
 
 load_dotenv()
 

@@ -95,7 +95,7 @@ except Exception as e:
         return {"message": "Story questions router not available", "error": str(e)}
 
 try:
-    from app.features._02_generation_plan.api.story_generator import router as story_generator_router
+    from app.features._05_storybook_creation.api.story_generator import router as story_generator_router
     app.include_router(story_generator_router)
     print("✅ Story generator router loaded successfully")
 except Exception as e:
