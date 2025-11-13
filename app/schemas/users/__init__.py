@@ -1,5 +1,5 @@
 from app.schemas.users.users import UserCreate, UserRead
-from app.schemas.child import ChildCreate, ChildUpdate, ChildRead
+from app.features.user_management.schemas.children import ChildCreate, ChildUpdate, ChildRead
 
 __all__ = [
     "UserCreate",

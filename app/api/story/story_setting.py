@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.models.story.story_setting import StorySetting
-from app.models.images.images import UploadImages
+from app.features._01_image_upload.models.images import UploadImages
 from app.service.story_book_generation.story_line.story_line_generator import story_generator_service
 import json
 

@@ -70,7 +70,7 @@ except Exception as e:
 # Supabaseの基本機能を追加
 try:
     from app.api.users.users import router as supabase_users_router
-    app.include_router(supabase_users_router)
+    app.include_router(supabase_users_router, prefix="/api")
     print("✅ Supabase users router loaded successfully")
 except Exception as e:
     print(f"❌ Failed to load supabase_users_router: {e}")
@@ -111,7 +111,7 @@ except Exception as e:
 
 # 従来のGCSアップロードルーター（フロントエンド用）
 try:
-    from app.api.images.upload_images import router as upload_images_router
+    from app.features._01_image_upload.api.upload_images import router as upload_images_router
     app.include_router(upload_images_router)
     print("✅ Upload images router loaded successfully")
 except Exception as e:
@@ -192,6 +192,17 @@ except Exception as e:
     @app.get("/api/child/test")
     def child_test():
         return {"message": "Child router not available", "error": str(e)}
+
+# ユーザー管理API（子供管理機能）
+try:
+    from app.features.user_management.api.children import router as user_management_children_router
+    app.include_router(user_management_children_router, prefix="/api")
+    print("✅ User management children router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load user_management_children_router: {e}")
+    @app.get("/api/user-management/children/test")
+    def user_management_children_test():
+        return {"message": "User management children router not available", "error": str(e)}
 
 @app.get("/api/routes")
 def list_routes():

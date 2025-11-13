@@ -3,11 +3,11 @@ import traceback
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from app.database.session import get_db
-from app.schemas.images.images import UploadImageResponse
-from app.service.upload_image._00_file_processing_service import file_processing_service
-from app.service.upload_image._01_image_upload_gcs_service import image_upload_gcs_service
-from app.service.upload_image._02_image_analysis_service import image_analysis_service
-from app.service.upload_image._03_image_database_service import image_database_service
+from app.features._01_image_upload.schemas.images import UploadImageResponse
+from app.features._01_image_upload.services._00_file_processing_service import file_processing_service
+from app.features._01_image_upload.services._01_image_upload_gcs_service import image_upload_gcs_service
+from app.features._01_image_upload.services._02_image_analysis_service import image_analysis_service
+from app.features._01_image_upload.services._03_image_database_service import image_database_service
 
 router = APIRouter(prefix="/api/images", tags=["images"])
 

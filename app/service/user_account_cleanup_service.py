@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.users.users import Users
-from app.models.images.images import UploadImages
+from app.features._01_image_upload.models.images import UploadImages
 from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
 from app.models.story.story_book import StoryBook

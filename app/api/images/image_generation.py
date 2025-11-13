@@ -163,7 +163,7 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
             # request.reference_image_path が未指定の場合、story_plot_id から解決
             from app.models.story.story_plot import StoryPlot
             from app.models.story.story_setting import StorySetting
-            from app.models.images.images import UploadImages
+            from app.features._01_image_upload.models.images import UploadImages
 
             story_plot = db.query(StoryPlot).filter(StoryPlot.id == story_plot_id).first()
             if not story_plot:
@@ -370,7 +370,7 @@ async def generate_storybook_all_pages_image_to_image(
             # request.reference_image_path が未指定の場合、story_plot_id から解決
             from app.models.story.story_plot import StoryPlot
             from app.models.story.story_setting import StorySetting
-            from app.models.images.images import UploadImages
+            from app.features._01_image_upload.models.images import UploadImages
 
             story_plot = db.query(StoryPlot).filter(StoryPlot.id == story_plot_id).first()
             if not story_plot:

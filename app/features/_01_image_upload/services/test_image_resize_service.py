@@ -4,7 +4,7 @@
 import pytest
 import io
 from PIL import Image
-from app.service.upload_image._99_image_resize_service import ImageResizeService
+from app.features._01_image_upload.services._99_image_resize_service import ImageResizeService
 
 
 class TestImageResizeService:

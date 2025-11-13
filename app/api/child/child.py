@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
 from app.models.child.child import Child
-from app.schemas.child.child import ChildRead
+from app.features.user_management.schemas.children import ChildRead
 
 router = APIRouter(prefix="/child", tags=["child"])
 

@@ -4,7 +4,7 @@
 import time
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
-from app.models.images.images import UploadImages
+from app.features._01_image_upload.models.images import UploadImages
 
 
 class ImageDatabaseService:

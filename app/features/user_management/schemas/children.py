@@ -1,3 +1,7 @@
+"""子供管理用のスキーマ
+
+requirements.md の Child スキーマ定義に基づく
+"""
 from pydantic import BaseModel
 from datetime import date, datetime
 from typing import Optional
@@ -40,3 +44,4 @@ class ChildRead(BaseModel):
     class Config:
         from_attributes = True
 
+__all__ = ["ChildCreate", "ChildUpdate", "ChildRead"]

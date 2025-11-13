@@ -447,7 +447,7 @@ class StoryGeneratorService:
                 # 失敗した場合は「子供」のままとし、後でユーザーに質問で聞きます
                 from sqlalchemy.orm import Session
                 from app.database.session import get_db
-                from app.models.images.images import UploadImages
+                from app.features._01_image_upload.models.images import UploadImages
                 
                 db_gen = get_db()
                 db = next(db_gen)
