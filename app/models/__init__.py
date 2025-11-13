@@ -9,7 +9,8 @@
 # Supabaseモデルをインポート
 from .users.users import Users
 from .child import Child
-from .images.images import UploadImages
+# UploadImagesはfeaturesディレクトリから直接インポート
+from app.features._01_image_upload.models.images import UploadImages
 from .story.story_setting import StorySetting
 from .story.story_plot import StoryPlot
 from .story.story_book import StoryBook

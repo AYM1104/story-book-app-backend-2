@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.child.child import Child
-from app.models.story.generated_story_book import StoryBook
+from app.models.story.story_book import StoryBook
 from app.features.user_management.schemas.children import ChildCreate, ChildUpdate
 
 
