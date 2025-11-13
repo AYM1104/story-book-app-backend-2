@@ -44,12 +44,16 @@ def get_me_auth0(
         # ユーザーを取得または作成（初回ログイン時は自動作成＋300クレジット付与）
         user = get_user_or_create(payload, db)
         
+        # メールアドレスが空文字列の場合、Noneに変換
+        email = user.email if user.email and user.email != "" else None
+        
         # JWTのsubクレームをuser_idとして返す（sub = Auth0ユーザーID = DBのusers.id）
         return UserInfoResponse(
             user_id=payload.get("sub", ""),  # Auth0のsubクレーム
-            email=payload.get("email"),
-            name=payload.get("name"),
-            picture=payload.get("picture"),
+            user_name=user.user_name,  # データベースから取得したユーザー名
+            email=email,  # データベースから取得したメールアドレス（空の場合はNone）
+            name=payload.get("name"),  # Auth0から取得した名前（後方互換性のため）
+            picture=payload.get("picture"),  # Auth0から取得した画像URL
         )
     except HTTPException as http_exc:
         # HTTPExceptionはそのまま再スロー（詳細なエラーメッセージを保持）

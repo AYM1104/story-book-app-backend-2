@@ -5,8 +5,9 @@ class UserInfoResponse(BaseModel):
     """ユーザー情報レスポンス"""
 
     user_id: str
+    user_name: str  # データベースから取得したユーザー名
     email: str | None = None
-    name: str | None = None
+    name: str | None = None  # Auth0から取得した名前（後方互換性のため残す）
     picture: str | None = None
 
 
