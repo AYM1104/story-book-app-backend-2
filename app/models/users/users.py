@@ -11,7 +11,7 @@ class Users(SupabaseBase):
 
     id = Column(String(255), primary_key=True, index=True, comment="Auth0のユーザーID")
     user_name = Column(String(255), nullable=False, comment="ユーザー名")
-    email = Column(String(255), nullable=False, unique=True, comment="メールアドレス")
+    email = Column(String(255), nullable=True, unique=True, comment="メールアドレス（オプショナル）")
     balance = Column(Integer, nullable=False, default=0, comment="クレジット残高")
     # password = Column(String(255), nullable=False, comment="パスワード")  # Supabase認証で管理
 

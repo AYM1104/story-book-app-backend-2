@@ -63,7 +63,8 @@ def verify_auth0_token(token: str) -> dict:
         # デバッグ用: トークンのペイロードを検証なしでデコードして確認
         unverified_payload = None
         try:
-            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            # joseライブラリでは、verify_signature=Falseの場合でもkeyパラメータが必要
+            unverified_payload = jwt.decode(token, key="", options={"verify_signature": False})
             token_aud = unverified_payload.get('aud')
             token_iss = unverified_payload.get('iss')
             expected_aud = Auth0Config.API_AUDIENCE
@@ -102,7 +103,8 @@ def verify_auth0_token(token: str) -> dict:
         # トークンの詳細情報を取得してエラーメッセージに含める
         error_message = str(e)
         try:
-            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            # joseライブラリでは、verify_signature=Falseの場合でもkeyパラメータが必要
+            unverified_payload = jwt.decode(token, key="", options={"verify_signature": False})
             token_aud = unverified_payload.get('aud')
             token_iss = unverified_payload.get('iss')
             

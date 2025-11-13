@@ -13,7 +13,7 @@ class UserCreate(BaseModel):
 class UserRead(BaseModel):
     id: str  # Auth0のユーザーID
     user_name: str
-    email: EmailStr
+    email: Optional[EmailStr] = None  # メールアドレス（オプショナル）
     balance: int  # クレジット残高
     created_at: datetime
     updated_at: datetime
