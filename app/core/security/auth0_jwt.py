@@ -257,6 +257,17 @@ def get_user_or_create(
     
     user = db.query(Users).filter(Users.id == sub).first()
     
+    # 既存ユーザーのuser_nameがNULLまたは空の場合、デフォルト値を設定して更新
+    if user and (not user.user_name or user.user_name == ""):
+        # メールアドレスからユーザー名を生成、またはデフォルト値を設定
+        email = user.email or payload.get("email") or ""
+        if email and email != "":
+            user.user_name = email.split("@")[0]
+        else:
+            user.user_name = f"ユーザー_{sub[-8:]}"  # subの最後8文字を使用
+        db.commit()
+        db.refresh(user)
+    
     if not user:
         # ユーザーが存在しない場合：初回ログイン時の自動作成
         try:

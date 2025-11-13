@@ -47,10 +47,19 @@ def get_me_auth0(
         # メールアドレスが空文字列の場合、Noneに変換
         email = user.email if user.email and user.email != "" else None
         
+        # user_nameがNULLまたは空文字列の場合、デフォルト値を設定
+        user_name = user.user_name
+        if not user_name or user_name == "":
+            # メールアドレスからユーザー名を生成、またはデフォルト値を設定
+            if email:
+                user_name = email.split("@")[0]
+            else:
+                user_name = f"ユーザー_{user.id[-8:]}"  # IDの最後8文字を使用
+        
         # JWTのsubクレームをuser_idとして返す（sub = Auth0ユーザーID = DBのusers.id）
         return UserInfoResponse(
             user_id=payload.get("sub", ""),  # Auth0のsubクレーム
-            user_name=user.user_name,  # データベースから取得したユーザー名
+            user_name=user_name,  # データベースから取得したユーザー名（NULLの場合はデフォルト値）
             email=email,  # データベースから取得したメールアドレス（空の場合はNone）
             name=payload.get("name"),  # Auth0から取得した名前（後方互換性のため）
             picture=payload.get("picture"),  # Auth0から取得した画像URL

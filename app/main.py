@@ -95,11 +95,11 @@ except Exception as e:
         return {"message": "Story questions router not available", "error": str(e)}
 
 try:
-    from app.features._02_generation_plan.api.supabase_story_generator import router as supabase_story_generator_router
-    app.include_router(supabase_story_generator_router)
-    print("✅ Supabase story generator router loaded successfully")
+    from app.features._02_generation_plan.api.story_generator import router as story_generator_router
+    app.include_router(story_generator_router)
+    print("✅ Story generator router loaded successfully")
 except Exception as e:
-    print(f"❌ Failed to load supabase_story_generator_router: {e}")
+    print(f"❌ Failed to load story_generator_router: {e}")
     @app.get("/api/story/generator/test")
     def story_generator_test():
         return {"message": "Story generator router not available", "error": str(e)}
