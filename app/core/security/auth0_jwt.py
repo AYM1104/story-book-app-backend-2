@@ -12,7 +12,8 @@ from app.core.security.auth0_config import Auth0Config
 
 
 # HTTPベアラートークン認証スキーム
-http_bearer = HTTPBearer(auto_error=True)
+# auto_error=Falseにして、トークンが存在しない場合でもエンドポイントに到達できるようにする
+http_bearer = HTTPBearer(auto_error=False)
 
 
 def verify_auth0_token(token: str) -> dict:
@@ -138,7 +139,7 @@ def verify_auth0_token(token: str) -> dict:
 
 
 def get_current_user_auth0(
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer)
 ) -> dict:
     """Auth0トークンを検証し、現在のユーザー情報を返す
     
@@ -146,7 +147,7 @@ def get_current_user_auth0(
     JWTトークンの全ペイロードを返します。
     
     Args:
-        credentials: HTTPベアラートークン
+        credentials: HTTPベアラートークン（auto_error=FalseのためOptional）
         
     Returns:
         ユーザー情報を含むペイロード辞書
@@ -154,7 +155,17 @@ def get_current_user_auth0(
         - email: メールアドレス（存在する場合）
         - name: ユーザー名（存在する場合）
         - その他のクレーム
+        
+    Raises:
+        HTTPException: トークンが存在しない場合、または無効な場合
     """
+    # トークンが存在しない場合のエラーハンドリング
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="認証トークンが必要です。AuthorizationヘッダーにBearerトークンを設定してください。",
+        )
+    
     token = credentials.credentials
     payload = verify_auth0_token(token)
     
@@ -169,7 +180,7 @@ def get_current_user_auth0(
 
 
 def get_auth0_sub_from_token(
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer)
 ) -> str:
     """Auth0 JWTトークンから`sub`クレームを取得する
     
@@ -177,11 +188,14 @@ def get_auth0_sub_from_token(
     データベースの`users.id`として使用されます。
     
     Args:
-        credentials: HTTPベアラートークン
+        credentials: HTTPベアラートークン（auto_error=FalseのためOptional）
         
     Returns:
         Auth0の`sub`クレーム（例: "auth0|123456789"）
         この値はデータベースのuser_idとして使用される
+        
+    Raises:
+        HTTPException: トークンが存在しない場合、または無効な場合
     """
     payload = get_current_user_auth0(credentials)
     return payload["sub"]

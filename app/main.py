@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+import traceback
 from dotenv import load_dotenv
 
 # 環境変数を読み込み
@@ -64,8 +65,13 @@ try:
     from app.features._00_auth.api.auth0_auth import router as auth0_router
     app.include_router(auth0_router)
     print("✅ Auth0 router loaded successfully")
+    # デバッグ: ルーターのパスを確認
+    print(f"🔍 Auth0 router prefix: {auth0_router.prefix}")
+    print(f"🔍 Auth0 router routes: {[r.path for r in auth0_router.routes]}")
 except Exception as e:
     print(f"❌ Failed to load auth0_router: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Supabaseの基本機能を追加
 try:
@@ -215,3 +221,24 @@ def list_routes():
                 "methods": list(route.methods)
             })
     return {"available_routes": routes}
+
+@app.get("/debug/auth0-routes")
+def debug_auth0_routes():
+    """Auth0ルーターのデバッグ情報を表示"""
+    try:
+        from app.features._00_auth.api.auth0_auth import router as auth0_router
+        routes_info = []
+        for route in auth0_router.routes:
+            if hasattr(route, 'methods') and hasattr(route, 'path'):
+                routes_info.append({
+                    "path": route.path,
+                    "methods": list(route.methods),
+                    "full_path": f"{auth0_router.prefix}{route.path}"
+                })
+        return {
+            "router_prefix": auth0_router.prefix,
+            "routes": routes_info,
+            "is_registered": auth0_router in [r for r in app.routes if hasattr(r, 'prefix')]
+        }
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}

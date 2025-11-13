@@ -36,6 +36,11 @@ def get_me_auth0(
         ユーザー情報
     """
     try:
+        # デバッグ: リクエスト情報をログ出力
+        print(f"🔍 /auth0/me エンドポイントに到達しました")
+        print(f"🔍 payload keys: {list(payload.keys()) if payload else 'None'}")
+        print(f"🔍 payload sub: {payload.get('sub') if payload else 'None'}")
+        
         # ユーザーを取得または作成（初回ログイン時は自動作成＋300クレジット付与）
         user = get_user_or_create(payload, db)
         
@@ -46,8 +51,9 @@ def get_me_auth0(
             name=payload.get("name"),
             picture=payload.get("picture"),
         )
-    except HTTPException:
-        # HTTPExceptionはそのまま再スロー
+    except HTTPException as http_exc:
+        # HTTPExceptionはそのまま再スロー（詳細なエラーメッセージを保持）
+        print(f"❌ /auth0/me HTTPException: {http_exc.status_code} - {http_exc.detail}")
         raise
     except Exception as exc:  # noqa: BLE001
         # その他のエラーは詳細なエラーメッセージと共に500エラーを返す
