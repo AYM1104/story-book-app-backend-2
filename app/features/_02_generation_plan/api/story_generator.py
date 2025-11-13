@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database.session import get_db
 from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
-from app.service.story_book_generation.story_line.story_line_generator import StoryGeneratorService
+from app.features._02_generation_plan.services.story_line.story_line_generator import StoryGeneratorService
 from pydantic import BaseModel
 from typing import Dict, Any
 import traceback

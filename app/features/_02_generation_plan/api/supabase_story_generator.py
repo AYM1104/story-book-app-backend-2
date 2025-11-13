@@ -4,7 +4,7 @@ from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
 from app.models.story.story_book import StoryBook
-from app.service.story_book_generation.story_line.story_line_generator import StoryGeneratorService
+from app.features._02_generation_plan.services.story_line.story_line_generator import StoryGeneratorService
 from pydantic import BaseModel
 from typing import Dict, Any
 from datetime import datetime, timedelta

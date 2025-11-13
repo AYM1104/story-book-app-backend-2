@@ -4,7 +4,7 @@ from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
 from app.features._01_image_upload.models.images import UploadImages
-from app.service.story_book_generation.story_line.story_line_generator import story_generator_service
+from app.features._02_generation_plan.services.story_line.story_line_generator import story_generator_service
 from app.service.gcs_storage_service import gcs_storage_service
 import json
 

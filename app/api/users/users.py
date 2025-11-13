@@ -63,9 +63,17 @@ def get_supabase_users(db: Session = Depends(get_supabase_db)):
     
     users = db.query(Users).all()
     # メールアドレスが空文字列の場合、Noneに変換（オプショナルとして扱う）
+    # user_nameがNULLまたは空文字列の場合、デフォルト値を設定
     for user in users:
         if not user.email or user.email == "":
             user.email = None
+        # user_nameがNULLまたは空文字列の場合、デフォルト値を設定
+        if not user.user_name or user.user_name == "":
+            # メールアドレスからユーザー名を生成、またはデフォルト値を設定
+            if user.email:
+                user.user_name = user.email.split("@")[0]
+            else:
+                user.user_name = f"ユーザー_{user.id[-8:]}"  # IDの最後8文字を使用
     return users
 
 # ユーザー詳細取得エンドポイント（Supabase用）
@@ -80,6 +88,14 @@ def get_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
     # メールアドレスが空文字列の場合、Noneに変換（オプショナルとして扱う）
     if not user.email or user.email == "":
         user.email = None
+    
+    # user_nameがNULLまたは空文字列の場合、デフォルト値を設定
+    if not user.user_name or user.user_name == "":
+        # メールアドレスからユーザー名を生成、またはデフォルト値を設定
+        if user.email:
+            user.user_name = user.email.split("@")[0]
+        else:
+            user.user_name = f"ユーザー_{user.id[-8:]}"  # IDの最後8文字を使用
     
     return user
 
