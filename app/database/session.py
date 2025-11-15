@@ -18,7 +18,14 @@ if not DATABASE_URL:
     SessionLocal = None
 else:
     try:
-        engine = create_engine(DATABASE_URL)
+        # Supabaseはアイドル接続を切断することがあるため、
+        # pool_pre_ping / pool_recycle を有効にして切断済みコネクションを自動的に検知・再接続する
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,   # 接続の健全性チェック
+            pool_recycle=300,     # 5分で接続をリサイクル
+            echo=False            # SQLログの出力（必要に応じてTrueに変更）
+        )
         
         # 接続時にタイムゾーンをJSTに設定するイベントリスナー
         @event.listens_for(engine, "connect")
