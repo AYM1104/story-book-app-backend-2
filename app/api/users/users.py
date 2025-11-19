@@ -113,29 +113,3 @@ def delete_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
     
     return {"message": "User deleted successfully"}
 
-# ユーザーのサブスクリプションプラン取得エンドポイント
-@router.get("/{user_id}/subscription-plan")
-def get_user_subscription_plan(user_id: str, db: Session = Depends(get_supabase_db)):
-    """ユーザーの現在のサブスクリプションプランを取得するエンドポイント
-    
-    Args:
-        user_id: ユーザーID
-        db: データベースセッション
-    
-    Returns:
-        dict: ユーザーのサブスクリプションプラン情報
-            - user_id: ユーザーID
-            - subscription_plan: プランタイプ (FREE, STARTER, PLUS, PREMIUM)
-    
-    Raises:
-        HTTPException: ユーザーが見つからない場合は404エラー
-    """
-    user = db.query(Users).filter(Users.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return {
-        "user_id": user.id,
-        "subscription_plan": user.subscription_plan.value if user.subscription_plan else PlanType.FREE.value
-    }
-
