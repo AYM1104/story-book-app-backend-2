@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
+from app.models.credits.subscription import PlanType
 
 # ユーザー作成時に使うスキーマ
 class UserCreate(BaseModel):
@@ -15,6 +16,7 @@ class UserRead(BaseModel):
     user_name: str
     email: Optional[EmailStr] = None  # メールアドレス（オプショナル）
     balance: int  # クレジット残高
+    subscription_plan: PlanType  # サブスクリプションプラン
     created_at: datetime
     updated_at: datetime
 
