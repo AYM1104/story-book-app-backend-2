@@ -5,6 +5,7 @@ from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
 from app.models.story.story_book import StoryBook
 from app.features._02_generation_plan.services.story_line.story_line_generator import StoryGeneratorService
+from app.service.credits import CreditsService, PricingService
 from pydantic import BaseModel
 from typing import Dict, Any
 from datetime import datetime, timedelta
@@ -208,6 +209,44 @@ async def supabase_select_theme(
         
         user_id = story_setting.upload_image.user_id
         
+        # ---------------------------------------------------------
+        # 1. プランとクレジットの事前チェック
+        # ---------------------------------------------------------
+        
+        # ユーザーのプランを取得
+        user_plan = CreditsService.get_plan(db, user_id)
+        
+        # プランで許可されているページ数か確認
+        if not PricingService.is_allowed_for_plan(request.story_pages, user_plan):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "PLAN_LIMIT",
+                    "message": "現在のプランでは選択されたページ数の絵本を作成できません",
+                    "plan": user_plan.value,
+                    "requested_pages": request.story_pages,
+                    "allowed_pages": PricingService.ALLOWED_PAGES.get(user_plan, [])
+                }
+            )
+            
+        # 必要クレジット数を計算
+        required_credits = PricingService.get_required_credits(request.story_pages)
+        
+        # クレジット残高を確認
+        current_balance = CreditsService.get_balance(db, user_id)
+        if current_balance < required_credits:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "code": "INSUFFICIENT_CREDITS",
+                    "message": "クレジット残高が不足しています",
+                    "required": required_credits,
+                    "current": current_balance
+                }
+            )
+            
+        print(f"💰 クレジット確認OK: 残高={current_balance}, 必要={required_credits}, プラン={user_plan.value}")
+
         # 選択されたテーマのストーリープロットを取得
         story_plot = db.query(StoryPlot).filter(
             StoryPlot.story_setting_id == request.story_setting_id,
@@ -242,7 +281,7 @@ async def supabase_select_theme(
         convert_time = time.time() - convert_start
         print(f"⏱️ データ変換時間: {convert_time:.3f}秒")
         
-        # ページ数の検証
+        # ページ数の検証（PricingServiceでもチェック済みだが念のため）
         if request.story_pages not in [3, 5, 7, 10]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -288,6 +327,26 @@ async def supabase_select_theme(
         story_plot.title = story_data.get("title", theme_title)
         story_plot.keywords = keywords
         
+        # ---------------------------------------------------------
+        # 2. クレジット消費（生成成功後、コミット前）
+        # ---------------------------------------------------------
+        try:
+            CreditsService.spend_credits(
+                db=db,
+                user_id=user_id,
+                amount=required_credits,
+                reason=f"絵本生成（{request.story_pages}ページ）: {story_plot.title}",
+                work_id=story_plot.id,
+                auto_commit=False  # この後のdb.commit()でまとめてコミット
+            )
+            print(f"💸 クレジット消費完了: {required_credits}クレジット")
+        except ValueError as e:
+            # 残高不足などのエラー（事前チェックしているのでここは通らないはずだが念のため）
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=str(e)
+            )
+        
         db.commit()
         db.refresh(story_plot)
         
@@ -320,6 +379,7 @@ async def supabase_select_theme(
             ],
             "next_step": "story_completed",
             "processing_time_ms": processing_time_ms,
+            "credits_spent": required_credits,  # 消費クレジット数を返す
             "timing_details": {
                 "db_fetch": round(db_fetch_time * 1000, 0),
                 "data_conversion": round(convert_time * 1000, 0),
@@ -329,6 +389,10 @@ async def supabase_select_theme(
             }
         }
         
+    except HTTPException as he:
+        # HTTP例外はそのまま再送出
+        db.rollback()
+        raise he
     except Exception as e:
         db.rollback()
         error_time = time.time() - start_time

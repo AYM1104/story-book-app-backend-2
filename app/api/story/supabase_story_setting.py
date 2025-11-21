@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
@@ -124,6 +126,41 @@ async def create_supabase_story_setting_from_image(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"物語設定の{action}に失敗しました: {str(e)}"
         )
+
+class StorySettingUpdate(BaseModel):
+    child_id: Optional[int] = None
+    page_count: Optional[int] = None
+
+@router.patch("/story_settings/{story_setting_id}", response_model=dict)
+async def update_supabase_story_setting(
+    story_setting_id: int,
+    setting_update: StorySettingUpdate,
+    db: Session = Depends(get_supabase_db)
+):
+    """Supabase用の物語設定更新エンドポイント"""
+    
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
+    ).first()
+    
+    if not story_setting:
+        raise HTTPException(status_code=404, detail="物語設定が見つかりません")
+    
+    if setting_update.child_id is not None:
+        story_setting.child_id = setting_update.child_id
+        
+    if setting_update.page_count is not None:
+        story_setting.page_count = setting_update.page_count
+        
+    db.commit()
+    db.refresh(story_setting)
+    
+    return {
+        "message": "物語設定が更新されました",
+        "id": story_setting.id,
+        "child_id": story_setting.child_id,
+        "page_count": story_setting.page_count
+    }
 
 # 物語設定一覧取得エンドポイント（Supabase用）
 @router.get("/story_settings", response_model=list[dict])

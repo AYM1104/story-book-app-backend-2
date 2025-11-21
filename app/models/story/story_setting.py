@@ -21,6 +21,10 @@ class StorySetting(SupabaseBase):
     language = Column(String(10), nullable=False, default="ja", comment="言語")
     reading_level = Column(String(30), nullable=True, comment="読みやすさのレベル（やさしいひらがな、やさしいカタカナなど）")
     style_guideline = Column(JSON, nullable=True, comment="文体や禁止語などのルール")
+    child_id = Column(Integer, ForeignKey("children.id"), nullable=True, comment="子供ID")
+    page_count = Column(Integer, nullable=True, comment="ページ数")
 
     # 画像とのリレーションシップ
     upload_image = relationship("UploadImages", back_populates="story_settings")
+    # 子供とのリレーションシップ
+    child = relationship("Child")
