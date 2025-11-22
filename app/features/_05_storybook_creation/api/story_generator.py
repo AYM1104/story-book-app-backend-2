@@ -331,12 +331,16 @@ async def supabase_select_theme(
         # 2. クレジット消費（生成成功後、コミット前）
         # ---------------------------------------------------------
         try:
+            print(f"💰 クレジット消費処理開始: pages={request.story_pages}, plot_id={story_plot.id}")
+            print(f"DEBUG: spend_credits parameters - user_id={user_id}, amount={required_credits}, work_id=None")
+            
             CreditsService.spend_credits(
                 db=db,
                 user_id=user_id,
                 amount=required_credits,
+                # StoryBookはまだ作成されていないためwork_idはNone (PlotID: {story_plot.id})
                 reason=f"絵本生成（{request.story_pages}ページ）: {story_plot.title}",
-                work_id=story_plot.id,
+                work_id=None,  # StoryBookはまだ作成されていないためNone
                 auto_commit=False  # この後のdb.commit()でまとめてコミット
             )
             print(f"💸 クレジット消費完了: {required_credits}クレジット")

@@ -8,11 +8,10 @@ from app.models.credits.subscription import PlanType
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-# 新規ユーザー登録をするエンドポイント（Supabase用）
+# 新規ユーザー登録をするエンドポイント
 @router.post("/", response_model=UserRead)
 def create_supabase_user(user: UserCreate, db: Session = Depends(get_supabase_db)):
-    """Supabase用のユーザー作成エンドポイント
-    
+    """
     初回登録時に300クレジットを付与し、FREEプランを設定します
     """
     
@@ -104,12 +103,16 @@ def get_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
 def delete_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
     """Supabase用のユーザー削除エンドポイント"""
     
-    user = db.query(Users).filter(Users.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    # UserAccountCleanupServiceを使用して、関連データ（DB, GCS, Auth0）を一括削除
+    from app.service.user_account_cleanup_service import user_account_cleanup_service
     
-    db.delete(user)
-    db.commit()
-    
-    return {"message": "User deleted successfully"}
+    try:
+        result = user_account_cleanup_service.delete_user_account(user_id, db)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        # ログ出力などを行うのが望ましい
+        print(f"Error deleting user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete user account")
 
