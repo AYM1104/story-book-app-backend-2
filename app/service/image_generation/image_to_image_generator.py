@@ -70,6 +70,11 @@ class ImageToImageGenerator(BaseImageGenerator):
             # Image-to-Image生成のためのプロンプトを作成
             strength_percentage = strength * 100
             print(f"🔍 [DEBUG] プロンプトに含まれる強度: {strength_percentage}% (strength={strength})")
+
+            # 日本語訳のプロンプト
+            # この参照画像に基づいて、以下の説明で新しいイラストを作成してください: {enhanced_prompt}。
+            # 参照画像と{strength_percentage}%の類似性で、スタイルと構図を維持してください。
+            # 新しいシーンに適応しながら、参照画像の特徴を保持してください。
             i2i_prompt = f"Based on this reference image, create a new illustration with the following description: {enhanced_prompt}. " \
                         f"Maintain the style and composition similar to the reference image with {strength_percentage}% similarity. " \
                         f"Reference image characteristics should be preserved while adapting to the new scene."

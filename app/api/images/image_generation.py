@@ -157,6 +157,9 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
             story_plot_id = storybook.story_plot_id
             print(f"DEBUG: After storybook lookup, story_plot_id={story_plot_id}")
         
+        # クレジットチェックはフロントエンド側でページ数選択時に実施されるため、
+        # 画像生成APIではチェックしない（画像生成自体は追加コストがかからない）
+        
         # 参考画像の自動解決
         image_path = request.reference_image_path
         if not image_path:
@@ -363,6 +366,9 @@ async def generate_storybook_all_pages_image_to_image(
             )
         
         story_plot_id = storybook.story_plot_id
+        
+        # クレジットチェックはフロントエンド側でページ数選択時に実施されるため、
+        # 画像生成APIではチェックしない（画像生成自体は追加コストがかからない）
         
         # 参考画像の自動解決
         image_path = request.reference_image_path
