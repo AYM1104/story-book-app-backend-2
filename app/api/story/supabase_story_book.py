@@ -101,20 +101,8 @@ async def supabase_confirm_theme_and_create_storybook(
                 }
             )
         
-        # クレジット残高チェックと消費
+        # 必要クレジットを算出（実際の消費は生成時に実行）
         required_credits = PricingService.get_required_credits(request.story_pages)
-        balance = CreditsService.get_balance(db, story_plot.user_id)
-        
-        if balance < required_credits:
-            raise HTTPException(
-                status_code=402,  # Payment Required
-                detail={
-                    "code": "INSUFFICIENT_CREDITS",
-                    "message": "Not enough credits",
-                    "required": required_credits,
-                    "balance": balance
-                }
-            )
         
         # 4. StoryBookレコードを作成（最大10ページまで対応）
         storybook_data = {
@@ -156,13 +144,14 @@ async def supabase_confirm_theme_and_create_storybook(
         except ValueError as e:
             # 残高不足（再チェック）またはその他のエラー
             db.rollback()
+            current_balance = CreditsService.get_balance(db, story_plot.user_id)
             raise HTTPException(
                 status_code=402,  # Payment Required
                 detail={
                     "code": "INSUFFICIENT_CREDITS",
                     "message": "Not enough credits",
                     "required": required_credits,
-                    "balance": balance
+                    "balance": current_balance
                 }
             )
         
