@@ -20,6 +20,7 @@ class GCSStorageService:
         self.bucket_name = os.getenv("GCS_BUCKET_NAME")
         project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
         credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        self.default_signed_url_hours = int(os.getenv("GCS_SIGNED_URL_EXPIRATION_HOURS", "24"))
         
         # 必須環境変数のチェック
         missing_vars = []
@@ -306,20 +307,31 @@ class GCSStorageService:
             print(f"ユーザー画像取得エラー: {str(e)}")
             return []
 
-    def get_public_url(self, file_path: str) -> str:
-        """ファイルパスからGCSのstorage.googleapis.com形式URLを生成"""
-        try:
-            # ファイルパスが既にURLの場合はそのまま返す
-            if file_path.startswith('http'):
-                # 既存のURLをそのまま返す（storage.googleapis.com形式を維持）
-                return file_path
-            
-            # storage.googleapis.com形式のURLを生成
-            public_url = f"https://storage.googleapis.com/{self.bucket_name}/{file_path}"
-            return public_url
-        except Exception as e:
-            print(f"公開URL生成エラー: {str(e)}")
+    def get_public_url(self, file_path: str, expiration_hours: Optional[int] = None, force_signed_url: bool = True) -> str:
+        """ブラウザから直接アクセス可能なURLを取得
+
+        - デフォルトでは署名付きURLを生成し、公開バケット以外でも403にならないようにする
+        - 署名生成に失敗した場合はstorage.googleapis.com形式にフォールバック
+        """
+        if not file_path:
             return file_path
+
+        expiration = expiration_hours or self.default_signed_url_hours
+        should_attempt_signed = force_signed_url
+
+        if should_attempt_signed:
+            try:
+                # file_path がURLでもパスでも generate_signed_url がハンドリングする
+                return self.generate_signed_url(file_path, expiration_hours=expiration)
+            except Exception as e:
+                print(f"⚠️ 署名付きURL生成失敗のためフォールバックします: {e}")
+
+        # フォールバック: storage.googleapis.com 形式を返す
+        if file_path.startswith('http'):
+            return file_path
+
+        public_url = f"https://storage.googleapis.com/{self.bucket_name}/{file_path}"
+        return public_url
 
     def delete_file(self, file_path: str) -> Dict[str, Any]:
         """指定されたファイルパスのGCS上のファイルを削除
