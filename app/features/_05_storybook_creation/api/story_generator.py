@@ -318,8 +318,18 @@ async def supabase_select_theme(
         max_save_pages = min(len(story_pages), 10)
         for i, page_data in enumerate(story_pages[:max_save_pages], 1):
             page_key = f"page_{i}"
-            if page_key in page_data and hasattr(story_plot, page_key):
-                setattr(story_plot, page_key, page_data[page_key])
+            if hasattr(story_plot, page_key):
+                # 新しい形式（page_no, story_text, background_prompt）に対応
+                if isinstance(page_data, dict):
+                    if "story_text" in page_data:
+                        # 新しい形式: {"page_no": 1, "story_text": "...", "background_prompt": "..."}
+                        setattr(story_plot, page_key, page_data["story_text"])
+                    elif page_key in page_data:
+                        # 旧形式との互換性: {"page_1": "..."}
+                        setattr(story_plot, page_key, page_data[page_key])
+                    elif f"page_{page_data.get('page_no', i)}" == page_key:
+                        # page_noを使用した新しい形式
+                        setattr(story_plot, page_key, page_data.get("story_text", ""))
         
         print(f"✅ ページ保存完了（{max_save_pages}ページ保存）")
         

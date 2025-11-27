@@ -213,22 +213,32 @@ class ThemeGenerator:
         reading_level_desc = READING_LEVEL_DESCRIPTIONS.get(reading_level, reading_level)
 
         prompt = f"""
-あなたは、子どもたちが思わず登場キャラクターに感情移入してしまうようなセリフや展開を考える、絵本の脚本家です。
-キャラクターの口調・性格・行動から、物語のメッセージが伝わるようにしてください。
-以下の設定を元に、3つの異なるテーマの物語案を提案してください。
+あなたは、子供の想像力をかき立てるプロの絵本作家です。
+ユーザーが選んだ「{TONE_DESCRIPTIONS.get(tone)}」という雰囲気に合わせて、
+子供がワクワクする3種類の物語テーマを提案してください。
 
 【基本設定】
-- 主人公: {protagonist_name}（{protagonist_type}）
+- 主人公: {protagonist_name}
+- キャラクターの特徴（外見・種族）: {protagonist_type}
+  ※この特徴は物語の展開や解決の鍵として必ず活用すること
 - 舞台: {setting_place}
-- 雰囲気: {TONE_DESCRIPTIONS.get(tone, '優しく温かい雰囲気')}
+- 雰囲気: {TONE_DESCRIPTIONS.get(tone)}
 - 対象年齢: {AGE_DESCRIPTIONS.get(target_age, '3-6歳の未就学児向け')}
 - 読みやすさ: {reading_level_desc}
 
-【要求事項】
-1. 3つの異なるテーマ（冒険、友情、発見など）
-2. 各テーマのタイトル、概要説明、キーワード
-3. 子供が楽しめる内容
-4. 教育的な要素を含む
+【作成する3つのテーマ】
+1. variation_type: "classic" / theme_id: "adventure"
+   - 雰囲気を王道に味わえる直球展開
+2. variation_type: "character_driven" / theme_id: "friendship"
+   - "{protagonist_type}" でないと成立しない個性的な展開
+3. variation_type: "unique_twist" / theme_id: "discovery"
+   - ちょっと不思議で意外性のある展開
+
+【制約事項】
+- わかりやすい起承転結を意識し、難しい言い回しを避ける
+- 教育的な学びをひとつ含めつつ、エンタメ性を最優先
+- 選択した雰囲気から逸脱しない
+- タイトルとキャッチコピーはひらがな中心、15文字以内
 
 【出力形式】
 以下のJSON形式で出力してください：

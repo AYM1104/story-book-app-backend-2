@@ -195,43 +195,92 @@ class StoryGeneratorService:
             story_pages: 生成するページ数（3, 5, 7, 10のいずれか）
         """
         
+        # ページ数に応じた「構成テンプレート（物語の波）」を定義
+        # ここが物語の面白さを決める「設計図」になります
+        structure_guide = ""
+        
+        if story_pages == 3:
+            structure_guide = """
+        【3ページ構成（ショート）】
+        - page_1: 【導入】主人公の紹介と、何かが起こるきっかけ。
+        - page_2: 【展開】アクション！主人公が特徴を活かして動く。
+        - page_3: 【結末】解決とハッピーエンド。
+        """
+        elif story_pages == 5:
+            structure_guide = """
+        【5ページ構成（スタンダード）】
+        - page_1: 【導入】日常の描写。主人公は何をしている？
+        - page_2: 【事件】不思議なことや困ったことが起きる。
+        - page_3: 【挑戦】解決しようと頑張るが、壁にぶつかる。
+        - page_4: 【クライマックス】主人公の「一番いいところ」が出て解決！
+        - page_5: 【結末】みんな笑顔で終わる。
+        """
+        elif story_pages == 7:
+            structure_guide = """
+        【7ページ構成（ドラマチック）】
+        - page_1: 【導入】平和な日常。
+        - page_2: 【事件】冒険への誘い、または事件の発生。
+        - page_3: 【旅立ち/試行】目的地へ向かう、または最初の挑戦。
+        - page_4: 【ピンチ】うまくいかない！少し困った状況になる。
+        - page_5: 【転機】意外な助けや、新しいアイデアを思いつく。
+        - page_6: 【解決】ピンチを脱出し、目的を達成する。
+        - page_7: 【帰還】お家に帰る、または日常に戻り安心する。
+        """
+        elif story_pages == 10:
+            structure_guide = """
+        【10ページ構成（大冒険）】
+        - page_1: 【プロローグ】主人公と舞台の丁寧な描写。
+        - page_2: 【日常の終わり】事件発生。冒険に出る理由ができる。
+        - page_3: 【旅の始まり】ワクワクする出発。
+        - page_4: 【出会い】新しい友達やアイテムとの出会い。
+        - page_5: 【小ハプニング】ちょっとした失敗や寄り道（ユーモア）。
+        - page_6: 【最大の試練】強敵や大きな壁が現れる（ドキドキ）。
+        - page_7: 【挫折と再起】諦めそうになるが、励まされて立ち上がる。
+        - page_8: 【クライマックス】主人公の「特別な力（特徴）」で突破する！
+        - page_9: 【大団円】喜びの瞬間、達成感。
+        - page_10: 【エピローグ】成長した姿で日常に戻る。余韻。
+        """
+        
         # 共通定数を使用（theme_generator.pyからインポート）
         reading_level_desc = READING_LEVEL_DESCRIPTIONS.get(reading_level, reading_level)
         
-        # ページ数のJSON配列を動的に生成（story_pagesに応じて動的に変更）
-        pages_json_items = []
-        for i in range(1, story_pages + 1):
-            pages_json_items.append(f'{{"page_{i}": "{i}ページ目の完全な物語本文"}}')
-        pages_json_array = ",\n    ".join(pages_json_items)
-        
         prompt = f"""
-以下の設定で「タイトル：{selected_theme}」の物語を{story_pages}ページで作成してください。
+あなたは子供たちの心を掴んで離さない、熟練の絵本作家です。
+
+以下の設定と構成ガイドに基づき、「タイトル：{selected_theme}」の絵本を作成してください。
 
 【基本設定】
-- 主人公: {protagonist_name}（{protagonist_type}）
+- 主人公: {protagonist_name}
+- キャラクターの特徴: {protagonist_type}（この特徴を物語の鍵にしてください）
 - 舞台: {setting_place}
 - 雰囲気: {TONE_DESCRIPTIONS.get(tone, '優しく温かい雰囲気')}
 - 対象年齢: {AGE_DESCRIPTIONS.get(target_age, '3-6歳の未就学児向け')}
 - 読みやすさ: {reading_level_desc}
-- タイトル: {selected_theme}
 
-【要求事項】
-1. テーマに沿った{story_pages}ページの完全な物語本文
-2. 子供が楽しめる内容
-3. 教育的な要素を含む
-4. 読みやすく、感情に訴える文章
-5. 読みやすさの設定に従った文字種で作成
+【構成ガイド（厳守）】
+以下の流れに沿って、物語のリズムを作ってください：
+{structure_guide}
+
+【重要：執筆ルール】
+1. **「説明」禁止、「描写」重視**: 状況を説明するのではなく、キャラのセリフや音、見た目で表現してください。
+2. **オノマトペ必須**: 全ページに必ず1つ以上、効果音（擬音語・擬態語）を入れてください。
+3. **10ページの場合の注意**: 文章が長くなりすぎないように。1ページあたりの文字数は子供が飽きない分量に抑えてください。
+4. **背景との連動**: 各ページの`background_prompt`は、物語の進行に合わせて景色や色味が変わるように詳細に指定してください。
 
 【出力形式】
-以下のJSON形式で出力してください：
+以下のJSON形式のみを出力してください（Markdown不要）：
+
 {{
-  "title": "物語のタイトル",
+  "title": "物語のタイトル（ひらがな多め）",
   "story_pages": [
-    {pages_json_array}
+    {{
+      "page_no": 1,
+      "story_text": "本文...",
+      "background_prompt": "English prompt for image generation..." 
+    }},
+    ... ({story_pages}ページ分まで繰り返し)
   ]
 }}
-
-必ずJSON形式で出力し、他の説明文は含めないでください。
 """
 
         return prompt
