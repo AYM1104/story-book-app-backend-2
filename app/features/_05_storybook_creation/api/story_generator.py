@@ -210,13 +210,12 @@ async def supabase_select_theme(
         user_id = story_setting.upload_image.user_id
         
         # ---------------------------------------------------------
-        # 1. プランとクレジットの事前チェック
+        # 1. プランの事前チェック
         # ---------------------------------------------------------
         
-        # ユーザーのプランを取得
+        # ユーザーのプランを取得し、ページ数制限のみ確認
         user_plan = CreditsService.get_plan(db, user_id)
         
-        # プランで許可されているページ数か確認
         if not PricingService.is_allowed_for_plan(request.story_pages, user_plan):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -228,24 +227,6 @@ async def supabase_select_theme(
                     "allowed_pages": PricingService.ALLOWED_PAGES.get(user_plan, [])
                 }
             )
-            
-        # 必要クレジット数を計算
-        required_credits = PricingService.get_required_credits(request.story_pages)
-        
-        # クレジット残高を確認
-        current_balance = CreditsService.get_balance(db, user_id)
-        if current_balance < required_credits:
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail={
-                    "code": "INSUFFICIENT_CREDITS",
-                    "message": "クレジット残高が不足しています",
-                    "required": required_credits,
-                    "current": current_balance
-                }
-            )
-            
-        print(f"💰 クレジット確認OK: 残高={current_balance}, 必要={required_credits}, プラン={user_plan.value}")
 
         # 選択されたテーマのストーリープロットを取得
         story_plot = db.query(StoryPlot).filter(
@@ -260,9 +241,29 @@ async def supabase_select_theme(
                 detail=f"選択されたテーマ {request.selected_theme} のストーリープロットが見つかりません"
             )
         
-        db_fetch_time = time.time() - db_start
-        print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
+        # ---------------------------------------------------------
+        # 2. クレジット消費
+        # ---------------------------------------------------------
         
+        # 必要クレジット数を計算
+        required_credits = PricingService.get_required_credits(request.story_pages)
+        
+        print(f"💰 クレジット消費処理開始２: pages={request.story_pages}, plot_id={story_plot.id}")
+        print(f"DEBUG: spend_credits parameters - user_id={user_id}, amount={required_credits}, work_id={story_plot.id}")
+        
+        # クレジットを消費（この時点でDBに反映されるが、トランザクション内なのでロールバック可能）
+        # auto_commit=Falseにして、後のcommitで一括コミットする
+        CreditsService.spend_credits(
+            db=db,
+            user_id=user_id,
+            amount=required_credits,
+            reason=f"story_generation_theme_{request.selected_theme}",
+            work_id=story_plot.id,
+            auto_commit=False
+        )
+        
+        print(f"💸 クレジット消費完了: {required_credits}クレジット")
+
         # 選択されたテーマの情報を取得
         selected_theme_info = story_plot.theme_options.get(request.selected_theme, {})
         theme_title = selected_theme_info.get("title", "物語")
@@ -326,30 +327,6 @@ async def supabase_select_theme(
         db_save_start = time.time()
         story_plot.title = story_data.get("title", theme_title)
         story_plot.keywords = keywords
-        
-        # ---------------------------------------------------------
-        # 2. クレジット消費（生成成功後、コミット前）
-        # ---------------------------------------------------------
-        try:
-            print(f"💰 クレジット消費処理開始: pages={request.story_pages}, plot_id={story_plot.id}")
-            print(f"DEBUG: spend_credits parameters - user_id={user_id}, amount={required_credits}, work_id=None")
-            
-            CreditsService.spend_credits(
-                db=db,
-                user_id=user_id,
-                amount=required_credits,
-                # StoryBookはまだ作成されていないためwork_idはNone (PlotID: {story_plot.id})
-                reason=f"絵本生成（{request.story_pages}ページ）: {story_plot.title}",
-                work_id=None,  # StoryBookはまだ作成されていないためNone
-                auto_commit=False  # この後のdb.commit()でまとめてコミット
-            )
-            print(f"💸 クレジット消費完了: {required_credits}クレジット")
-        except ValueError as e:
-            # 残高不足などのエラー（事前チェックしているのでここは通らないはずだが念のため）
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=str(e)
-            )
         
         db.commit()
         db.refresh(story_plot)

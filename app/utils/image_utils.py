@@ -72,7 +72,7 @@ def resize_image_to_fixed_size(image_data: bytes, target_width: int = 1920, targ
         return image_data
 
 
-def resize_image_to_aspect_ratio(image_data: bytes, target_width: int = 1920, target_height: int = 1080) -> bytes:
+def resize_image_to_aspect_ratio(image_data: bytes, target_width: int = 1280, target_height: int = 1920) -> bytes:
     """
     画像を指定されたアスペクト比にリサイズする（縦横比保持）
     

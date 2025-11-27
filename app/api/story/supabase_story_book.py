@@ -101,9 +101,6 @@ async def supabase_confirm_theme_and_create_storybook(
                 }
             )
         
-        # 必要クレジットを算出（実際の消費は生成時に実行）
-        required_credits = PricingService.get_required_credits(request.story_pages)
-        
         # 4. StoryBookレコードを作成（最大10ページまで対応）
         storybook_data = {
             "story_plot_id": story_plot.id,
@@ -131,31 +128,7 @@ async def supabase_confirm_theme_and_create_storybook(
         db.add(new_storybook)
         db.flush()  # IDを取得するためにflush
         
-        # 5. クレジットを消費（同一トランザクション内）
-        try:
-            CreditsService.spend_credits(
-                db=db,
-                user_id=story_plot.user_id,
-                amount=required_credits,
-                reason="storybook_created",
-                work_id=new_storybook.id,
-                auto_commit=False  # 外側でコミット
-            )
-        except ValueError as e:
-            # 残高不足（再チェック）またはその他のエラー
-            db.rollback()
-            current_balance = CreditsService.get_balance(db, story_plot.user_id)
-            raise HTTPException(
-                status_code=402,  # Payment Required
-                detail={
-                    "code": "INSUFFICIENT_CREDITS",
-                    "message": "Not enough credits",
-                    "required": required_credits,
-                    "balance": current_balance
-                }
-            )
-        
-        # 6. トランザクションをコミット
+        # 5. トランザクションをコミット
         db.commit()
         db.refresh(new_storybook)
         
