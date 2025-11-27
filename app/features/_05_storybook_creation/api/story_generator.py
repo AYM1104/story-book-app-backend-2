@@ -182,7 +182,7 @@ async def supabase_select_theme(
     request: ThemeSelectionRequest,
     db: Session = Depends(get_supabase_db)
 ):
-    """Supabase用の選択されたテーマの物語を生成して保存するエンドポイント"""
+    """選択されたテーマの物語を生成して保存するエンドポイント"""
     
     # 処理時間計測開始
     start_time = time.time()
@@ -208,6 +208,9 @@ async def supabase_select_theme(
             )
         
         user_id = story_setting.upload_image.user_id
+        
+        db_fetch_time = time.time() - db_start
+        print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
         
         # ---------------------------------------------------------
         # 1. プランの事前チェック
