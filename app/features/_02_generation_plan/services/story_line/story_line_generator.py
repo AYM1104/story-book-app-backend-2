@@ -2,6 +2,7 @@ import json
 import google.generativeai as genai
 from typing import Dict, Any, Optional, List
 import os
+import traceback
 from dotenv import load_dotenv
 from app.features._04_theme_selection.services.theme_generator import theme_generator, TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
 
@@ -112,11 +113,30 @@ class StoryGeneratorService:
             
             # Gemini 2.5 Flashで単一ストーリーを生成
             response = self.model.generate_content(prompt)
+            
+            # レスポンスの検証
+            if not response or not hasattr(response, 'text') or not response.text:
+                raise ValueError("Gemini APIからのレスポンスが空です")
+            
+            # レスポンスの内容をログに出力（デバッグ用）
+            print("=" * 80)
+            print("【Gemini API レスポンス（最初の1000文字）】")
+            print("=" * 80)
+            print(response.text[:1000])
+            print("=" * 80)
+            
             story_data = self._parse_single_story_response(response.text)
             return story_data
 
+        except ValueError as ve:
+            # JSON解析エラーなど、ValueErrorの場合は詳細を出力してからフォールバック
+            print(f"❌ Gemini API エラー（ValueError）: {ve}")
+            print(f"エラーのトレースバック: {traceback.format_exc()}")
+            # エラー時はフォールバック
+            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme, story_pages)
         except Exception as e:
-            print(f"Gemini API エラー: {e}")
+            print(f"❌ Gemini API エラー（予期しないエラー）: {e}")
+            print(f"エラーのトレースバック: {traceback.format_exc()}")
             # エラー時はフォールバック
             return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme, story_pages)
 
@@ -289,25 +309,92 @@ class StoryGeneratorService:
     def _parse_complete_story_response(self, response_text: str) -> Dict[str, Any]:
         """完全なストーリー生成のレスポンスをパース"""
         try:
-            # JSON部分を抽出
+            # JSON部分を抽出（複数の方法を試行）
+            json_text = None
+            
+            # 方法1: ```json コードブロックから抽出
             if "```json" in response_text:
                 json_start = response_text.find("```json") + 7
                 json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end].strip()
-            elif "```" in response_text:
+                if json_end > json_start:
+                    json_text = response_text[json_start:json_end].strip()
+            
+            # 方法2: ``` コードブロックから抽出
+            if not json_text and "```" in response_text:
                 json_start = response_text.find("```") + 3
                 json_end = response_text.rfind("```")
-                json_text = response_text[json_start:json_end].strip()
-            else:
+                if json_end > json_start:
+                    json_text = response_text[json_start:json_end].strip()
+            
+            # 方法3: { から始まる最初のJSONオブジェクトを探す（ロバストな実装）
+            if not json_text:
+                start_idx = response_text.find("{")
+                if start_idx != -1:
+                    # スタックを使用してネストと文字列内のブレースを正しく処理
+                    stack = []
+                    in_string = False
+                    escape = False
+                    end_idx = -1
+                    
+                    for i in range(start_idx, len(response_text)):
+                        char = response_text[i]
+                        
+                        if in_string:
+                            if escape:
+                                escape = False
+                            elif char == '\\':
+                                escape = True
+                            elif char == '"':
+                                in_string = False
+                        else:
+                            if char == '"':
+                                in_string = True
+                            elif char == '{':
+                                stack.append('{')
+                            elif char == '}':
+                                if stack:
+                                    stack.pop()
+                                    if not stack:
+                                        # 対応する閉じ括弧が見つかった
+                                        end_idx = i + 1
+                                        break
+                                else:
+                                    # スタックが空なのに閉じ括弧が来た（無視またはエラー）
+                                    pass
+                    
+                    if end_idx > start_idx:
+                        json_text = response_text[start_idx:end_idx].strip()
+            
+            # 方法4: そのまま使用
+            if not json_text:
                 json_text = response_text.strip()
-
+            
+            # JSONの前後の不要な文字を削除
+            json_text = json_text.strip()
+            # 先頭の不要な文字を削除（説明文など）
+            if json_text.startswith("JSON"):
+                json_text = json_text[4:].strip()
+            if json_text.startswith(":"):
+                json_text = json_text[1:].strip()
+            
+            # JSONをパース
             story_data = json.loads(json_text)
             return story_data
 
         except json.JSONDecodeError as e:
-            print(f"JSON解析エラー: {e}")
-            print(f"レスポンステキスト: {response_text}")
-            raise ValueError("Geminiからのレスポンスが正しいJSON形式ではありません")
+            print(f"❌ JSON解析エラー: {e}")
+            print(f"エラー位置: 行 {e.lineno}, 列 {e.colno}")
+            print(f"レスポンステキスト（最初の500文字）: {response_text[:500]}")
+            print(f"レスポンステキスト（最後の500文字）: {response_text[-500:]}")
+            print(f"レスポンステキスト全体の長さ: {len(response_text)}文字")
+            # デバッグ用: 抽出されたJSONテキストも表示
+            if 'json_text' in locals():
+                print(f"抽出されたJSONテキスト（最初の500文字）: {json_text[:500] if json_text else 'None'}")
+            raise ValueError(f"Geminiからのレスポンスが正しいJSON形式ではありません: {str(e)}")
+        except Exception as e:
+            print(f"❌ 予期しないエラー: {e}")
+            print(f"レスポンステキスト（最初の500文字）: {response_text[:500]}")
+            raise ValueError(f"レスポンスの解析に失敗しました: {str(e)}")
 
     def _parse_single_story_response(self, response_text: str) -> Dict[str, Any]:
         """単一ストーリー生成のレスポンスをパース"""
