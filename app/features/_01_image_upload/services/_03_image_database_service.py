@@ -56,7 +56,7 @@ class ImageDatabaseService:
             # データベースに保存
             db.add(new_image)
             db.commit()
-            db.refresh(new_image)
+            # db.refresh(new_image)  # created_at/idはcommit後に反映されるため再取得は不要
             
             processing_time = time.time() - start_time
             print(f"⏱️ データベース保存時間: {processing_time:.3f}秒")

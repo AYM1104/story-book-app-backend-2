@@ -258,7 +258,7 @@ async def supabase_select_theme(
             user_id=user_id,
             amount=required_credits,
             reason=f"story_generation_theme_{request.selected_theme}",
-            work_id=story_plot.id,
+            work_id=None,  # StoryBook未作成のため紐づけは後続フローで実施
             auto_commit=False
         )
         

@@ -13,20 +13,21 @@ async def get_supabase_questions_for_story_setting(
     story_setting_id: int,
     db: Session = Depends(get_supabase_db)
 ):
-    """Supabase用の物語設定の不足情報に対して質問を生成するエンドポイント"""
+    """物語設定の不足情報に対して質問を生成するエンドポイント"""
     
     # 処理時間計測開始
     start_time = time.time()
-    print(f"=== 質問取得処理開始 (Supabase) ===")
+    print(f"=== 質問生成処理開始 ===")
     print(f"Story Setting ID: {story_setting_id}")
     
     # 物語設定を取得
+    print(f"物語設定を取得: {story_setting_id}")
     db_start = time.time()
     story_setting = db.query(StorySetting).filter(
         StorySetting.id == story_setting_id
     ).first()
     db_fetch_time = time.time() - db_start
-    print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
+    print(f"⏱️ 物語設定取得時間: {db_fetch_time:.3f}秒")
     
     if not story_setting:
         raise HTTPException(
@@ -35,6 +36,7 @@ async def get_supabase_questions_for_story_setting(
         )
     
     # 物語設定を辞書形式に変換
+    print(f"物語設定を辞書形式に変換: {story_setting_id}")
     convert_start = time.time()
     story_setting_dict = {
         "id": story_setting.id,
@@ -50,9 +52,10 @@ async def get_supabase_questions_for_story_setting(
         "style_guideline": story_setting.style_guideline
     }
     convert_time = time.time() - convert_start
-    print(f"⏱️ データ変換時間: {convert_time:.3f}秒")
+    print(f"⏱️ 物語設定を辞書形式に変換時間: {convert_time:.3f}秒")
     
     # 質問を生成
+    print(f"質問を生成: {story_setting_id}")
     question_start = time.time()
     questions = question_generator_service.generate_questions_for_missing_info(story_setting_dict)
     question_time = time.time() - question_start
@@ -61,8 +64,8 @@ async def get_supabase_questions_for_story_setting(
     # 全体の処理時間
     total_time = time.time() - start_time
     processing_time_ms = total_time * 1000  # ミリ秒に変換
-    print(f"⏱️ 質問取得処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
-    print(f"=== 質問取得処理完了 ===")
+    print(f"⏱️ 質問生成処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
+    print(f"=== 質問生成処理完了 ===")
     
     return QuestionResponse(
         questions=questions,
@@ -117,6 +120,8 @@ async def submit_supabase_answer(
             story_setting.target_age = answer
         elif field == "reading_level":
             story_setting.reading_level = answer
+
+        print(f"更新するカラム: {field}")
         
         update_time = time.time() - update_start
         print(f"⏱️ データ更新時間: {update_time:.3f}秒")
@@ -132,7 +137,6 @@ async def submit_supabase_answer(
         total_time = time.time() - start_time
         processing_time_ms = total_time * 1000  # ミリ秒に変換
         print(f"⏱️ 質問回答処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
-        print(f"=== 質問回答処理完了 ===")
         
         return AnswerResponse(
             story_setting_id=story_setting_id,
@@ -141,6 +145,7 @@ async def submit_supabase_answer(
             message=f"{field}が正常に更新されました",
             processing_time_ms=processing_time_ms
         )
+        print(f"{field}が正常に更新されました")
         
     except Exception as e:
         db.rollback()
@@ -156,7 +161,7 @@ async def get_supabase_story_setting_completion_status(
     story_setting_id: int,
     db: Session = Depends(get_supabase_db)
 ):
-    """Supabase用の物語設定の完成度を確認するエンドポイント"""
+    """物語設定の完成度を確認するエンドポイント"""
     
     # 物語設定を取得
     story_setting = db.query(StorySetting).filter(

@@ -26,10 +26,6 @@ class StoryGeneratorService:
         if not api_key.startswith("AIza"):
             print(f"⚠️ 警告: APIキーの形式が正しくない可能性があります（AIzaで始まる必要があります）")
         
-        # APIキーの確認（最初の8文字のみ表示）
-        api_key_preview = api_key[:8] + "..." if len(api_key) > 8 else api_key
-        print(f"🔑 Gemini APIキー確認: {api_key_type} を使用 - {api_key_preview} (長さ: {len(api_key)})")
-        
         # APIキーが空でないことを再確認
         if not api_key or len(api_key) < 20:
             error_msg = f"APIキーが無効です（長さ: {len(api_key)}文字）。APIキーは通常39文字以上です。"
