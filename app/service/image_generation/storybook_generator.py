@@ -365,8 +365,17 @@ class StoryBookGenerator(BaseImageGenerator):
             base += f" Story summary: {description}."
         return base
 
-    def generate_cover_for_story_plot(self, db: Session, story_plot_id: int, user_id: str = None, prefix: str = "storyplot_i2i_all") -> Dict[str, Any]:
-        """表紙画像を生成し、page_00で保存"""
+    def generate_cover_for_story_plot(self, db: Session, story_plot_id: int, user_id: str = None, prefix: str = "storyplot_i2i_all", reference_image_path: str = None, strength: float = 1.0) -> Dict[str, Any]:
+        """表紙画像を生成し、page_00で保存
+        
+        Args:
+            db: データベースセッション
+            story_plot_id: StoryPlotのID
+            user_id: ユーザーID
+            prefix: ファイル名のプレフィックス
+            reference_image_path: 参考画像のパス（指定された場合は優先的に使用）
+            strength: 参考画像の強度（0.0-1.0、デフォルトは1.0）
+        """
         try:
             from app.models.story.story_plot import StoryPlot
             from app.models.story.story_book import StoryBook
@@ -413,25 +422,49 @@ class StoryBookGenerator(BaseImageGenerator):
             print(prompt)
             print("=" * 80)
 
-            # 参照画像（アップロード画像）があればImage-to-Imageとして送信
+            # 参照画像（アップロード画像）の取得
+            # 引数で指定されたreference_image_pathを優先的に使用
             api_start = time.time()
-            reference_url = None
-            if story_setting and getattr(story_setting, "upload_image", None):
-                reference_url = getattr(story_setting.upload_image, "public_url", None)
+            reference_url = reference_image_path
+            i2i_prompt = None  # 関数スコープで初期化
+            
+            # reference_image_pathが指定されていない場合は、story_settingから取得
+            if not reference_url:
+                if story_setting and getattr(story_setting, "upload_image", None):
+                    reference_url = getattr(story_setting.upload_image, "public_url", None)
 
             if reference_url:
+                print(f"🖼️ 参考画像: {reference_url}")
+                print(f"💪 強度: {strength} (型: {type(strength).__name__}, 値: {strength})")
+                
                 # 参照画像のMIME判定
                 import os
-                ext = os.path.splitext(reference_url.split('?')[0])[1].lower()
+                if reference_url.startswith("https://") or reference_url.startswith("http://"):
+                    ext = os.path.splitext(reference_url.split('?')[0])[1].lower()
+                else:
+                    ext = os.path.splitext(reference_url)[1].lower()
+                
                 mime = {
                     '.jpg': 'image/jpeg',
                     '.jpeg': 'image/jpeg',
                     '.png': 'image/png',
                 }.get(ext, 'image/jpeg')
 
+                # strengthパラメータをプロンプトに含める（image_to_image_generator.pyと同じ方法）
+                strength_percentage = strength * 100
+                i2i_prompt = f"Based on this reference image, create a new illustration with the following description: {prompt}. " \
+                            f"Maintain the style and composition similar to the reference image with {strength_percentage}% similarity. " \
+                            f"Reference image characteristics should be preserved while adapting to the new scene."
+                
+                print("=" * 80)
+                print("【Gemini API プロンプト全文 - 表紙Image-to-Image生成】")
+                print("=" * 80)
+                print(i2i_prompt)
+                print("=" * 80)
+
                 ref_base64 = self.encode_image_to_base64(reference_url)
                 response = self.model.generate_content([
-                    prompt,
+                    i2i_prompt,
                     {"mime_type": mime, "data": ref_base64}
                 ])
             else:
@@ -480,6 +513,9 @@ class StoryBookGenerator(BaseImageGenerator):
                         )
                         
                         if save_result.get("success"):
+                            # 使用したプロンプトを決定（i2i_promptが存在する場合はそれを使用）
+                            used_prompt = i2i_prompt if i2i_prompt else prompt
+                            
                             return {
                                 "story_plot_id": story_plot_id,
                                 "page_number": 0,
@@ -490,14 +526,15 @@ class StoryBookGenerator(BaseImageGenerator):
                                 "image_size": image_size,
                                 "format": image_format,
                                 "timestamp": datetime.now().isoformat(),
-                                "prompt": prompt,
+                                "prompt": used_prompt,
                                 "page_content": cover_page_content,
                                 "title": title or story_plot.title,
                                 "protagonist_name": protagonist_name,
                                 "setting_place": setting_place,
                                 "description": description,
                                 "selected_theme": getattr(story_plot, "selected_theme", None),
-                                "reference_image_path": reference_url
+                                "reference_image_path": reference_url,
+                                "strength": strength if reference_url else None
                             }
                         else:
                             return {"error": save_result.get("error"), "filename": "page_00.png"}

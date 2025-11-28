@@ -227,12 +227,14 @@ class StoryPlotGenerator(ImageToImageGenerator):
             try:
                 from .storybook_generator import StoryBookGenerator
                 sbg = StoryBookGenerator()
-                # 他のページと同じprefix形式を渡す
+                # 他のページと同じprefix形式、reference_image_path、strengthを渡す
                 cover_info = sbg.generate_cover_for_story_plot(
                     db=db, 
                     story_plot_id=story_plot_id, 
                     user_id=user_id,
-                    prefix=prefix
+                    prefix=prefix,
+                    reference_image_path=reference_image_path,
+                    strength=strength
                 )
                 # 正常に生成できた場合のみ追記（page_number=0 として扱う）
                 if cover_info and not cover_info.get("error"):
