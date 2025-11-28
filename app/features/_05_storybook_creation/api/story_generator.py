@@ -5,6 +5,7 @@ from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
 from app.models.story.story_book import StoryBook
 from app.features._02_generation_plan.services.story_line.story_line_generator import StoryGeneratorService
+from app.features._04_theme_selection.services.theme_generator import theme_generator
 from app.service.credits import CreditsService, PricingService
 from pydantic import BaseModel
 from typing import Dict, Any
@@ -43,14 +44,16 @@ async def supabase_story_generator(
     
     # 処理時間計測開始
     start_time = time.time()
-    print(f"=== テーマ生成処理開始 (Supabase) ===")
-    print(f"Story Setting ID: {request.story_setting_id}")
+    print(f"================================================")
+    print(f"テーマ生成処理開始")
+    print(f"================================================")
     
     try:
         # DB取得時間を計測
         db_start = time.time()
         
-        # ストーリー設定を取得（upload_imageとuserの情報も一緒に取得）
+        # DBからストーリー設定を取得（upload_imageとuserの情報も一緒に取得）
+        print(f"DBからストーリー設定を取得開始: StorySetting.id = {request.story_setting_id}")
         story_setting = db.query(StorySetting).options(
             joinedload(StorySetting.upload_image)
         ).filter(
@@ -58,7 +61,7 @@ async def supabase_story_generator(
         ).first()
         
         db_fetch_time = time.time() - db_start
-        print(f"⏱️ DB取得時間: {db_fetch_time:.3f}秒")
+        print(f"  - ⏱️ ストーリー設定取得時間: {db_fetch_time:.3f}秒")
         
         if not story_setting:
             raise HTTPException(
@@ -68,7 +71,6 @@ async def supabase_story_generator(
         
         # user_idを自動取得
         user_id = story_setting.upload_image.user_id
-        print(f"User ID: {user_id}")
         
         # データ変換時間を計測
         convert_start = time.time()
@@ -83,14 +85,12 @@ async def supabase_story_generator(
             "reading_level": story_setting.reading_level
         }
         
-        convert_time = time.time() - convert_start
-        print(f"⏱️ データ変換時間: {convert_time:.3f}秒")
-        
-        # Gemini 2.5 Flashで3つのテーマ案のみを生成（高速化版）
-        print("🤖 Gemini API呼び出し開始（3つのテーマのみ生成）")
+        # Gemini 2.5 Flashで3つのテーマ案を生成
+        print("3つのテーマ案を生成開始（Gemini）")
         gemini_start = time.time()
         
-        theme_data = story_generator_service.generate_theme_options_only(story_setting_dict)
+        # theme_generatorで3つのテーマ案を生成
+        theme_data = theme_generator.generate_theme_options_only(story_setting_dict)
         
         gemini_time = time.time() - gemini_start
         print(f"⏱️ Gemini API処理時間（テーマのみ）: {gemini_time:.3f}秒")

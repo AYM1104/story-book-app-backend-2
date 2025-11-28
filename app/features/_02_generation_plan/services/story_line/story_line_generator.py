@@ -5,6 +5,7 @@ import os
 import traceback
 from dotenv import load_dotenv
 from app.features._04_theme_selection.services.theme_generator import theme_generator, TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
+from app.core.gemini_config import initialize_gemini_model_2_5_flash
 
 load_dotenv()
 
@@ -12,37 +13,8 @@ class StoryGeneratorService:
     """Gemini 2.5 Flashを使用してストーリーを生成するサービス"""
 
     def __init__(self):
-        # Gemini APIの設定（物語生成用のFree APIキーを使用、なければPaid APIキーを使用）
-        api_key = os.getenv("GOOGLE_API_KEY_Free") or os.getenv("GOOGLE_API_KEY_Paid")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY_FreeまたはGOOGLE_API_KEY_Paidが設定されていません")
-        
-        # 使用しているAPIキーの種類を判定
-        api_key_type = "GOOGLE_API_KEY_Free" if os.getenv("GOOGLE_API_KEY_Free") else "GOOGLE_API_KEY_Paid"
-        
-        # APIキーのクリーンアップ（改行、スペース、引用符を削除）
-        api_key = api_key.strip().strip('"').strip("'")
-        
-        # APIキーの形式検証
-        if not api_key.startswith("AIza"):
-            print(f"⚠️ 警告: APIキーの形式が正しくない可能性があります（AIzaで始まる必要があります）")
-        
-        # APIキーが空でないことを再確認
-        if not api_key or len(api_key) < 20:
-            error_msg = f"APIキーが無効です（長さ: {len(api_key)}文字）。APIキーは通常39文字以上です。"
-            raise ValueError(error_msg)
-        
-        try:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-2.5-flash')
-        except Exception as e:
-            error_msg = f"Gemini APIの初期化に失敗しました: {str(e)}"
-            raise ValueError(error_msg) from e
-
-    def generate_theme_options_only(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
-        """3つのテーマ案のみを生成（物語本文は生成しない）- 高速化版"""
-        # ThemeGeneratorに委譲
-        return theme_generator.generate_theme_options_only(story_setting)
+        # Gemini APIの設定（共通のユーティリティ関数を使用）
+        self.model = initialize_gemini_model_2_5_flash('gemini-2.5-flash')
 
     def generate_complete_story(self, story_setting: Dict[str, Any], story_pages: int = 5) -> Dict[str, Any]:
         """テーマ案と物語本文を一緒に生成（非推奨 - 遅い）"""
