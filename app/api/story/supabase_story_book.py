@@ -594,6 +594,11 @@ async def get_generation_progress(
             progress_percent = int((generated_pages / calc_total_pages) * 100) if calc_total_pages > 0 else 0
             current_page = generated_pages
         
+        # 完了ステータスでは必ず100%に揃える（API値が95%程度で止まることを防ぐ）
+        if str(storybook.image_generation_status) == "completed":
+            progress_percent = 100
+            current_page = calc_total_pages
+
         return {
             "storybook_id": storybook_id,
             "current_page": current_page,
