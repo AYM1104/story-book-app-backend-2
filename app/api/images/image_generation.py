@@ -1,7 +1,10 @@
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 import os
-from app.database.supabase_session import get_supabase_db
+import threading
+from typing import List, Optional
+
+from app.database.supabase_session import get_supabase_db, get_supabase_db_sync
 from app.service.image_generator_service import image_generator_service
 from app.core.security.auth0_jwt import get_auth0_sub_from_token
 from app.schemas.images.image_generation import (
@@ -104,6 +107,7 @@ async def generate_supabase_storyplot_image_to_image(
 @router.post("/generate-storyplot-all-pages-image-to-image", response_model=StoryPlotAllPagesGenerationResponse)
 async def generate_supabase_storyplot_all_pages_image_to_image(
     request: StoryPlotAllPagesImageToImageRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_supabase_db),
     user_id: str = Depends(get_auth0_sub_from_token)  # Auth0のsubクレーム
 ):
@@ -199,22 +203,44 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
             if not os.path.exists(image_path):
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"参考画像が見つかりません: {image_path}")
             request.reference_image_path = os.path.abspath(image_path)
-        
-        images_info = image_generator_service.generate_storyplot_all_pages_i2i(
-            db=db,
-            story_plot_id=story_plot_id,
-            reference_image_path=request.reference_image_path,
-            strength=request.strength,
-            prefix=request.prefix,
-            user_id=user_id,
-            story_pages=request.story_pages
+
+        # 先にステータスを「生成中」に更新（storybookが存在する場合）
+        try:
+            from app.models.story.story_book import StoryBook
+
+            target_storybook = None
+            if request.storybook_id:
+                target_storybook = db.query(StoryBook).filter(StoryBook.id == request.storybook_id).first()
+            if not target_storybook:
+                target_storybook = db.query(StoryBook).filter(StoryBook.story_plot_id == story_plot_id).first()
+
+            if target_storybook:
+                target_storybook.image_generation_status = "generating"
+                target_storybook.generation_progress = {
+                    "current_page": 0,
+                    "current_step": "prompt",
+                    "completed_pages": 0,
+                    "total_pages": 1 + min(request.story_pages or 0, 10)
+                }
+                db.commit()
+        except Exception as status_init_error:
+            print(f"⚠️ Failed to initialize generation status: {status_init_error}")
+
+        # 重い生成処理はレスポンスとは切り離してバックグラウンドで実行
+        request_payload = request.model_dump()
+        background_tasks.add_task(
+            _kickoff_storyplot_all_pages_generation,
+            request_payload,
+            user_id,
+            story_plot_id,
+            request.storybook_id
         )
-        
+
         return StoryPlotAllPagesGenerationResponse(
             success=True,
-            message=f"Supabase StoryPlot ID {story_plot_id} の全ページImage-to-Image生成が完了しました",
-            images=[StoryPlotImageInfo(**img) for img in images_info],
-            total_generated=len(images_info)
+            message=f"Supabase StoryPlot ID {story_plot_id} の全ページImage-to-Image生成を開始しました",
+            images=[],
+            total_generated=0
         )
         
     except ValueError as e:
@@ -227,6 +253,61 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Supabase StoryPlot全ページImage-to-Image生成に失敗しました: {str(e)}"
         )
+
+
+def _kickoff_storyplot_all_pages_generation(
+    request_payload: dict,
+    user_id: str,
+    story_plot_id: int,
+    storybook_id: Optional[int]
+) -> None:
+    """重い生成処理を別スレッドで実行し、レスポンスをブロックしない。"""
+    thread = threading.Thread(
+        target=_run_storyplot_all_pages_generation,
+        args=(request_payload, user_id, story_plot_id, storybook_id),
+        daemon=True
+    )
+    thread.start()
+
+
+def _run_storyplot_all_pages_generation(
+    request_payload: dict,
+    user_id: str,
+    story_plot_id: int,
+    storybook_id: Optional[int]
+) -> None:
+    """実際の画像生成を実行し、失敗時はステータスをfailedに更新する。"""
+    db = get_supabase_db_sync()
+    try:
+        request_obj = StoryPlotAllPagesImageToImageRequest(**request_payload)
+
+        image_generator_service.generate_storyplot_all_pages_i2i(
+            db=db,
+            story_plot_id=story_plot_id,
+            reference_image_path=request_obj.reference_image_path,
+            strength=request_obj.strength,
+            prefix=request_obj.prefix,
+            user_id=user_id,
+            story_pages=request_obj.story_pages
+        )
+    except Exception as e:
+        print(f"❌ Background storyplot all pages generation failed: {e}")
+        try:
+            from app.models.story.story_book import StoryBook
+
+            target_storybook = None
+            if storybook_id:
+                target_storybook = db.query(StoryBook).filter(StoryBook.id == storybook_id).first()
+            if not target_storybook:
+                target_storybook = db.query(StoryBook).filter(StoryBook.story_plot_id == story_plot_id).first()
+
+            if target_storybook:
+                target_storybook.image_generation_status = "failed"
+                db.commit()
+        except Exception as inner:
+            print(f"⚠️ Failed to update storybook status after generation error: {inner}")
+    finally:
+        db.close()
 
 @router.post("/upload-reference-image", response_model=ImageUploadResponse)
 async def upload_supabase_reference_image(file: UploadFile = File(...)):
