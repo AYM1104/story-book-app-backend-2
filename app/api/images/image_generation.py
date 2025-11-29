@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import os
 import threading
 from typing import List, Optional
@@ -176,7 +176,10 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
             if not story_plot:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StoryPlot ID {story_plot_id} が見つかりません")
 
-            story_setting = db.query(StorySetting).filter(StorySetting.id == story_plot.story_setting_id).first()
+            # upload_imageのリレーションを一緒に読み込む
+            story_setting = db.query(StorySetting).options(
+                joinedload(StorySetting.upload_image)
+            ).filter(StorySetting.id == story_plot.story_setting_id).first()
             if not story_setting:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StorySetting ID {story_plot.story_setting_id} が見つかりません")
 
@@ -463,7 +466,10 @@ async def generate_storybook_all_pages_image_to_image(
             if not story_plot:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StoryPlot ID {story_plot_id} が見つかりません")
 
-            story_setting = db.query(StorySetting).filter(StorySetting.id == story_plot.story_setting_id).first()
+            # upload_imageのリレーションを一緒に読み込む
+            story_setting = db.query(StorySetting).options(
+                joinedload(StorySetting.upload_image)
+            ).filter(StorySetting.id == story_plot.story_setting_id).first()
             if not story_setting:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"StorySetting ID {story_plot.story_setting_id} が見つかりません")
 
