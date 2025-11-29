@@ -558,6 +558,9 @@ async def get_generation_progress(
         current_page = generation_progress.get("current_page", 0)
         current_step = generation_progress.get("current_step", "")
         completed_pages = generation_progress.get("completed_pages", generated_pages)
+        # generation_progressが total_pages を持っていればそちらを優先（表紙 + リクエストページ数）
+        progress_total_pages = generation_progress.get("total_pages")
+        calc_total_pages = progress_total_pages or total_pages
         
         # 各ステップの進捗率（1ページあたり）
         step_progress_map = {
@@ -576,25 +579,25 @@ async def get_generation_progress(
             current_page = 0
         elif storybook.image_generation_status == "completed":
             progress_percent = 100
-            current_page = total_pages
+            current_page = calc_total_pages
         elif current_step and current_page > 0:
             # 詳細進捗情報がある場合、各ステップの進捗を考慮
             current_step_progress = step_progress_map.get(current_step, 0)
             # 完了ページの進捗 + 現在ページのステップ進捗
-            progress_percent = int((completed_pages / total_pages) * 100 + (current_step_progress / total_pages)) if total_pages > 0 else 0
+            progress_percent = int((completed_pages / calc_total_pages) * 100 + (current_step_progress / calc_total_pages)) if calc_total_pages > 0 else 0
             progress_percent = min(100, max(0, progress_percent))  # 0-100%の範囲に制限
         elif generated_pages == 0:
             progress_percent = 0
             current_page = 0
         else:
             # 詳細進捗情報がない場合は従来の計算方法
-            progress_percent = int((generated_pages / total_pages) * 100) if total_pages > 0 else 0
+            progress_percent = int((generated_pages / calc_total_pages) * 100) if calc_total_pages > 0 else 0
             current_page = generated_pages
         
         return {
             "storybook_id": storybook_id,
             "current_page": current_page,
-            "total_pages": total_pages,
+            "total_pages": calc_total_pages,
             "progress_percent": progress_percent,
             "status": str(storybook.image_generation_status),
             "current_step": current_step  # 現在のステップを追加
