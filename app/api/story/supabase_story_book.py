@@ -567,8 +567,11 @@ async def get_generation_progress(
             "completed": 95    # 90-100%の中間
         }
         
-        # 画像生成が開始されていない、またはまだ1つも画像が生成されていない場合は0%
-        if storybook.image_generation_status == "pending":
+        # 進捗計算用にステータスを解釈（pendingでも生成途中の値があれば計算する）
+        status_for_calc = str(storybook.image_generation_status)
+
+        # 画像生成が開始されていない場合
+        if status_for_calc == "pending" and not generation_progress and generated_pages == 0:
             progress_percent = 0
             current_page = 0
         elif storybook.image_generation_status == "completed":

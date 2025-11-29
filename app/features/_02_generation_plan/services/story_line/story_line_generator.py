@@ -4,7 +4,8 @@ from typing import Dict, Any, Optional, List
 import os
 import traceback
 from dotenv import load_dotenv
-from app.features._04_theme_selection.services.theme_generator import theme_generator, TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
+from app.features._04_theme_selection.services.theme_generator import theme_generator
+from app.core.prompt.constants import TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
 from app.core.gemini_config import initialize_gemini_model_2_5_flash
 
 load_dotenv()

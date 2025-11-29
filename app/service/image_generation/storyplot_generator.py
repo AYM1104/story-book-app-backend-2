@@ -212,6 +212,7 @@ class StoryPlotGenerator(ImageToImageGenerator):
             # 画像生成開始時に進捗を初期化
             storybook = db.query(StoryBook).filter(StoryBook.story_plot_id == story_plot_id).first()
             if storybook:
+                # 生成開始を明示的に記録（pending のままにならないようにする）
                 storybook.image_generation_status = "generating"
                 storybook.generation_progress = {
                     "current_page": 0,

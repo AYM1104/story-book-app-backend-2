@@ -10,33 +10,15 @@ import traceback
 from dotenv import load_dotenv
 from google.api_core import exceptions as google_exceptions
 from app.core.gemini_config import initialize_gemini_model_2_5_flash
+from app.features._04_theme_selection.prompt.theme_prompts import create_theme_options_prompt
+from app.core.prompt.constants import (
+    TONE_DESCRIPTIONS,
+    AGE_DESCRIPTIONS,
+    READING_LEVEL_DESCRIPTIONS
+)
 
 # ローカル環境では.envファイルを読み込む（Cloud Runでは環境変数が直接設定されるため不要）
 load_dotenv()
-
-# 共通の定数定義（story_line_generator.pyでも使用）
-TONE_DESCRIPTIONS = {
-    "gentle": "優しく温かい雰囲気",
-    "fun": "楽しく明るい雰囲気",
-    "adventure": "冒険的でワクワクする雰囲気",
-    "mystery": "謎解きでドキドキする雰囲気",
-    "heartwarming": "感動的で心が温まる雰囲気",
-    "dreamy": "幻想的で夢のような雰囲気",
-    "magical": "魔法のように不思議な雰囲気",
-    "brave": "勇気をもって挑戦する雰囲気"
-}
-
-AGE_DESCRIPTIONS = {
-    "preschool": "3-6歳の未就学児向け",
-    "elementary_low": "7-9歳の小学生低学年向け"
-}
-
-READING_LEVEL_DESCRIPTIONS = {
-    "hiragana_only": "ひらがなのみを使用",
-    "hiragana_katakana": "ひらがなとカタカナを使用",
-    "basic_kanji": "基本的な漢字も含む",
-    "normal": "普通のレベル"
-}
 
 class ThemeGenerator:
     """Gemini 2.5 Flashを使用してテーマ案を生成するサービス"""
@@ -62,11 +44,10 @@ class ThemeGenerator:
         )
 
         # プロンプト全文をターミナルに表示
-        print("=" * 80)
-        print("【Gemini API プロンプト全文 - テーマ案生成】")
-        print("=" * 80)
-        print(prompt)
-        print("=" * 80)
+        # print("================================================")
+        # print("【Gemini API プロンプト全文 - テーマ案生成】")
+        # print("================================================")
+        # print(prompt)
         
         # Gemini 2.5 Flashでテーマ案のみを生成（リトライロジック付き）
         max_retries = 3
@@ -174,68 +155,10 @@ class ThemeGenerator:
 
     def _create_theme_options_prompt(self, protagonist_name: str, protagonist_type: str, 
                                     setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
-        """テーマ案のみ生成用のプロンプトを作成（物語本文は生成しない）"""
-        
-        # 共通定数を使用
-        reading_level_desc = READING_LEVEL_DESCRIPTIONS.get(reading_level, reading_level)
-
-        prompt = f"""
-あなたは、子供の想像力をかき立てるプロの絵本作家です。
-ユーザーが選んだ「{TONE_DESCRIPTIONS.get(tone)}」という雰囲気に合わせて、
-子供がワクワクする3種類の物語テーマを提案してください。
-
-【基本設定】
-- 主人公: {protagonist_name}
-- キャラクターの特徴（外見・種族）: {protagonist_type}
-  ※この特徴は物語の展開や解決の鍵として必ず活用すること
-- 舞台: {setting_place}
-- 雰囲気: {TONE_DESCRIPTIONS.get(tone)}
-- 対象年齢: {AGE_DESCRIPTIONS.get(target_age, '3-6歳の未就学児向け')}
-- 読みやすさ: {reading_level_desc}
-
-【作成する3つのテーマ】
-1. variation_type: "classic" / theme_id: "adventure"
-   - 雰囲気を王道に味わえる直球展開
-2. variation_type: "character_driven" / theme_id: "friendship"
-   - "{protagonist_type}" でないと成立しない個性的な展開
-3. variation_type: "unique_twist" / theme_id: "discovery"
-   - ちょっと不思議で意外性のある展開
-
-【制約事項】
-- わかりやすい起承転結を意識し、難しい言い回しを避ける
-- 教育的な学びをひとつ含めつつ、エンタメ性を最優先
-- 選択した雰囲気から逸脱しない
-- タイトルとキャッチコピーはひらがな中心、15文字以内
-
-【出力形式】
-以下のJSON形式で出力してください：
-{{
-  "theme_options": {{
-    "theme1": {{
-      "theme_id": "adventure",
-      "title": "タイトル",
-      "description": "物語の概要（2-3文）",
-      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
-    }},
-    "theme2": {{
-      "theme_id": "friendship",
-      "title": "タイトル",
-      "description": "物語の概要（2-3文）",
-      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
-    }},
-    "theme3": {{
-      "theme_id": "discovery",
-      "title": "タイトル",
-      "description": "物語の概要（2-3文）",
-      "keywords": ["キーワード1", "キーワード2", "キーワード3"]
-    }}
-  }}
-}}
-
-必ずJSON形式で出力し、他の説明文は含めないでください。
-"""
-
-        return prompt
+        """テーマ案生成用のプロンプトを作成（プロンプトファイルから読み込み）"""
+        return create_theme_options_prompt(
+            protagonist_name, protagonist_type, setting_place, tone, target_age, reading_level
+        )
 
     def _parse_theme_options_response(self, response_text: str) -> Dict[str, Any]:
         """テーマ案のみのレスポンスをパース"""
