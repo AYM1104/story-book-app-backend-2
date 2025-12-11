@@ -111,7 +111,11 @@ async def supabase_confirm_theme_and_create_storybook(
             "keywords": story_plot.keywords,
             "content": selected_story_content_dict.get("content", ""),
             "story_content": selected_story_content,
-            "image_generation_status": ImageGenerationStatus.PENDING
+            "image_generation_status": ImageGenerationStatus.PENDING,
+            # 画像生成開始前に進捗取得APIが呼ばれても正しい値を返せるよう、total_pagesを初期設定
+            "generation_progress": {
+                "total_pages": 1 + request.story_pages  # 表紙 + リクエストページ数
+            }
         }
         
         # ページ内容を動的に設定（最大10ページまで）
