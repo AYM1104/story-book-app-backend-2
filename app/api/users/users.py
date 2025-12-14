@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
 from app.models.users.users import Users
-from app.schemas.users.users import UserCreate, UserRead
+from app.schemas.users.users import UserCreate, UserRead, UserUpdate
 from app.service.credits import CreditsService
 from app.models.credits.subscription import PlanType
 
@@ -98,6 +98,24 @@ def get_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
     
     return user
 
+# ユーザー情報更新エンドポイント
+@router.put("/{user_id}", response_model=UserRead)
+def update_supabase_user(user_id: str, user_update: UserUpdate, db: Session = Depends(get_supabase_db)):
+    """ユーザー情報を更新するエンドポイント"""
+    
+    db_user = db.query(Users).filter(Users.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user_update.user_name is not None:
+        db_user.user_name = user_update.user_name
+    if user_update.email is not None:
+        db_user.email = user_update.email
+        
+    db.commit()
+    db.refresh(db_user)
+    
+    return db_user
 # ユーザー削除エンドポイント（Supabase用）
 @router.delete("/{user_id}")
 def delete_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):

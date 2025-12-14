@@ -10,6 +10,11 @@ class UserCreate(BaseModel):
     email: EmailStr
     # password: str  # Supabase認証を使用するため、パスワードは不要
 
+# ユーザー更新時に使うスキーマ
+class UserUpdate(BaseModel):
+    user_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
 # ユーザー情報取得時に使うスキーマ
 class UserRead(BaseModel):
     id: str  # Auth0のユーザーID

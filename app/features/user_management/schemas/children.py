@@ -11,11 +11,12 @@ class ChildCreate(BaseModel):
     """子どもプロフィール作成リクエストスキーマ
     
     requirements.md の Child スキーマ定義に基づく
-    - user_id: Auth0のユーザーID（通常は認証から取得）
+    - user_id: Auth0のユーザーID（必須）
     - name: 子どもの名前（必須）
     - birthdate: 生年月日（任意）
     - color_theme: カラーテーマ（任意）
     """
+    user_id: str
     name: str
     birthdate: Optional[date] = None
     color_theme: Optional[str] = None
