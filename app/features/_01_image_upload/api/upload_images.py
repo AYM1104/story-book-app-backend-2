@@ -8,6 +8,7 @@ from app.features._01_image_upload.services._00_file_processing_service import f
 from app.features._01_image_upload.services._01_image_upload_gcs_service import image_upload_gcs_service
 from app.features._01_image_upload.services._02_image_analysis_service import image_analysis_service
 from app.features._01_image_upload.services._03_image_database_service import image_database_service
+from app.features._01_image_upload.services._99_image_resize_service import image_resize_service
 
 router = APIRouter(prefix="/api/images", tags=["images"])
 
@@ -35,6 +36,26 @@ async def upload_gcs_image(
         content_type = file_result["content_type"]
         filename = file_result["filename"]
         print(f"✅ ファイル検証完了: {time.time() - file_validation_start_time:.3f}秒 ===")
+
+        # 1.5. 画像をリサイズ（縦長 1280×1920）
+        resize_start_time = time.time()
+        print("1.5. 画像をリサイズ（縦長 1280×1920） -------------------")
+        resize_result = await image_resize_service.resize_image(
+            image_data=content,
+            target_width=1280,
+            target_height=1920
+        )
+        
+        if resize_result["success"]:
+            # リサイズ後の画像を使用
+            content = resize_result["resized_data"]
+            # リサイズ後はPNG形式になるため、content_typeを更新
+            content_type = "image/png"
+            print(f"✅ 画像リサイズ完了: {time.time() - resize_start_time:.3f}秒 ===")
+        else:
+            # リサイズに失敗した場合は元の画像を使用
+            print(f"⚠️ 画像リサイズ失敗、元の画像を使用します: {resize_result.get('error')}")
+            print(f"⏱️ リサイズ処理時間（スキップ）: {time.time() - resize_start_time:.3f}秒 ===")
 
         # 2. GCSへアップロード
         upload_start_time = time.time()

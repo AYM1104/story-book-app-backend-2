@@ -10,8 +10,9 @@ class ImageResizeService:
     """画像リサイズ処理を担当するサービス"""
     
     def __init__(self):
-        self.default_width = 1920
-        self.default_height = 1080
+        # 縦長（2:3）に変更
+        self.default_width = 1280
+        self.default_height = 1920
     
     async def resize_image(
         self, 
@@ -24,8 +25,8 @@ class ImageResizeService:
         
         Args:
             image_data: 元画像のバイトデータ
-            target_width: 目標幅（デフォルト: 1920）
-            target_height: 目標高さ（デフォルト: 1080）
+            target_width: 目標幅（デフォルト: 1280）
+            target_height: 目標高さ（デフォルト: 1920）
         
         Returns:
             リサイズ結果の辞書
