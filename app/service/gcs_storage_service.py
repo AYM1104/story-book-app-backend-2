@@ -451,25 +451,37 @@ class GCSStorageService:
         try:
             # URL形式の場合はパスを抽出
             file_path = file_path_or_url
+            bucket_to_use = self.bucket  # デフォルトは初期化時のバケット
             if file_path_or_url.startswith('http'):
+                # storage.cloud.google.com形式をstorage.googleapis.com形式に変換
+                normalized_url = file_path_or_url.replace('storage.cloud.google.com', 'storage.googleapis.com')
+                
                 # storage.googleapis.com形式のURLからパスを抽出
-                if 'storage.googleapis.com' in file_path_or_url:
+                if 'storage.googleapis.com' in normalized_url:
                     # クエリパラメータを除去
-                    url_without_query = file_path_or_url.split('?')[0]
+                    url_without_query = normalized_url.split('?')[0]
                     # https://storage.googleapis.com/bucket_name/path/to/file から path/to/file を抽出
-                    parts = url_without_query.split('/')
-                    bucket_index = parts.index(self.bucket_name) if self.bucket_name in parts else -1
-                    if bucket_index >= 0 and bucket_index < len(parts) - 1:
-                        # URLエンコードされた文字をデコード（例: %7C -> |）
-                        file_path = '/'.join(parts[bucket_index + 1:])
-                        file_path = unquote(file_path)
+                    # storage.googleapis.comの後の最初の部分がバケット名、その後の部分がファイルパス
+                    if 'storage.googleapis.com/' in url_without_query:
+                        # storage.googleapis.com/の後の部分を取得
+                        path_after_domain = url_without_query.split('storage.googleapis.com/', 1)[1]
+                        # 最初のスラッシュで分割してバケット名とファイルパスを分離
+                        path_parts = path_after_domain.split('/', 1)
+                        if len(path_parts) >= 2:
+                            bucket_name_from_url = path_parts[0]
+                            # URLエンコードされた文字をデコード（例: %7C -> |）
+                            file_path = unquote(path_parts[1])
+                            # URLから抽出したバケット名を使用
+                            bucket_to_use = self.client.bucket(bucket_name_from_url)
+                        else:
+                            raise ValueError(f"無効なURL形式です: {file_path_or_url}")
                     else:
                         raise ValueError(f"無効なURL形式です: {file_path_or_url}")
                 else:
                     raise ValueError(f"サポートされていないURL形式です: {file_path_or_url}")
             
             # GCSからファイルをダウンロード
-            blob = self.bucket.blob(file_path)
+            blob = bucket_to_use.blob(file_path)
             if not blob.exists():
                 raise ValueError(f"ファイルが存在しません: {file_path}")
             

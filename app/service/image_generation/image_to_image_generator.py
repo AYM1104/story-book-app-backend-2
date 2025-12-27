@@ -71,13 +71,19 @@ class ImageToImageGenerator(BaseImageGenerator):
             strength_percentage = strength * 100
             print(f"🔍 [DEBUG] プロンプトに含まれる強度: {strength_percentage}% (strength={strength})")
 
-            # 日本語訳のプロンプト
-            # この参照画像に基づいて、以下の説明で新しいイラストを作成してください: {enhanced_prompt}。
-            # 参照画像と{strength_percentage}%の類似性で、スタイルと構図を維持してください。
-            # 新しいシーンに適応しながら、参照画像の特徴を保持してください。
-            i2i_prompt = f"Based on this reference image, create a new illustration with the following description: {enhanced_prompt}. " \
-                        f"Maintain the style and composition similar to the reference image with {strength_percentage}% similarity. " \
-                        f"Reference image characteristics should be preserved while adapting to the new scene."
+            # Image-to-Image生成のためのプロンプト（画像が先にあるので、より直接的に）
+            # 画像を先に配置することで、Geminiアプリと同様の動作を実現
+            # 日本語訳:
+            # 以下の説明で新しいイラストを作成してください: {enhanced_prompt}
+            # 参考画像に示されているキャラクターの外見、コスチューム、スタイルを完全に同じに保ってください
+            # 上記で説明された新しいシーンに適応しながら、キャラクターのすべての視覚的特徴
+            # （コスチュームの詳細、色、デザインを含む）を保持してください
+            i2i_prompt = (
+                f"Create a new illustration with the following description: {enhanced_prompt}. "
+                f"Maintain the exact same character appearance, costume, and style as shown in the reference image. "
+                f"Preserve all visual characteristics of the character (including costume details, colors, and design) "
+                f"while adapting to the new scene described above."
+            )
             
             # プロンプト全文をターミナルに表示
             print("=" * 80)
@@ -86,12 +92,13 @@ class ImageToImageGenerator(BaseImageGenerator):
             print(i2i_prompt)
             print("=" * 80)
             
+            # 画像を先に、プロンプトを後に配置（Geminiアプリの動作に合わせる）
             response = self.model.generate_content([
-                i2i_prompt,
                 {
                     "mime_type": mime_type,
                     "data": reference_image_base64
-                }
+                },
+                i2i_prompt  # 画像の後にプロンプト
             ])
             
             # API処理時間計算
