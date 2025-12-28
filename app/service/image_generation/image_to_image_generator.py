@@ -24,18 +24,9 @@ class ImageToImageGenerator(BaseImageGenerator):
             # API処理時間計測開始
             api_start_time = time.time()
             
-            # プロンプトに文字なしの指示とアスペクト比を追加（強化版）
-            enhanced_prompt = (
-                f"{prompt}. "
-                f"Image format: 3:4 aspect ratio. "
-                f"MANDATORY: The image must be exactly 3:4 ratio, wide and landscape, NOT portrait or square. "
-                f"The composition should be horizontal with elements spread across the width. "
-                f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
-                f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
-                f"NO written language of any kind. This must be a pure visual illustration only. "
-                f"The image should be completely text-free and contain only visual elements, characters, "
-                f"objects, and scenes without any written content whatsoever."
-            )
+            # プロンプトはstoryplot_generatorで既に完成しているため、そのまま使用
+            # （アスペクト比、スタイル、テキスト除外などすべて含まれている）
+            enhanced_prompt = prompt
             
             print(f"🎨 Image-to-Image生成開始")
             print(f"🖼️ 参考画像: {reference_image_path}")
@@ -71,18 +62,18 @@ class ImageToImageGenerator(BaseImageGenerator):
             strength_percentage = strength * 100
             print(f"🔍 [DEBUG] プロンプトに含まれる強度: {strength_percentage}% (strength={strength})")
 
-            # Image-to-Image生成のためのプロンプト（画像が先にあるので、より直接的に）
+            # Image-to-Image生成のためのプロンプト構築
+            # 【構成】既に完成したストーリープロンプト + キャラクター一貫性の指示
             # 画像を先に配置することで、Geminiアプリと同様の動作を実現
-            # 日本語訳:
-            # 以下の説明で新しいイラストを作成してください: {enhanced_prompt}
-            # 参考画像に示されているキャラクターの外見、コスチューム、スタイルを完全に同じに保ってください
-            # 上記で説明された新しいシーンに適応しながら、キャラクターのすべての視覚的特徴
-            # （コスチュームの詳細、色、デザインを含む）を保持してください
             i2i_prompt = (
-                f"Create a new illustration with the following description: {enhanced_prompt}. "
-                f"Maintain the exact same character appearance, costume, and style as shown in the reference image. "
-                f"Preserve all visual characteristics of the character (including costume details, colors, and design) "
-                f"while adapting to the new scene described above."
+                # 既に完成したプロンプト（ストーリー内容、スタイル、アスペクト比など）
+                f"{enhanced_prompt}\n\n"
+                
+                # キャラクター一貫性の指示: 参考画像のキャラクター特徴を完全に保持しながら新シーンに適応
+                f"CHARACTER CONSISTENCY REQUIREMENTS:\n"
+                f"- Keep the EXACT SAME character appearance as shown in the reference image\n"
+                f"- Maintain identical: facial features, body proportions, costume/clothing details, colors, and overall style\n"
+                f"- Adapt the character to the new scene while preserving all visual characteristics"
             )
             
             # プロンプト全文をターミナルに表示
