@@ -1,2 +1,0 @@
-# Theme Selection Services モジュール
-

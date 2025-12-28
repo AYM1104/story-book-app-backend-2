@@ -23,7 +23,7 @@ sys.path.insert(0, str(backend_dir))
 # 環境変数を読み込む
 load_dotenv()
 
-from app.features._04_theme_selection.services.theme_generator import ThemeGenerator
+from app.features._02_generate_theme.services.theme_generator import ThemeGenerator
 
 
 def print_section(title: str):

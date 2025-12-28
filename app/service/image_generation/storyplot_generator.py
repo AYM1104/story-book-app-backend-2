@@ -158,22 +158,44 @@ class StoryPlotGenerator(ImageToImageGenerator):
         if page_number is not None and total_pages is not None:
             page_info = f" This is page {page_number} of {total_pages} in a {total_pages}-page children's book. "
         
-        # 基本の絵本風プロンプト
+        # 基本の絵本風プロンプト（スマホ画面向け2:3縦長）
+        # 【プロンプト構成】
+        # - CONTENT: ページ内容（ストーリー）
+        # - STYLE: 絵本イラストのスタイル指定
+        # - CHARACTERS & SETTING: キャラクターと舞台設定
+        # - FORMAT: 画像のアスペクト比と構図指定
+        # - CRITICAL REQUIREMENTS: テキスト除外などの重要な制約
         enhanced_prompt = (
-            f"Create a beautiful children's book illustration for: {page_content}. "
-            f"Style: children's book illustration, warm and friendly, bright colors, "
-            f"simple and clean design, suitable for children. "
-            f"Character: {protagonist_name} (a {protagonist_type}). "
-            f"Setting: {setting_place}. "
-            f"{page_info}"
-            f"Image format: 3:4 aspect ratio. "
-            f"MANDATORY: The image must be exactly 3:4 ratio, wide and landscape, NOT portrait or square. "
-            f"The composition should be horizontal with elements spread across the width. "
-            f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
-            f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
-            f"NO written language of any kind. This must be a pure visual illustration only. "
-            f"The image should be completely text-free and contain only visual elements, characters, "
-            f"objects, and scenes without any written content whatsoever."
+            # 美しい子供向け絵本イラストを作成
+            f"Create a beautiful children's book illustration.\n\n"
+            
+            # 内容: このページのストーリー内容
+            f"CONTENT: {page_content}\n\n"
+            
+            # スタイル: 絵本イラスト、温かく親しみやすい、明るい色彩、シンプルで清潔なデザイン
+            f"STYLE:\n"
+            f"- Children's book illustration style\n"
+            f"- Warm, friendly, and inviting atmosphere\n"
+            f"- Bright, vibrant colors\n"
+            f"- Simple, clean design suitable for young children\n\n"
+            
+            # キャラクターと設定: 主人公の名前・種類、舞台となる場所
+            f"CHARACTERS & SETTING:\n"
+            f"- Main character: {protagonist_name} (a {protagonist_type})\n"
+            f"- Setting: {setting_place}\n"
+            f"{page_info}\n\n"
+            
+            # 形式: 2:3の縦長（スマホ表示用）、縦方向の空間を効果的に活用
+            f"FORMAT:\n"
+            f"- Aspect ratio: 2:3 (portrait/vertical orientation for mobile viewing)\n"
+            f"- Composition should be vertical with thoughtful use of vertical space\n\n"
+            
+            # 重要な要件: テキスト・文字・記号などは一切含めない（純粋なビジュアルイラストのみ）
+            f"CRITICAL REQUIREMENTS:\n"
+            f"- ABSOLUTELY NO text, letters, words, numbers, symbols, signs, labels, "
+            f"captions, speech bubbles, or any form of written language\n"
+            f"- This must be a completely text-free visual illustration\n"
+            f"- Only include visual elements: characters, objects, and scenic elements"
         )
         
         return enhanced_prompt
