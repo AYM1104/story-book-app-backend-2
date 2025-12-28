@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 import json
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
@@ -193,20 +193,9 @@ async def get_supabase_storybook(
                 "uploaded_at": uploaded_image.created_at
             }
     
-    # GCSの画像URLをプロキシURLに変換（Cloud Run環境対応）
-    from app.service.gcs_storage_service import gcs_storage_service
-    gcs_service = gcs_storage_service  # グローバルインスタンスを使用
-    
-    # 表紙画像URLをプロキシURLに変換
-    if storybook.cover_image_url:
-        storybook.cover_image_url = gcs_service.get_proxy_url(storybook.cover_image_url)
-    
-    # ページ画像URLを動的に変換（最大10ページまで）
-    for i in range(1, 11):
-        page_image_url_attr = f"page_{i}_image_url"
-        image_url = getattr(storybook, page_image_url_attr, None)
-        if image_url:
-            setattr(storybook, page_image_url_attr, gcs_service.get_proxy_url(image_url))
+    # GCSの画像URLはそのまま返す（詳細画面では元々プロキシAPIを使って表示できている）
+    # 変換不要
+
 
     
     # アップロード画像の情報をレスポンスに追加（最大10ページまで対応）
@@ -239,6 +228,7 @@ async def get_supabase_storybook(
 
 @router.get("/user/{user_id}")
 async def get_supabase_user_storybooks(
+    request: Request,
     user_id: str,
     year: Optional[int] = None,
     month: Optional[int] = None,
@@ -310,19 +300,22 @@ async def get_supabase_user_storybooks(
     from app.service.gcs_storage_service import gcs_storage_service
     gcs_service = gcs_storage_service  # グローバルインスタンスを使用
     
+    # リクエストから動的にベースURLを取得
+    base_url = f"{request.url.scheme}://{request.url.netloc}"
+    
     books = []
     for storybook in storybooks:
         # 表紙画像URLをプロキシURLに変換
         cover_url = storybook.cover_image_url
         if cover_url:
-            cover_url = gcs_service.get_proxy_url(cover_url)
+            cover_url = gcs_service.get_proxy_url(cover_url, base_url=base_url)
         
         # ページ画像URLもプロキシURLに変換
         page_image_urls = {}
         for i in range(1, 11):
             page_image_url = getattr(storybook, f"page_{i}_image_url", None)
             if page_image_url:
-                page_image_urls[f"page_{i}_image_url"] = gcs_service.get_proxy_url(page_image_url)
+                page_image_urls[f"page_{i}_image_url"] = gcs_service.get_proxy_url(page_image_url, base_url=base_url)
             else:
                 page_image_urls[f"page_{i}_image_url"] = None
         
@@ -501,7 +494,7 @@ async def update_supabase_image_generation_status(
 
 # ストーリーブック一覧取得エンドポイント（Supabase用）
 @router.get("/", response_model=list[StoryBookResponse])
-def get_supabase_storybooks(db: Session = Depends(get_supabase_db)):
+def get_supabase_storybooks(request: Request, db: Session = Depends(get_supabase_db)):
     """Supabase用のストーリーブック一覧取得エンドポイント"""
     
     storybooks = db.query(StoryBook).order_by(
@@ -512,19 +505,22 @@ def get_supabase_storybooks(db: Session = Depends(get_supabase_db)):
     from app.service.gcs_storage_service import gcs_storage_service
     gcs_service = gcs_storage_service  # グローバルインスタンスを使用
     
+    # リクエストから動的にベースURLを取得
+    base_url = f"{request.url.scheme}://{request.url.netloc}"
+    
     books = []
     for storybook in storybooks:
         # 表紙画像URLをプロキシURLに変換
         cover_url = storybook.cover_image_url
         if cover_url:
-            cover_url = gcs_service.get_proxy_url(cover_url)
+            cover_url = gcs_service.get_proxy_url(cover_url, base_url=base_url)
         
         # ページ画像URLもプロキシURLに変換
         page_image_urls = {}
         for i in range(1, 11):
             page_image_url = getattr(storybook, f"page_{i}_image_url", None)
             if page_image_url:
-                page_image_urls[f"page_{i}_image_url"] = gcs_service.get_proxy_url(page_image_url)
+                page_image_urls[f"page_{i}_image_url"] = gcs_service.get_proxy_url(page_image_url, base_url=base_url)
             else:
                 page_image_urls[f"page_{i}_image_url"] = None
         
