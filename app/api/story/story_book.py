@@ -193,20 +193,29 @@ async def get_supabase_storybook(
                 "uploaded_at": uploaded_image.created_at
             }
     
-    # GCSの画像URLを公開URLに変換
+    # GCSの画像URLを署名付きURLに変換
     from app.service.gcs_storage_service import gcs_storage_service
     gcs_service = gcs_storage_service  # グローバルインスタンスを使用
     
-    # 各ページの画像URLをGCSの公開URLに変換（最大10ページまで対応）
-    if storybook.cover_image_url and not storybook.cover_image_url.startswith('http'):
-        storybook.cover_image_url = gcs_service.get_public_url(storybook.cover_image_url)
+    # 表紙画像URLを署名付きURLに変換
+    if storybook.cover_image_url:
+        if 'storage.googleapis.com' in storybook.cover_image_url or 'storage.cloud.google.com' in storybook.cover_image_url:
+            if '?' not in storybook.cover_image_url or 'X-Goog-' not in storybook.cover_image_url:
+                storybook.cover_image_url = gcs_service.get_public_url(storybook.cover_image_url)
+        elif not storybook.cover_image_url.startswith('http'):
+            storybook.cover_image_url = gcs_service.get_public_url(storybook.cover_image_url)
     
     # ページ画像URLを動的に変換（最大10ページまで）
     for i in range(1, 11):
         page_image_url_attr = f"page_{i}_image_url"
         image_url = getattr(storybook, page_image_url_attr, None)
-        if image_url and not image_url.startswith('http'):
-            setattr(storybook, page_image_url_attr, gcs_service.get_public_url(image_url))
+        if image_url:
+            if 'storage.googleapis.com' in image_url or 'storage.cloud.google.com' in image_url:
+                if '?' not in image_url or 'X-Goog-' not in image_url:
+                    setattr(storybook, page_image_url_attr, gcs_service.get_public_url(image_url))
+            elif not image_url.startswith('http'):
+                setattr(storybook, page_image_url_attr, gcs_service.get_public_url(image_url))
+
     
     # アップロード画像の情報をレスポンスに追加（最大10ページまで対応）
     response_data = {
@@ -305,8 +314,43 @@ async def get_supabase_user_storybooks(
     
     storybooks = query.order_by(StoryBook.created_at.desc()).all()
     
-    books = [
-        {
+    # GCSの画像URLを署名付きURLに変換
+    from app.service.gcs_storage_service import gcs_storage_service
+    gcs_service = gcs_storage_service  # グローバルインスタンスを使用
+    
+    books = []
+    for storybook in storybooks:
+        # 表紙画像URLを署名付きURLに変換
+        # HTTPで始まっていてもGCS URLの場合は署名付きURLに変換する
+        cover_url = storybook.cover_image_url
+        if cover_url:
+            # GCS URLかどうかチェック（storage.googleapis.com または storage.cloud.google.com）
+            if 'storage.googleapis.com' in cover_url or 'storage.cloud.google.com' in cover_url:
+                # 署名付きURLでない場合のみ変換（クエリパラメータがあれば既に署名済み）
+                if '?' not in cover_url or 'X-Goog-' not in cover_url:
+                    cover_url = gcs_service.get_public_url(cover_url)
+            elif not cover_url.startswith('http'):
+                # GCSパスの場合も変換
+                cover_url = gcs_service.get_public_url(cover_url)
+        
+        # ページ画像URLも同様に変換
+        page_image_urls = {}
+        for i in range(1, 11):
+            page_image_url = getattr(storybook, f"page_{i}_image_url", None)
+            if page_image_url:
+                if 'storage.googleapis.com' in page_image_url or 'storage.cloud.google.com' in page_image_url:
+                    if '?' not in page_image_url or 'X-Goog-' not in page_image_url:
+                        page_image_urls[f"page_{i}_image_url"] = gcs_service.get_public_url(page_image_url)
+                    else:
+                        page_image_urls[f"page_{i}_image_url"] = page_image_url
+                elif not page_image_url.startswith('http'):
+                    page_image_urls[f"page_{i}_image_url"] = gcs_service.get_public_url(page_image_url)
+                else:
+                    page_image_urls[f"page_{i}_image_url"] = page_image_url
+            else:
+                page_image_urls[f"page_{i}_image_url"] = None
+        
+        books.append({
             "id": storybook.id,
             "story_plot_id": storybook.story_plot_id,
             "user_id": storybook.user_id,
@@ -315,16 +359,15 @@ async def get_supabase_user_storybooks(
             "description": storybook.description,
             "keywords": storybook.keywords,
             "story_content": storybook.story_content,
-            "cover_image_url": storybook.cover_image_url,
+            "cover_image_url": cover_url,
             "image_generation_status": storybook.image_generation_status,
             "is_favorite": storybook.is_favorite,
             "created_at": storybook.created_at,
             "updated_at": storybook.updated_at,
             **{f"page_{i}": getattr(storybook, f"page_{i}", "") for i in range(1, 11)},
-            **{f"page_{i}_image_url": getattr(storybook, f"page_{i}_image_url", None) for i in range(1, 11)}
-        }
-        for storybook in storybooks
-    ]
+            **page_image_urls
+        })
+
     
     # 日別フィルタリングの場合はフォルダ数も返す
     if folder_count is not None:
@@ -489,8 +532,41 @@ def get_supabase_storybooks(db: Session = Depends(get_supabase_db)):
         StoryBook.created_at.desc()
     ).all()
     
-    return [
-        {
+    # GCSの画像URLを署名付きURLに変換
+    from app.service.gcs_storage_service import gcs_storage_service
+    gcs_service = gcs_storage_service  # グローバルインスタンスを使用
+    
+    books = []
+    for storybook in storybooks:
+        # 表紙画像URLを署名付きURLに変換
+        # HTTPで始まっていてもGCS URLの場合は署名付きURLに変換する
+        cover_url = storybook.cover_image_url
+        if cover_url:
+            # GCS URLかどうかチェック（storage.googleapis.com または storage.cloud.google.com）
+            if 'storage.googleapis.com' in cover_url or 'storage.cloud.google.com' in cover_url:
+                # 署名付きURLでない場合のみ変換（クエリパラメータがあれば既に署名済み）
+                if '?' not in cover_url or 'X-Goog-' not in cover_url:
+                    cover_url = gcs_service.get_public_url(cover_url)
+            elif not cover_url.startswith('http'):
+                # GCSパスの場合も変換
+                cover_url = gcs_service.get_public_url(cover_url)
+        
+        # ページ画像URLも同様に変換
+        page_image_urls = {}
+        for i in range(1, 11):
+            page_image_url = getattr(storybook, f"page_{i}_image_url", None)
+            if page_image_url:
+                if 'storage.googleapis.com' in page_image_url or 'storage.cloud.google.com' in page_image_url:
+                    if '?' not in page_image_url or 'X-Goog-' not in page_image_url:
+                        page_image_urls[f"page_{i}_image_url"] = gcs_service.get_public_url(page_image_url)
+                    else:
+                        page_image_urls[f"page_{i}_image_url"] = page_image_url
+                elif not page_image_url.startswith('http'):
+                    page_image_urls[f"page_{i}_image_url"] = gcs_service.get_public_url(page_image_url)
+                else:
+                    page_image_urls[f"page_{i}_image_url"] = page_image_url
+        
+        books.append({
             "id": storybook.id,
             "story_plot_id": storybook.story_plot_id,
             "user_id": storybook.user_id,
@@ -499,15 +575,15 @@ def get_supabase_storybooks(db: Session = Depends(get_supabase_db)):
             "description": storybook.description,
             "keywords": storybook.keywords,
             "story_content": storybook.story_content,
-            "cover_image_url": storybook.cover_image_url,
+            "cover_image_url": cover_url,
             "image_generation_status": storybook.image_generation_status,
             "created_at": storybook.created_at,
             "updated_at": storybook.updated_at,
             **{f"page_{i}": getattr(storybook, f"page_{i}", "") for i in range(1, 11)},
-            **{f"page_{i}_image_url": getattr(storybook, f"page_{i}_image_url", None) for i in range(1, 11)}
-        }
-        for storybook in storybooks
-    ]
+            **page_image_urls
+        })
+    
+    return books
 
 # ストーリーブック削除エンドポイント（Supabase用）
 @router.delete("/{storybook_id}")

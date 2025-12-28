@@ -421,17 +421,30 @@ class GCSStorageService:
             
             # 署名付きURLを生成
             blob = self.bucket.blob(file_path)
-            if not blob.exists():
-                raise ValueError(f"ファイルが存在しません: {file_path}")
             
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(hours=expiration_hours),
-                method="GET"
-            )
+            # Note: blob.exists()チェックを削除
+            # 理由: 非公開バケットではexists()にも権限が必要で、チェックが失敗すると署名付きURL生成まで到達しない
+            # 署名付きURLはファイルが存在しなくても生成できるため、実際のアクセス時にエラーが発生する方が適切
             
-            print(f"✅ 署名付きURL生成成功: {file_path}")
-            return signed_url
+            try:
+                signed_url = blob.generate_signed_url(
+                    version="v4",
+                    expiration=timedelta(hours=expiration_hours),
+                    method="GET"
+                )
+                
+                print(f"✅ 署名付きURL生成成功: {file_path}")
+                return signed_url
+            except Exception as sign_err:
+                # 署名生成エラーの詳細をログ出力
+                print(f"❌ 署名付きURL生成失敗")
+                print(f"   ファイルパス: {file_path}")
+                print(f"   エラー: {str(sign_err)}")
+                print(f"   確認事項:")
+                print(f"   1. GOOGLE_APPLICATION_CREDENTIALS環境変数が設定されているか")
+                print(f"   2. サービスアカウントJSONファイルが存在するか")
+                print(f"   3. サービスアカウントに 'Service Account Token Creator' ロールがあるか")
+                raise sign_err
             
         except Exception as e:
             print(f"❌ 署名付きURL生成エラー: {str(e)}")
