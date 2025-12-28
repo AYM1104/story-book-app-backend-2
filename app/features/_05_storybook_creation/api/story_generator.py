@@ -50,6 +50,9 @@ async def supabase_select_theme(
     print(f"Request Story Pages: {request.story_pages}")
     
     try:
+        # DBフェッチ処理の時間計測開始
+        db_fetch_start = time.time()
+        
         # プラン検証（依存関数を直接呼び出し）
         plan_validation = await validate_story_plan(
             story_setting_id=request.story_setting_id,
@@ -65,6 +68,9 @@ async def supabase_select_theme(
             StoryPlot.user_id == user_id,
             StoryPlot.selected_theme == request.selected_theme
         ).first()
+        
+        # DBフェッチ処理の時間計測終了
+        db_fetch_time = time.time() - db_fetch_start
         
         if not story_plot:
             raise HTTPException(
@@ -179,6 +185,7 @@ async def supabase_select_theme(
         total_time = time.time() - start_time
         processing_time_ms = total_time * 1000
         print(f"⏱️ 物語生成処理の合計時間: {total_time:.3f}秒 ({processing_time_ms:.0f}ms)")
+        print(f"  - DB取得: {db_fetch_time:.3f}秒")
         print(f"  - データ変換: {convert_time:.3f}秒")
         print(f"  - Gemini API: {gemini_time:.3f}秒")
         print(f"  - DB保存: {db_save_time:.3f}秒")
