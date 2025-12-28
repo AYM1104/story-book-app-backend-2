@@ -335,6 +335,46 @@ class GCSStorageService:
         public_url = f"https://storage.googleapis.com/{self.bucket_name}/{file_path}"
         return public_url
 
+    def get_proxy_url(self, file_path_or_url: str, base_url: Optional[str] = None) -> str:
+        """画像プロキシURLを生成
+        
+        Cloud Run環境で署名付きURL生成ができない場合の代替手段として、
+        バックエンドのプロキシAPIを経由するURLを生成します。
+        
+        Args:
+            file_path_or_url: GCSファイルパスまたはURL
+            base_url: APIのベースURL（省略時は環境変数から取得）
+            
+        Returns:
+            str: プロキシURL（例: https://your-backend.com/api/images/proxy?url=...）
+        """
+        if not file_path_or_url:
+            return file_path_or_url
+        
+        # 既にプロキシURLの場合はそのまま返す
+        if '/api/images/proxy?' in file_path_or_url:
+            return file_path_or_url
+        
+        # GCS URLを生成
+        if file_path_or_url.startswith('http'):
+            gcs_url = file_path_or_url
+        else:
+            gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{file_path_or_url}"
+        
+        # ベースURLを取得（環境変数から）
+        if not base_url:
+            base_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        
+        # storage.cloud.google.com を storage.googleapis.com に正規化
+        gcs_url = gcs_url.replace('storage.cloud.google.com', 'storage.googleapis.com')
+        
+        # プロキシURLを生成
+        from urllib.parse import quote
+        proxy_url = f"{base_url}/api/images/proxy?url={quote(gcs_url, safe='')}"
+        
+        return proxy_url
+
+
     def delete_file(self, file_path: str) -> Dict[str, Any]:
         """指定されたファイルパスのGCS上のファイルを削除
         
