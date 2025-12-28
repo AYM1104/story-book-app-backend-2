@@ -7,7 +7,7 @@ from app.core.prompt.constants import (
 )
 
 
-def create_theme_options_prompt(
+def generate_theme_prompt(
     protagonist_name: str,
     protagonist_type: str,
     setting_place: str,
@@ -30,6 +30,47 @@ def create_theme_options_prompt(
     """
     reading_level_desc = READING_LEVEL_DESCRIPTIONS.get(reading_level, reading_level)
     
+    # tone（雰囲気）に応じた theme_id の候補を定義
+    theme_ids = {"theme1": "adventure", "theme2": "friendship", "theme3": "discovery"}
+    
+    if tone in ["adventure", "brave"]:
+        theme_ids = {
+            "theme1": "adventure",
+            "theme2": "challenge",
+            "theme3": "journey"
+        }
+    elif tone in ["gentle", "heartwarming"]:
+        theme_ids = {
+            "theme1": "daily_life",
+            "theme2": "kindness",
+            "theme3": "friendship"
+        }
+    elif tone == "mystery":
+        theme_ids = {
+            "theme1": "mystery",
+            "theme2": "detective",
+            "theme3": "discovery"
+        }
+    elif tone == "fun":
+        theme_ids = {
+            "theme1": "play",
+            "theme2": "friendship",
+            "theme3": "fun_adventure"
+        }
+    elif tone in ["dreamy", "magical"]:
+        theme_ids = {
+            "theme1": "magical",
+            "theme2": "fantasy",
+            "theme3": "dreamy_journey"
+        }
+    else:
+        # デフォルト（未定義のtone用）
+        theme_ids = {
+            "theme1": "adventure",
+            "theme2": "friendship",
+            "theme3": "discovery"
+        }
+    
     prompt = f"""
 あなたは、子供の想像力をかき立てるプロの絵本作家です。
 ユーザーが選んだ「{TONE_DESCRIPTIONS.get(tone)}」という雰囲気に合わせて、
@@ -45,11 +86,13 @@ def create_theme_options_prompt(
 - 読みやすさ: {reading_level_desc}
 
 【作成する3つのテーマ】
-1. variation_type: "classic" / theme_id: "adventure"
+以下の theme_id を使用して、それぞれ異なるバリエーションのテーマを作成してください：
+
+1. variation_type: "classic" / theme_id: "{theme_ids['theme1']}"
    - 雰囲気を王道に味わえる直球展開
-2. variation_type: "character_driven" / theme_id: "friendship"
+2. variation_type: "character_driven" / theme_id: "{theme_ids['theme2']}"
    - "{protagonist_type}" でないと成立しない個性的な展開
-3. variation_type: "unique_twist" / theme_id: "discovery"
+3. variation_type: "unique_twist" / theme_id: "{theme_ids['theme3']}"
    - ちょっと不思議で意外性のある展開
 
 【制約事項】
@@ -63,19 +106,19 @@ def create_theme_options_prompt(
 {{
   "theme_options": {{
     "theme1": {{
-      "theme_id": "adventure",
+      "theme_id": "{theme_ids['theme1']}",
       "title": "タイトル",
       "description": "物語の概要（2-3文）",
       "keywords": ["キーワード1", "キーワード2", "キーワード3"]
     }},
     "theme2": {{
-      "theme_id": "friendship",
+      "theme_id": "{theme_ids['theme2']}",
       "title": "タイトル",
       "description": "物語の概要（2-3文）",
       "keywords": ["キーワード1", "キーワード2", "キーワード3"]
     }},
     "theme3": {{
-      "theme_id": "discovery",
+      "theme_id": "{theme_ids['theme3']}",
       "title": "タイトル",
       "description": "物語の概要（2-3文）",
       "keywords": ["キーワード1", "キーワード2", "キーワード3"]

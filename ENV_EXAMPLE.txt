@@ -26,3 +26,9 @@ DATABASE_URL=sqlite:///./app.db
 
 # Storage Type
 STORAGE_TYPE=gcs
+
+# テストモード設定（開発・テスト環境でのみ使用）
+# 本番環境では設定しないでください！
+# ENABLE_TEST_MODE=true
+# TEST_USER_ID=test|123456789
+# BACKEND_URL=http://localhost:8000

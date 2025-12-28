@@ -1,3 +1,4 @@
+import os
 import time
 import traceback
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
@@ -5,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.features._01_image_upload.schemas.images import UploadImageResponse
 from app.features._01_image_upload.services._00_file_processing_service import file_processing_service
-from app.features._01_image_upload.services._01_image_upload_gcs_service import image_upload_gcs_service
+from app.service.gcs_storage_service import gcs_storage_service
 from app.features._01_image_upload.services._02_image_analysis_service import image_analysis_service
 from app.features._01_image_upload.services._03_image_database_service import image_database_service
 from app.features._01_image_upload.services._99_image_resize_service import image_resize_service
@@ -61,7 +62,7 @@ async def upload_gcs_image(
         upload_start_time = time.time()
         print("2. GCSへ画像をアップロード -------------------")
         try:
-            upload_result = await image_upload_gcs_service.upload_image(    # _01_image_upload_gcs_service.pyを呼び出す
+            upload_result = gcs_storage_service.upload_image(
                 file_content=content,
                 filename=filename or "uploaded_image",
                 user_id=user_id,
@@ -70,10 +71,14 @@ async def upload_gcs_image(
 
             # アップロードに失敗した場合はエラーを返す
             if not upload_result.get("success"):
-                print(f"GCSアップロード失敗: {upload_result.get('error')}")
+                error_msg = upload_result.get('error', '不明なエラー')
+                print(f"GCSアップロード失敗: {error_msg}")
+                # テストモード時は詳細なエラーメッセージを返す
+                is_test_mode = os.getenv("ENABLE_TEST_MODE", "false").lower() == "true"
+                detail_msg = f"GCSアップロードに失敗しました: {error_msg}" if is_test_mode else "画像のアップロードに失敗しました"
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="画像のアップロードに失敗しました",
+                    detail=detail_msg,
                 )
 
             # アップロードに成功した場合はファイルパスと公開URLを取得
@@ -86,13 +91,19 @@ async def upload_gcs_image(
             raise
 
         # エラーが発生した場合はエラーを返す
+        except HTTPException:
+            raise
         except Exception as gcs_error:
             upload_time = time.time() - upload_start_time
             print(f"⏱️ GCSアップロード時間（エラー）: {upload_time:.3f}秒")
             print(f"GCSエラー: {gcs_error}")
+            print(f"エラーの詳細: {traceback.format_exc()}")
+            # テストモード時は詳細なエラーメッセージを返す
+            is_test_mode = os.getenv("ENABLE_TEST_MODE", "false").lower() == "true"
+            detail_msg = f"GCSアップロードエラー: {str(gcs_error)}" if is_test_mode else "画像のアップロードに失敗しました"
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"画像のアップロードに失敗しました: {gcs_error}",
+                detail=detail_msg,
             )
 
         # print(f"ファイルパス: {file_path}")
@@ -136,10 +147,17 @@ async def upload_gcs_image(
         raise
     except Exception as e:
         db.rollback()
+        error_traceback = traceback.format_exc()
         print(f"アップロード処理中にエラーが発生しました: {e}")
-        print(f"エラーの詳細: {traceback.format_exc()}")
+        print(f"エラーの詳細: {error_traceback}")
+        # テストモード時は詳細なエラーメッセージを返す
+        is_test_mode = os.getenv("ENABLE_TEST_MODE", "false").lower() == "true"
+        if is_test_mode:
+            detail_msg = f"画像のアップロードに失敗しました: {str(e)}"
+        else:
+            detail_msg = "画像のアップロードに失敗しました"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"画像のアップロードに失敗しました: {e}",
+            detail=detail_msg,
         )
 

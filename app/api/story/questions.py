@@ -74,17 +74,19 @@ async def get_supabase_questions_for_story_setting(
         processing_time_ms=processing_time_ms
     )
 
+
+# ユーザーの回答を受け取って物語設定を更新する
 @router.post("/story_settings/{story_setting_id}/answers", response_model=AnswerResponse)
 async def submit_supabase_answer(
     story_setting_id: int,
     answer_request: AnswerRequest,
     db: Session = Depends(get_supabase_db)
 ):
-    """Supabase用のユーザーの回答を受け取って物語設定を更新するエンドポイント"""
+    """ユーザーの回答を受け取って物語設定を更新するエンドポイント"""
     
     # 処理時間計測開始
     start_time = time.time()
-    print(f"=== 質問回答処理開始 (Supabase) ===")
+    print(f"=== 質問回答処理開始 ===")
     print(f"Story Setting ID: {story_setting_id}")
     print(f"Field: {answer_request.field}, Answer: {answer_request.answer}")
     
@@ -113,7 +115,20 @@ async def submit_supabase_answer(
         elif field == "protagonist_type":
             story_setting.protagonist_type = answer
         elif field == "setting_place":
-            story_setting.setting_place = answer
+            # 英語の値を日本語に変換（後方互換性のため）
+            place_mapping = {
+                "forest": "森",
+                "park": "公園",
+                "sea": "海",
+                "space": "宇宙",
+                "house": "家",
+                "school": "学校",
+                "city": "まち",
+                "mountain": "山",
+                "garden": "庭",
+                "おうち": "家"  # 旧バージョンの値も変換
+            }
+            story_setting.setting_place = place_mapping.get(answer, answer)
         elif field == "tone":
             story_setting.tone = answer
         elif field == "target_age":

@@ -81,7 +81,7 @@ class GCSStorageService:
         
         # GCSクライアント初期化（ADCフォールバック対応）
         try:
-            print(f"✅ GCS初期化開始")
+            print(f"✅ GCS初期化")
             print(f"  - プロジェクトID: {project_id}")
             print(f"  - バケット名: {self.bucket_name}")
             
@@ -102,7 +102,7 @@ class GCSStorageService:
             
             self.bucket = self.client.bucket(self.bucket_name)
             
-            print(f"✅ GCS初期化完了")
+            # print(f"✅ GCS初期化完了")
         except Exception as e:
             error_msg = (
                 f"❌ GCSクライアント初期化エラー: {str(e)}\n"
@@ -110,6 +110,8 @@ class GCSStorageService:
                 f"バケット名: {self.bucket_name}"
             )
             raise ValueError(error_msg)
+        print() # 改行を追加
+
 
     def generate_unique_filename(self, prefix: str = "uploaded_image", extension: str = "jpg") -> str:
         """ユニークなファイル名を生成（日本時間）"""

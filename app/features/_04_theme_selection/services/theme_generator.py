@@ -10,7 +10,7 @@ import traceback
 from dotenv import load_dotenv
 from google.api_core import exceptions as google_exceptions
 from app.core.gemini_config import initialize_gemini_model_2_5_flash
-from app.features._04_theme_selection.prompt.theme_prompts import create_theme_options_prompt
+from app.features._02_generate_theme.prompt.generate_theme_prompt import generate_theme_prompt
 from app.core.prompt.constants import (
     TONE_DESCRIPTIONS,
     AGE_DESCRIPTIONS,
@@ -79,11 +79,16 @@ class ThemeGenerator:
                     raise ValueError(error_msg)
                 
                 print(f"✅ Gemini API レスポンス受信成功")
+                print()  # 改行を追加
+
                 response_text = response.text
-                print(f"レスポンステキスト（最初の500文字）: {response_text[:500] if len(response_text) > 500 else response_text}")
-                
+                print(f"レスポンステキスト（全文）:")
+                print(response_text)
+                print()  # 改行を追加
+
                 theme_data = self._parse_theme_options_response(response_text)
                 print(f"✅ JSON解析成功")
+                print()  # 改行を追加
                 return theme_data
                 
             except google_exceptions.ServiceUnavailable as e:
@@ -156,7 +161,7 @@ class ThemeGenerator:
     def _create_theme_options_prompt(self, protagonist_name: str, protagonist_type: str, 
                                     setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
         """テーマ案生成用のプロンプトを作成（プロンプトファイルから読み込み）"""
-        return create_theme_options_prompt(
+        return generate_theme_prompt(
             protagonist_name, protagonist_type, setting_place, tone, target_age, reading_level
         )
 
@@ -173,22 +178,23 @@ class ThemeGenerator:
                 if json_end == -1:
                     json_end = len(response_text)
                 json_text = response_text[json_start:json_end].strip()
-                print(f"📝 JSONコードブロックを検出（```json形式）")
+                # print(f"📝 JSONコードブロックを検出（```json形式）")
             elif "```" in response_text:
                 json_start = response_text.find("```") + 3
                 json_end = response_text.rfind("```")
                 if json_end == -1 or json_end <= json_start:
                     json_end = len(response_text)
                 json_text = response_text[json_start:json_end].strip()
-                print(f"📝 コードブロックを検出（```形式）")
+                # print(f"📝 コードブロックを検出（```形式）")
             else:
                 json_text = response_text.strip()
-                print(f"📝 プレーンテキストとして処理")
+                # print(f"📝 プレーンテキストとして処理")
 
             if not json_text:
                 raise ValueError("JSONテキストが抽出できませんでした")
 
-            print(f"抽出されたJSONテキスト（最初の500文字）: {json_text[:500] if len(json_text) > 500 else json_text}")
+            # print(f"抽出されたJSONテキスト（全文）:")
+            # print(json_text)
             theme_data = json.loads(json_text)
             
             # データ構造の検証
@@ -197,7 +203,7 @@ class ThemeGenerator:
             if "theme_options" not in theme_data:
                 raise ValueError("JSONに'theme_options'キーがありません")
             
-            print(f"✅ JSON解析成功: theme_optionsのキー = {list(theme_data.get('theme_options', {}).keys())}")
+            print(f"✅ JSON解析完了: theme_optionsのキー = {list(theme_data.get('theme_options', {}).keys())}")
             return theme_data
 
         except json.JSONDecodeError as e:

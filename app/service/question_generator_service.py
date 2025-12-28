@@ -40,15 +40,15 @@ class QuestionGeneratorService:
             "question": "物語の舞台となる場所を選んでください：",
             "type": "select",
             "options": [
-                {"value": "forest", "label": "森"},
-                {"value": "park", "label": "公園"},
-                {"value": "sea", "label": "海"},
-                {"value": "space", "label": "宇宙"},
-                {"value": "house", "label": "おうち"},
-                {"value": "school", "label": "学校"},
-                {"value": "city", "label": "まち"},
-                {"value": "mountain", "label": "山"},
-                {"value": "garden", "label": "庭"}
+                {"value": "森", "label": "森"},
+                {"value": "公園", "label": "公園"},
+                {"value": "海", "label": "海"},
+                {"value": "宇宙", "label": "宇宙"},
+                {"value": "家", "label": "家"},
+                {"value": "学校", "label": "学校"},
+                {"value": "まち", "label": "まち"},
+                {"value": "山", "label": "山"},
+                {"value": "庭", "label": "庭"}
             ],
             "required": True
         })

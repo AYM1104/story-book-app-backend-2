@@ -1,5 +1,6 @@
 """Auth0 JWT検証モジュール"""
 import json
+import os
 from typing import Optional
 from urllib.request import urlopen
 
@@ -148,6 +149,9 @@ def get_current_user_auth0(
     FastAPIの依存性注入で使用する関数。
     JWTトークンの全ペイロードを返します。
     
+    テストモード時（ENABLE_TEST_MODE=true）は認証をバイパスして
+    ダミーユーザー情報を返します。
+    
     Args:
         credentials: HTTPベアラートークン（auto_error=FalseのためOptional）
         
@@ -159,8 +163,18 @@ def get_current_user_auth0(
         - その他のクレーム
         
     Raises:
-        HTTPException: トークンが存在しない場合、または無効な場合
+        HTTPException: トークンが存在しない場合、または無効な場合（テストモード時を除く）
     """
+    # テストモードのチェック
+    if os.getenv("ENABLE_TEST_MODE", "false").lower() == "true":
+        test_user_id = os.getenv("TEST_USER_ID", "test|123456789")
+        print(f"⚠️ テストモード: 認証をバイパスしてダミーユーザーを使用します (user_id: {test_user_id})")
+        return {
+            "sub": test_user_id,
+            "email": "test@example.com",
+            "name": "テストユーザー"
+        }
+    
     # トークンが存在しない場合のエラーハンドリング
     if credentials is None:
         raise HTTPException(
@@ -189,6 +203,9 @@ def get_auth0_sub_from_token(
     JWTトークンの`sub`クレームはAuth0のユーザー識別子で、
     データベースの`users.id`として使用されます。
     
+    テストモード時（ENABLE_TEST_MODE=true）は認証をバイパスして
+    ダミーユーザーIDを返します。
+    
     Args:
         credentials: HTTPベアラートークン（auto_error=FalseのためOptional）
         
@@ -197,8 +214,14 @@ def get_auth0_sub_from_token(
         この値はデータベースのuser_idとして使用される
         
     Raises:
-        HTTPException: トークンが存在しない場合、または無効な場合
+        HTTPException: トークンが存在しない場合、または無効な場合（テストモード時を除く）
     """
+    # テストモードのチェック
+    if os.getenv("ENABLE_TEST_MODE", "false").lower() == "true":
+        test_user_id = os.getenv("TEST_USER_ID", "test|123456789")
+        print(f"⚠️ テストモード: 認証をバイパスしてダミーユーザーIDを返します (user_id: {test_user_id})")
+        return test_user_id
+    
     payload = get_current_user_auth0(credentials)
     return payload["sub"]
 

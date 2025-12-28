@@ -3,10 +3,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 import traceback
+from pathlib import Path
 from dotenv import load_dotenv
 
 # 環境変数を読み込み
-load_dotenv()
+# app/main.py から見て、backend/.env を読み込む
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+    print(f"✅ .envファイルを読み込みました: {env_path}")
+    print() # 改行を追加
+else:
+    # フォールバック: 現在のディレクトリから探す
+    load_dotenv()
+    print(f"⚠️ {env_path} が見つかりません。現在のディレクトリから.envを探します")
 
 # すべてのモデルをインポートしてSQLAlchemyに認識させる
 # Supabaseを使用しているため、従来のSQLAlchemyモデルのインポートは不要
@@ -94,13 +104,25 @@ except Exception as e:
     def story_questions_test():
         return {"message": "Story questions router not available", "error": str(e)}
 
+# テーマ生成API（_02_generate_theme）
+try:
+    from app.features._02_generate_theme.api.theme_generator import router as theme_generator_router
+    app.include_router(theme_generator_router)
+    print("✅ Theme generator router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load theme_generator_router: {e}")
+    @app.get("/api/story/generator/test")
+    def theme_generator_test():
+        return {"message": "Theme generator router not available", "error": str(e)}
+
+# ストーリー生成API（_05_storybook_creation）
 try:
     from app.features._05_storybook_creation.api.story_generator import router as story_generator_router
     app.include_router(story_generator_router)
     print("✅ Story generator router loaded successfully")
 except Exception as e:
     print(f"❌ Failed to load story_generator_router: {e}")
-    @app.get("/api/story/generator/test")
+    @app.get("/api/story/select_theme/test")
     def story_generator_test():
         return {"message": "Story generator router not available", "error": str(e)}
 
@@ -147,24 +169,35 @@ except Exception as e:
         return {"message": "Image proxy router not available", "error": str(e)}
 
 try:
-    from app.api.story.supabase_story_setting import router as supabase_story_setting_router
-    app.include_router(supabase_story_setting_router)
+    from app.api.story.story_setting import router as story_setting_router
+    app.include_router(story_setting_router)
     print("✅ Supabase story setting router loaded successfully")
 except Exception as e:
-    print(f"❌ Failed to load supabase_story_setting_router: {e}")
+    print(f"❌ Failed to load story_setting_router: {e}")
     @app.get("/api/story/test")
     def story_test():
         return {"message": "Story router not available", "error": str(e)}
 
 try:
-    from app.api.story.supabase_story_book import router as supabase_generated_storybook_router
-    app.include_router(supabase_generated_storybook_router, prefix="/api")
+    from app.api.story.story_book import router as story_book_router
+    app.include_router(story_book_router, prefix="/api")
     print("✅ Supabase generated storybook router loaded successfully")
 except Exception as e:
-    print(f"❌ Failed to load supabase_generated_storybook_router: {e}")
+    print(f"❌ Failed to load story_book_router: {e}")
     @app.get("/api/storybook/test")
     def storybook_test():
         return {"message": "Generated storybook router not available", "error": str(e)}
+
+# ストーリーブック週間統計API
+try:
+    from app.api.story.weekly_stats import router as story_weekly_stats_router
+    app.include_router(story_weekly_stats_router, prefix="/api")
+    print("✅ Story weekly stats router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load story_weekly_stats_router: {e}")
+    @app.get("/api/storybook/weekly-stats/test")
+    def story_weekly_stats_test():
+        return {"message": "Story weekly stats router not available", "error": str(e)}
 
 # クレジット管理API
 try:

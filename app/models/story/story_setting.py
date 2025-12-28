@@ -15,7 +15,7 @@ class StorySetting(SupabaseBase):
     title_suggestion = Column(String(255), nullable=True, comment="物語のタイトルの提案")
     protagonist_name = Column(String(100), nullable=True, comment="主人公の名前")
     protagonist_type = Column(String(80), nullable=True, comment="主人公の種類（女の子、男の子、動物、ロボットなど）")
-    setting_place = Column(String(120), nullable=True, comment="物語の舞台となる場所（公園、海、山、宇宙など）")
+    setting_place = Column(Enum("公園", "家", "森", "海", "山", "宇宙", "学校", "まち", "庭", name="setting_place_enum"), nullable=True, comment="物語の舞台となる場所（公園、海、山、宇宙など）")
     tone = Column(Enum("gentle", "fun", "adventure", "mystery", "heartwarming", "dreamy", "magical", "brave", name="tone_enum"), nullable=True, comment="物語の雰囲気（やさしい、楽しい、冒険的、謎解きなど）")
     target_age = Column(Enum("preschool", "elementary_low", name="target_age_enum"), nullable=False, default="preschool", comment="対象年齢（幼稚園、小学生低学年）")
     language = Column(String(10), nullable=False, default="ja", comment="言語")

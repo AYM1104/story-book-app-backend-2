@@ -1,19 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
-from app.database.session import get_db
+from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
+from app.models.story.story_plot import StoryPlot
 from app.features._01_image_upload.models.images import UploadImages
 from app.features._02_generation_plan.services.story_line.story_line_generator import story_generator_service
+from app.service.gcs_storage_service import gcs_storage_service
 import json
 
-router = APIRouter(prefix="/story", tags=["story"])
+router = APIRouter(prefix="/api/story", tags=["story"])
 
 @router.post("/story_settings/{upload_image_id}", response_model=dict)
-async def create_story_setting_from_image(
+async def create_supabase_story_setting_from_image(
     upload_image_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_supabase_db)
 ):
-    """画像IDを指定して、meta_dataの解析結果から物語設定を作成または更新するエンドポイント"""
+    """Supabase用の画像IDを指定して、meta_dataの解析結果から物語設定を作成または更新するエンドポイント"""
 
     # 画像レコードを取得
     upload_image = db.query(UploadImages).filter(
@@ -121,4 +125,150 @@ async def create_story_setting_from_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"物語設定の{action}に失敗しました: {str(e)}"
-        ) 
+        )
+
+class StorySettingUpdate(BaseModel):
+    child_id: Optional[int] = None
+    page_count: Optional[int] = None
+
+@router.patch("/story_settings/{story_setting_id}", response_model=dict)
+async def update_supabase_story_setting(
+    story_setting_id: int,
+    setting_update: StorySettingUpdate,
+    db: Session = Depends(get_supabase_db)
+):
+    """Supabase用の物語設定更新エンドポイント"""
+    
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
+    ).first()
+    
+    if not story_setting:
+        raise HTTPException(status_code=404, detail="物語設定が見つかりません")
+    
+    if setting_update.child_id is not None:
+        story_setting.child_id = setting_update.child_id
+        
+    if setting_update.page_count is not None:
+        story_setting.page_count = setting_update.page_count
+        
+    db.commit()
+    db.refresh(story_setting)
+    
+    return {
+        "message": "物語設定が更新されました",
+        "id": story_setting.id,
+        "child_id": story_setting.child_id,
+        "page_count": story_setting.page_count
+    }
+
+# 物語設定一覧取得エンドポイント（Supabase用）
+@router.get("/story_settings", response_model=list[dict])
+def get_supabase_story_settings(db: Session = Depends(get_supabase_db)):
+    """Supabase用の物語設定一覧取得エンドポイント"""
+    
+    story_settings = db.query(StorySetting).all()
+    return [
+        {
+            "id": setting.id,
+            "upload_image_id": setting.upload_image_id,
+            "title_suggestion": setting.title_suggestion,
+            "protagonist_name": setting.protagonist_name,
+            "protagonist_type": setting.protagonist_type,
+            "setting_place": setting.setting_place,
+            "tone": setting.tone,
+            "target_age": setting.target_age,
+            "language": setting.language,
+            "reading_level": setting.reading_level,
+            "style_guideline": setting.style_guideline,
+            "created_at": setting.created_at.isoformat(),
+            "updated_at": setting.updated_at.isoformat()
+        }
+        for setting in story_settings
+    ]
+
+# 物語設定詳細取得エンドポイント（Supabase用）
+@router.get("/story_settings/{story_setting_id}", response_model=dict)
+def get_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_supabase_db)):
+    """Supabase用の物語設定詳細取得エンドポイント"""
+    
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
+    ).first()
+    
+    if not story_setting:
+        raise HTTPException(status_code=404, detail="物語設定が見つかりません")
+    
+    return {
+        "id": story_setting.id,
+        "upload_image_id": story_setting.upload_image_id,
+        "title_suggestion": story_setting.title_suggestion,
+        "protagonist_name": story_setting.protagonist_name,
+        "protagonist_type": story_setting.protagonist_type,
+        "setting_place": story_setting.setting_place,
+        "tone": story_setting.tone,
+        "target_age": story_setting.target_age,
+        "language": story_setting.language,
+        "reading_level": story_setting.reading_level,
+        "style_guideline": story_setting.style_guideline,
+        "created_at": story_setting.created_at.isoformat(),
+        "updated_at": story_setting.updated_at.isoformat()
+    }
+
+# 物語設定削除エンドポイント（Supabase用）
+@router.delete("/story_settings/{story_setting_id}")
+def delete_supabase_story_setting(story_setting_id: int, db: Session = Depends(get_supabase_db)):
+    """Supabase用の物語設定削除エンドポイント
+    
+    story_settingと紐づくstory_plots、upload_image、およびGCS上のファイルも削除します。
+    """
+    
+    story_setting = db.query(StorySetting).filter(
+        StorySetting.id == story_setting_id
+    ).first()
+    
+    if not story_setting:
+        raise HTTPException(status_code=404, detail="物語設定が見つかりません")
+    
+    # 紐づく画像を取得
+    upload_image_id = story_setting.upload_image_id
+    upload_image = db.query(UploadImages).filter(
+        UploadImages.id == upload_image_id
+    ).first()
+    
+    # 紐づくstory_plotsを削除（story_settingを削除する前に削除する必要がある）
+    story_plots = db.query(StoryPlot).filter(
+        StoryPlot.story_setting_id == story_setting_id
+    ).all()
+    
+    deleted_plot_count = 0
+    for story_plot in story_plots:
+        db.delete(story_plot)
+        deleted_plot_count += 1
+    
+    if deleted_plot_count > 0:
+        print(f"✅ {deleted_plot_count}件のstory_plotsレコードを削除しました")
+    
+    # GCS上のファイルを削除（画像が存在し、file_pathが設定されている場合）
+    if upload_image and upload_image.file_path:
+        try:
+            delete_result = gcs_storage_service.delete_file(upload_image.file_path)
+            if not delete_result.get("success"):
+                # GCS削除失敗は警告として記録するが、処理は続行
+                print(f"⚠️ GCSファイル削除警告: {delete_result.get('error')}")
+        except Exception as e:
+            # GCS削除エラーは警告として記録するが、処理は続行
+            print(f"⚠️ GCSファイル削除エラー: {str(e)}")
+    
+    # 画像レコードを削除
+    if upload_image:
+        db.delete(upload_image)
+    
+    # 物語設定を削除
+    db.delete(story_setting)
+    db.commit()
+    
+    return {
+        "message": "物語設定と関連する画像、story_plotsが削除されました",
+        "deleted_story_plots_count": deleted_plot_count
+    }
