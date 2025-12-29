@@ -229,6 +229,7 @@ async def get_supabase_storybook(
 @router.get("/user/{user_id}")
 async def get_supabase_user_storybooks(
     request: Request,
+    response: Response,
     user_id: str,
     year: Optional[int] = None,
     month: Optional[int] = None,
@@ -296,9 +297,13 @@ async def get_supabase_user_storybooks(
     
     storybooks = query.order_by(StoryBook.created_at.desc()).all()
     
+    # HTTPキャッシュヘッダーを設定（60秒キャッシュ）
+    response.headers["Cache-Control"] = "private, max-age=60"
+    
     # GCSの画像URLをプロキシURLに変換（Cloud Run環境対応）
     from app.service.gcs_storage_service import gcs_storage_service
     gcs_service = gcs_storage_service  # グローバルインスタンスを使用
+
     
     # リクエストから動的にベースURLを取得
     base_url = f"{request.url.scheme}://{request.url.netloc}"
@@ -351,6 +356,7 @@ async def get_supabase_user_storybooks(
 # ユーザーの特定年月に作成した日の一覧（Supabase用）
 @router.get("/user/{user_id}/created-days")
 async def get_supabase_user_created_days(
+    response: Response,
     user_id: str,
     year: int,
     month: int,
@@ -359,6 +365,9 @@ async def get_supabase_user_created_days(
     """指定ユーザーが指定の年月に作成したえほんの日付一覧を返す。
     返却形式: { "year": 2025, "month": 10, "days": [1,5,12] }
     """
+    # HTTPキャッシュヘッダーを設定（5分間キャッシュ）
+    response.headers["Cache-Control"] = "private, max-age=300"
+    
     try:
         # 月初と翌月初を計算（created_atはSupabaseBaseで自動管理）
         start_dt = date(year, month, 1)
