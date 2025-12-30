@@ -15,10 +15,11 @@ def create_supabase_user(user: UserCreate, db: Session = Depends(get_supabase_db
     初回登録時に300クレジットを付与し、FREEプランを設定します
     """
     
-    # メールアドレスの重複チェック
-    existing_user = db.query(Users).filter(Users.email == user.email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    # メールアドレスの重複チェック（メールアドレスが提供されている場合のみ）
+    if user.email:
+        existing_user = db.query(Users).filter(Users.email == user.email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
     
     # ユーザーIDの重複チェック
     existing_user_by_id = db.query(Users).filter(Users.id == user.id).first()

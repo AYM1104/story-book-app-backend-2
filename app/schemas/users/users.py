@@ -7,7 +7,7 @@ from app.models.credits.subscription import PlanType
 class UserCreate(BaseModel):
     id: str  # Auth0のユーザーID
     user_name: str
-    email: EmailStr
+    email: Optional[EmailStr] = None  # LINEなど一部OAuthプロバイダーではメールアドレスが取得できない場合がある
     # password: str  # Supabase認証を使用するため、パスワードは不要
 
 # ユーザー更新時に使うスキーマ
