@@ -199,6 +199,18 @@ except Exception as e:
     def story_weekly_stats_test():
         return {"message": "Story weekly stats router not available", "error": str(e)}
 
+# ストーリーブック統計API
+try:
+    from app.api.story.stats import router as story_stats_router
+    app.include_router(story_stats_router, prefix="/api")
+    print("✅ Story stats router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load story_stats_router: {e}")
+    @app.get("/api/storybook/stats/test")
+    def story_stats_test():
+        return {"message": "Story stats router not available", "error": str(e)}
+
+
 # クレジット管理API
 try:
     from app.api.credits import router as credits_router
