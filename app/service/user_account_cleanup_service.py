@@ -104,6 +104,22 @@ class UserAccountCleanupService:
             .delete(synchronize_session=False)
         )
 
+        # クレジット関連のレコードを削除（ユーザー削除前に削除する必要がある）
+        from app.models.credits.credit_ledger import CreditLedger
+        from app.models.credits.subscription import Subscription
+        
+        deleted_credit_ledger = (
+            db.query(CreditLedger)
+            .filter(CreditLedger.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
+        
+        deleted_subscription = (
+            db.query(Subscription)
+            .filter(Subscription.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
+
         # ユーザー本体を削除
         db.delete(user)
         db.commit()
@@ -149,6 +165,8 @@ class UserAccountCleanupService:
             "deleted_story_settings": deleted_story_settings,
             "deleted_upload_images": deleted_upload_images,
             "deleted_children": deleted_children,
+            "deleted_credit_ledger": deleted_credit_ledger,
+            "deleted_subscription": deleted_subscription,
             "storage_cleanup": storage_cleanup,
             "auth0_cleanup": auth0_cleanup,
         }
