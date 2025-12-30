@@ -129,22 +129,35 @@ def delete_my_account(
         )
 
     # ユーザーアカウントと関連データを削除
+    print(f"🗑️ [アカウント削除] ユーザーID: {user_id} のアカウント削除を開始します")
     try:
         # ユーザーアカウントと関連データを削除
         result = user_account_cleanup_service.delete_user_account(user_id=user_id, db=db)
+        
+        # 削除結果をログ出力
+        print(f"📊 [アカウント削除] 削除結果:")
+        print(f"  - 絵本: {result['deleted_storybooks']}件")
+        print(f"  - プロット: {result['deleted_story_plots']}件")
+        print(f"  - 設定: {result['deleted_story_settings']}件")
+        print(f"  - 画像: {result['deleted_upload_images']}件")
+        print(f"  - ストレージクリーンアップ: enabled={result['storage_cleanup']['enabled']}, error={result['storage_cleanup'].get('error')}")
+        print(f"  - Auth0クリーンアップ: enabled={result['auth0_cleanup']['enabled']}, removed={result['auth0_cleanup']['account_removed']}, error={result['auth0_cleanup'].get('error')}")
 
     except ValueError:
         # ユーザーが見つからない場合は404エラーを返す
+        print(f"❌ [アカウント削除] ユーザーが見つかりません: {user_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     except Exception as exc:  # noqa: BLE001
         # その他のエラーは500エラーを返す
+        print(f"❌ [アカウント削除] エラーが発生しました: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"アカウント削除に失敗しました: {exc}",
         )
 
     # 削除結果を返す
+    print(f"✅ [アカウント削除] ユーザーID: {user_id} のアカウント削除が完了しました")
     return AccountDeletionResponse(
         message="アカウントを削除しました",
         user_id=result["user_id"],

@@ -148,15 +148,24 @@ class UserAccountCleanupService:
             "error": None,
         }
 
+        print(f"🔍 [Auth0削除] ユーザーID: {user_id} の削除を開始します")
         auth0_service = self._get_auth0_service()
         if auth0_service:
             auth0_cleanup["enabled"] = True
+            print(f"✅ [Auth0削除] Auth0 Management Serviceが初期化されました")
             try:
+                print(f"🔄 [Auth0削除] Auth0 APIを呼び出しています...")
                 auth0_cleanup["account_removed"] = auth0_service.delete_user(user_id)
+                if auth0_cleanup["account_removed"]:
+                    print(f"✅ [Auth0削除] Auth0ユーザーの削除に成功しました: {user_id}")
+                else:
+                    print(f"⚠️ [Auth0削除] Auth0ユーザーの削除が失敗しました: {user_id}")
             except Exception as exc:  # noqa: BLE001
                 auth0_cleanup["error"] = str(exc)
+                print(f"❌ [Auth0削除] エラーが発生しました: {exc}")
         else:
             auth0_cleanup["error"] = "Auth0 management service is not configured"
+            print(f"⚠️ [Auth0削除] Auth0 Management Serviceが設定されていません")
 
         return {
             "user_id": user_id,
