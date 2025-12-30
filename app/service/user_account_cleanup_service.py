@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.users.users import Users
+from app.models.child.child import Child
 from app.features._01_image_upload.models.images import UploadImages
 from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
@@ -96,6 +97,14 @@ class UserAccountCleanupService:
             .delete(synchronize_session=False)
         )
 
+        # 子供レコードを削除（ユーザー削除前に削除する必要がある）
+        deleted_children = (
+            db.query(Child)
+            .filter(Child.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
+
+        # ユーザー本体を削除
         db.delete(user)
         db.commit()
 
@@ -139,6 +148,7 @@ class UserAccountCleanupService:
             "deleted_story_plots": deleted_story_plots,
             "deleted_story_settings": deleted_story_settings,
             "deleted_upload_images": deleted_upload_images,
+            "deleted_children": deleted_children,
             "storage_cleanup": storage_cleanup,
             "auth0_cleanup": auth0_cleanup,
         }
