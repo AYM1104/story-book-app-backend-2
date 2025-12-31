@@ -553,6 +553,7 @@ def get_supabase_storybooks(request: Request, db: Session = Depends(get_supabase
     
     return books
 
+
 # ストーリーブック削除エンドポイント（Supabase用）
 @router.delete("/{storybook_id}")
 def delete_supabase_storybook(storybook_id: int, db: Session = Depends(get_supabase_db)):
@@ -572,6 +573,54 @@ def delete_supabase_storybook(storybook_id: int, db: Session = Depends(get_supab
     db.commit()
     
     return {"message": "ストーリーブックが削除されました"}
+
+# お気に入り状態更新エンドポイント（Supabase用）
+@router.patch("/{storybook_id}/favorite")
+async def update_favorite_status(
+    storybook_id: int,
+    is_favorite: bool,
+    db: Session = Depends(get_supabase_db)
+):
+    """Supabase用のお気に入り状態更新エンドポイント
+    
+    Args:
+        storybook_id: ストーリーブックID
+        is_favorite: お気に入り状態（クエリパラメータ）
+        db: データベースセッション
+    
+    Returns:
+        更新結果
+    """
+    try:
+        storybook = db.query(StoryBook).filter(
+            StoryBook.id == storybook_id
+        ).first()
+        
+        if not storybook:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"StoryBook ID {storybook_id} が見つかりません"
+            )
+        
+        # お気に入り状態を更新
+        storybook.is_favorite = is_favorite
+        db.commit()
+        
+        return {
+            "success": True,
+            "storybook_id": storybook_id,
+            "is_favorite": is_favorite
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"お気に入り状態の更新に失敗しました: {str(e)}"
+        )
+
 
 @router.get("/{storybook_id}/generation-progress")
 async def get_generation_progress(
