@@ -15,10 +15,11 @@ class Users(SupabaseBase):
     # password = Column(String(255), nullable=False, comment="パスワード")  # Supabase認証で管理
 
     # リレーションシップ
-    children = relationship("Child", back_populates="user")
-    storybooks = relationship("StoryBook", back_populates="user")
-    credit_ledger = relationship("CreditLedger", back_populates="user")
-    subscription = relationship("Subscription", back_populates="user", uselist=False)
-    app_store_transactions = relationship("AppStoreTransaction", back_populates="user")
+    children = relationship("Child", back_populates="user", cascade="all, delete-orphan")
+    storybooks = relationship("StoryBook", back_populates="user", cascade="all, delete-orphan")
+    credit_ledger = relationship("CreditLedger", back_populates="user", cascade="all, delete-orphan")
+    subscription = relationship("Subscription", back_populates="user", cascade="all, delete-orphan", uselist=False)
+    app_store_transactions = relationship("AppStoreTransaction", back_populates="user", cascade="all, delete-orphan")
+    upload_images = relationship("UploadImages", back_populates="user", cascade="all, delete-orphan")
     
 

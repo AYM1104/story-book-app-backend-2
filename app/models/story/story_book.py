@@ -10,9 +10,9 @@ class StoryBook(SupabaseBase):
     __tablename__ = "story_books"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    story_plot_id = Column(Integer, ForeignKey("story_plots.id"), nullable=False, comment="元のプロットID")
-    user_id = Column(String(255), ForeignKey("users.id"), nullable=False, comment="ユーザーID")
-    child_id = Column(Integer, ForeignKey("children.id"), nullable=True, comment="子どものID（オプショナル）")
+    story_plot_id = Column(Integer, ForeignKey("story_plots.id", ondelete="CASCADE"), nullable=False, comment="元のプロットID")
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, comment="ユーザーID")
+    child_id = Column(Integer, ForeignKey("children.id", ondelete="SET NULL"), nullable=True, comment="子どものID（オプショナル）")
     
     # えほんの基本情報
     title = Column(String(255), nullable=False, comment="タイトル")

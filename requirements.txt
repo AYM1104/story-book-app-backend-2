@@ -23,3 +23,5 @@ PyJWT==2.10.1
 python-jose[cryptography]==3.3.0
 cryptography==41.0.7
 sqlalchemy-cockroachdb==2.0.3
+# Cloud Tasks（バックグラウンドジョブ処理）
+google-cloud-tasks==2.15.0

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 import os
 import threading
@@ -107,11 +107,13 @@ async def generate_supabase_storyplot_image_to_image(
 @router.post("/generate-storyplot-all-pages-image-to-image", response_model=StoryPlotAllPagesGenerationResponse)
 async def generate_supabase_storyplot_all_pages_image_to_image(
     request: StoryPlotAllPagesImageToImageRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_supabase_db),
     user_id: str = Depends(get_auth0_sub_from_token)  # Auth0のsubクレーム
 ):
-    """Supabase用のStoryPlot全ページImage-to-Image生成エンドポイント"""
+    """Supabase用のStoryPlot全ページImage-to-Image生成エンドポイント
+    
+    Cloud Tasksを使用してバックグラウンドで画像生成を実行します。
+    """
     try:
         print(f"DEBUG: request.story_plot_id={request.story_plot_id}, request.storybook_id={request.storybook_id}")
         
@@ -207,7 +209,7 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"参考画像が見つかりません: {image_path}")
             request.reference_image_path = os.path.abspath(image_path)
 
-        # 先にステータスを「生成中」に更新（storybookが存在する場合）
+        # 先にステータスを「pending」に設定（Cloud Taskが実行されるまで待機中）
         try:
             from app.models.story.story_book import StoryBook
 
@@ -218,10 +220,10 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
                 target_storybook = db.query(StoryBook).filter(StoryBook.story_plot_id == story_plot_id).first()
 
             if target_storybook:
-                target_storybook.image_generation_status = "generating"
+                target_storybook.image_generation_status = "pending"
                 target_storybook.generation_progress = {
                     "current_page": 0,
-                    "current_step": "prompt",
+                    "current_step": "queued",
                     "completed_pages": 0,
                     "total_pages": 1 + min(request.story_pages or 0, 10)
                 }
@@ -229,15 +231,41 @@ async def generate_supabase_storyplot_all_pages_image_to_image(
         except Exception as status_init_error:
             print(f"⚠️ Failed to initialize generation status: {status_init_error}")
 
-        # 重い生成処理はレスポンスとは切り離してバックグラウンドで実行
-        request_payload = request.model_dump()
-        background_tasks.add_task(
-            _kickoff_storyplot_all_pages_generation,
-            request_payload,
-            user_id,
-            story_plot_id,
-            request.storybook_id
-        )
+        # Cloud Tasksを使用してバックグラウンドジョブを作成
+        try:
+            from app.tasks.task_client import get_task_client
+            
+            task_client = get_task_client()
+            
+            # WebhookエンドポイントのURLを構築
+            backend_url = os.getenv("BACKEND_URL", "https://ehonnotane-backend-877241552096.us-west1.run.app")
+            webhook_url = f"{backend_url}/api/tasks/image-generation"
+            
+            # Cloud Taskを作成
+            task_name = task_client.create_image_generation_task(
+                storybook_id=request.storybook_id or target_storybook.id,
+                story_plot_id=story_plot_id,
+                reference_image_path=request.reference_image_path,
+                strength=request.strength,
+                prefix=request.prefix,
+                user_id=user_id,
+                story_pages=request.story_pages,
+                webhook_url=webhook_url
+            )
+            
+            print(f"✅ Cloud Task作成完了: {task_name}")
+            
+        except Exception as task_error:
+            print(f"❌ Cloud Task作成エラー: {task_error}")
+            # Cloud Taskの作成に失敗した場合はフォールバック（threading使用）
+            print(f"⚠️ フォールバック: threadingを使用してバックグラウンド実行")
+            request_payload = request.model_dump()
+            thread = threading.Thread(
+                target=_run_storyplot_all_pages_generation,
+                args=(request_payload, user_id, story_plot_id, request.storybook_id),
+                daemon=True
+            )
+            thread.start()
 
         return StoryPlotAllPagesGenerationResponse(
             success=True,

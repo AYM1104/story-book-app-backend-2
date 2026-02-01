@@ -11,7 +11,7 @@ class Child(SupabaseBase):
     __tablename__ = "children"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True, comment="子どものID")
-    user_id = Column(String(255), ForeignKey("users.id"), nullable=False, comment="ユーザーID（Auth0のユーザーID）")
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, comment="ユーザーID（Auth0のユーザーID）")
     name = Column(String(255), nullable=False, comment="子どもの名前")
     birthdate = Column(Date, nullable=True, comment="生年月日（任意）")
     color_theme = Column(String(50), nullable=True, comment="カラーテーマ（任意）")

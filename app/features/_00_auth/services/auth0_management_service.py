@@ -18,9 +18,14 @@ class Auth0ManagementService:
 
     @staticmethod
     def _has_management_credentials() -> bool:
+        # Management API用の資格情報を確実に初期化
+        Auth0Config._init_management_credentials()
         return Auth0Config.has_management_credentials()
 
     def _get_management_token(self) -> str:
+        # Management API用の資格情報を確実に初期化
+        Auth0Config._init_management_credentials()
+        
         if not self._has_management_credentials():
             raise ValueError(
                 "Auth0 management credentials are not configured. "

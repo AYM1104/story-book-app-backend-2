@@ -14,10 +14,10 @@ class UploadImages(SupabaseBase):
     file_path = Column(String(512), nullable=False, comment="ファイルパス")
     content_type = Column(String(100), nullable=False, comment="コンテンツタイプ")
     size_bytes = Column(Integer, nullable=False, comment="ファイルサイズ（バイト）")
-    user_id = Column(String(255), nullable=False, comment="ユーザーID（Auth0のユーザーID）")
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, comment="ユーザーID（Auth0のユーザーID）")
     meta_data = Column(Text, nullable=True, comment="画像解析結果のメタデータ")
     public_url = Column(String(1024), nullable=True, comment="公開URL（GCS等）")
 
-    # リレーションシップ（user_idが文字列型のため、外部キー制約なし）
-    # user = relationship("Users", back_populates="upload_images")  # 外部キー制約がないため無効化
+    # リレーションシップ
+    user = relationship("Users", back_populates="upload_images")
     story_settings = relationship("StorySetting", back_populates="upload_image")

@@ -10,8 +10,8 @@ class StoryPlot(SupabaseBase):
     __tablename__ = "story_plots"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    story_setting_id = Column(Integer, ForeignKey("story_settings.id"), nullable=False, comment="物語設定ID")
-    user_id = Column(String(255), ForeignKey("users.id"), nullable=False, comment="ユーザーID")
+    story_setting_id = Column(Integer, ForeignKey("story_settings.id", ondelete="CASCADE"), nullable=False, comment="物語設定ID")
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, comment="ユーザーID")
 
     # 物語の基本情報
     title = Column(String(255), nullable=True, comment="物語のタイトル")

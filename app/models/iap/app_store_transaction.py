@@ -11,7 +11,7 @@ class AppStoreTransaction(SupabaseBase):
     __tablename__ = "app_store_transactions"
     
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id = Column(String(255), ForeignKey("users.id"), nullable=False, index=True, comment="ユーザーID")
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True, comment="ユーザーID")
     transaction_id = Column(String(255), unique=True, nullable=False, index=True, comment="トランザクションID（一意）")
     original_transaction_id = Column(String(255), nullable=False, index=True, comment="オリジナルトランザクションID（サブスクリプショングループで共通）")
     product_id = Column(String(255), nullable=False, comment="プロダクトID")

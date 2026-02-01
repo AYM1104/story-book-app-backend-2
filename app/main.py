@@ -244,6 +244,17 @@ except Exception as e:
     def child_test():
         return {"message": "Child router not available", "error": str(e)}
 
+# タスクWebhookAPI（バックグラウンドジョブ）
+try:
+    from app.api.tasks.task_webhook import router as task_webhook_router
+    app.include_router(task_webhook_router)
+    print("✅ Task webhook router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load task_webhook_router: {e}")
+    @app.get("/api/tasks/test")
+    def task_webhook_test():
+        return {"message": "Task webhook router not available", "error": str(e)}
+
 # ユーザー管理API（子供管理機能）
 try:
     from app.features.user_management.api.children import router as user_management_children_router

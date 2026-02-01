@@ -22,7 +22,7 @@ class Subscription(SupabaseBase):
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id = Column(String(255), ForeignKey("users.id"), nullable=False, unique=True, index=True, comment="ユーザーID（1ユーザー1プラン）")
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True, comment="ユーザーID（1ユーザー1プラン）")
     plan = Column(Enum(PlanType), nullable=False, default=PlanType.FREE, comment="プランタイプ")
     cycle_started_at = Column(DateTime(timezone=True), nullable=True, comment="現在のサイクル開始日時（日本時間）")
     cycle_ends_at = Column(DateTime(timezone=True), nullable=True, comment="現在のサイクル終了日時（日本時間）")

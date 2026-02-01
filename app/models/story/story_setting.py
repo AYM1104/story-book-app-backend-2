@@ -10,7 +10,7 @@ class StorySetting(SupabaseBase):
     __tablename__ = "story_settings"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    upload_image_id = Column(Integer, ForeignKey("upload_images.id"), nullable=False, comment="アップロード画像ID")
+    upload_image_id = Column(Integer, ForeignKey("upload_images.id", ondelete="CASCADE"), nullable=False, comment="アップロード画像ID")
 
     title_suggestion = Column(String(255), nullable=True, comment="物語のタイトルの提案")
     protagonist_name = Column(String(100), nullable=True, comment="主人公の名前")
@@ -21,7 +21,7 @@ class StorySetting(SupabaseBase):
     language = Column(String(10), nullable=False, default="ja", comment="言語")
     reading_level = Column(String(30), nullable=True, comment="読みやすさのレベル（やさしいひらがな、やさしいカタカナなど）")
     style_guideline = Column(JSON, nullable=True, comment="文体や禁止語などのルール")
-    child_id = Column(Integer, ForeignKey("children.id"), nullable=True, comment="子供ID")
+    child_id = Column(Integer, ForeignKey("children.id", ondelete="SET NULL"), nullable=True, comment="子供ID")
     page_count = Column(Integer, nullable=True, comment="ページ数")
 
     # 画像とのリレーションシップ
