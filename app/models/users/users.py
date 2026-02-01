@@ -19,5 +19,6 @@ class Users(SupabaseBase):
     storybooks = relationship("StoryBook", back_populates="user")
     credit_ledger = relationship("CreditLedger", back_populates="user")
     subscription = relationship("Subscription", back_populates="user", uselist=False)
+    app_store_transactions = relationship("AppStoreTransaction", back_populates="user")
     
 

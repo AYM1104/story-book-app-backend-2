@@ -13,8 +13,9 @@ class CreditLedger(SupabaseBase):
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     user_id = Column(String(255), ForeignKey("users.id"), nullable=False, index=True, comment="ユーザーID")
     delta = Column(Integer, nullable=False, comment="クレジット変動額（正の値=付与、負の値=消費）")
-    reason = Column(String(255), nullable=False, comment="変動理由（signup_bonus, story_generated, subscription_refill等）")
+    reason = Column(String(255), nullable=False, comment="変動理由（signup_bonus, story_generated, subscription_started, subscription_renewed等）")
     work_id = Column(Integer, ForeignKey("story_books.id"), nullable=True, comment="関連する作品ID（消費時に使用）")
+    transaction_id = Column(String(255), index=True, nullable=True, comment="App StoreトランザクションID（サブスクリプション関連の場合）")
 
     # リレーションシップ
     user = relationship("Users", back_populates="credit_ledger")

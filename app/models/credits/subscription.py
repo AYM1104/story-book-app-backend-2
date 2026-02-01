@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from app.database.supabase_base import SupabaseBase, get_jst_now
 import enum
@@ -27,6 +27,17 @@ class Subscription(SupabaseBase):
     cycle_started_at = Column(DateTime(timezone=True), nullable=True, comment="現在のサイクル開始日時（日本時間）")
     cycle_ends_at = Column(DateTime(timezone=True), nullable=True, comment="現在のサイクル終了日時（日本時間）")
     next_credit_refill_at = Column(DateTime(timezone=True), nullable=True, comment="次回クレジット付与日時（日本時間）")
+    
+    # App Store関連フィールド
+    original_transaction_id = Column(String(255), unique=True, index=True, nullable=True, comment="App StoreのオリジナルトランザクションID（一意）")
+    latest_transaction_id = Column(String(255), index=True, nullable=True, comment="最新のトランザクションID")
+    product_id = Column(String(255), nullable=True, comment="App StoreのプロダクトID")
+    auto_renew_status = Column(Boolean, default=True, nullable=True, comment="自動更新ステータス")
+    expires_at = Column(DateTime(timezone=True), nullable=True, comment="サブスクリプション有効期限（日本時間）")
+    grace_period_expires_at = Column(DateTime(timezone=True), nullable=True, comment="グレースピリオド終了日時")
+    is_in_billing_retry = Column(Boolean, default=False, nullable=True, comment="請求リトライ中")
+    cancellation_date = Column(DateTime(timezone=True), nullable=True, comment="キャンセル日時")
+    last_credit_grant_date = Column(DateTime(timezone=True), nullable=True, comment="最後にクレジット付与した日時")
 
     # リレーションシップ
     user = relationship("Users", back_populates="subscription")

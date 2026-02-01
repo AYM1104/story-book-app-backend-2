@@ -255,6 +255,29 @@ except Exception as e:
     def user_management_children_test():
         return {"message": "User management children router not available", "error": str(e)}
 
+# サブスクリプション管理API
+try:
+    from app.api.subscriptions import router as subscriptions_router
+    app.include_router(subscriptions_router)
+    print("✅ Subscriptions router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load subscriptions_router: {e}")
+    @app.get("/api/subscriptions/test")
+    def subscriptions_test():
+        return {"message": "Subscriptions router not available", "error": str(e)}
+
+# App Store Webhooks
+try:
+    from app.api.webhooks import router as webhooks_router
+    app.include_router(webhooks_router)
+    print("✅ Webhooks router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load webhooks_router: {e}")
+    @app.get("/api/webhooks/test")
+    def webhooks_test():
+        return {"message": "Webhooks router not available", "error": str(e)}
+
+
 @app.get("/api/routes")
 def list_routes():
     """利用可能なルートの一覧を表示"""

@@ -36,7 +36,7 @@ class BaseImageGenerator:
             # Gemini クライアントを初期化
             genai.configure(api_key=api_key)
             self.client = genai
-            self.model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
+            self.model = genai.GenerativeModel('gemini-2.5-flash-image')
         except Exception as e:
             error_msg = f"Gemini APIの初期化に失敗しました: {str(e)}"
             raise ValueError(error_msg) from e
