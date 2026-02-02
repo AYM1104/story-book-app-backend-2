@@ -22,15 +22,15 @@ class StoryBookGenerator(BaseImageGenerator):
             # ページ数情報をプロンプトに追加
             page_info = f" This is page {i} of {total_pages} in a {total_pages}-page children's book. "
             
-            # 絵本風のプロンプトを作成（3:4アスペクト比指定）
+            # 絵本風のプロンプトを作成（2:3アスペクト比指定）
             prompt = (
                 f"Create a beautiful children's book illustration for: {page_content}. "
                 f"Style: children's book illustration, warm and friendly, bright colors, "
                 f"simple and clean design, suitable for children. "
                 f"{page_info}"
-                f"Image format: 3:4 aspect ratio. "
-                f"MANDATORY: The image must be exactly 3:4 ratio, wide and landscape, NOT portrait or square. "
-                f"The composition should be horizontal with elements spread across the width. "
+                f"Image format: 2:3 aspect ratio (portrait orientation). "
+                f"MANDATORY: The image must be exactly 2:3 ratio, tall and portrait, NOT landscape or square. "
+                f"The composition should be vertical with elements arranged from top to bottom. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -185,9 +185,9 @@ class StoryBookGenerator(BaseImageGenerator):
                 f"Character: {protagonist_name} (a {protagonist_type}). "
                 f"Setting: {setting_place}. "
                 f"{page_info}"
-                f"Image format: 3:4 aspect ratio (landscape orientation), horizontal composition. "
-                f"MANDATORY: The image must be exactly 3:4 ratio, wide and landscape, NOT portrait or square. "
-                f"The composition should be horizontal with elements spread across the width. "
+                f"Image format: 2:3 aspect ratio (portrait orientation), vertical composition. "
+                f"MANDATORY: The image must be exactly 2:3 ratio, tall and portrait, NOT landscape or square. "
+                f"The composition should be vertical with elements arranged from top to bottom. "
                 f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, "
                 f"NO speech bubbles, NO signs, NO labels, NO symbols, NO numbers, NO typography, "
                 f"NO written language of any kind. This must be a pure visual illustration only. "
@@ -358,7 +358,7 @@ class StoryBookGenerator(BaseImageGenerator):
             f"Mood: {tone_desc}. {keywords_phrase}"
             f"Avoid any text or typography (no title text). "
             f"Style: children's book cover, iconic, memorable silhouette, strong composition, clear focal point, warm colors. "
-            f"Image format: 3:4 aspect ratio. "
+            f"Image format: 2:3 aspect ratio (portrait orientation). "
             f"CRITICAL REQUIREMENTS: Absolutely NO text, NO letters, NO words, NO writing, NO captions, NO labels, NO numbers."
         )
         if description:
