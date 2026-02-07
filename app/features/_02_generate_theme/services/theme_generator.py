@@ -27,8 +27,13 @@ class ThemeGenerator:
         # Gemini APIの設定（共通のユーティリティ関数を使用）
         self.model = initialize_gemini_model_2_5_flash('gemini-2.5-flash')
 
-    def generate_theme_options_only(self, story_setting: Dict[str, Any]) -> Dict[str, Any]:
-        """3つのテーマ案のみを生成する関数"""
+    def generate_theme_options_only(self, story_setting: Dict[str, Any], language: str = "ja") -> Dict[str, Any]:
+        """3つのテーマ案のみを生成する関数
+        
+        Args:
+            story_setting: ストーリー設定の辞書
+            language: 出力言語 ("ja" または "en")
+        """
         
         protagonist_name = story_setting.get("protagonist_name", "主人公")
         protagonist_type = story_setting.get("protagonist_type", "子供")
@@ -36,11 +41,14 @@ class ThemeGenerator:
         tone = story_setting.get("tone", "gentle")
         target_age = story_setting.get("target_age", "preschool")
         reading_level = story_setting.get("reading_level", "hiragana_only")
+        
+        # デバッグ: 受け取った言語を確認
+        print(f"🔍 generate_theme_options_only 受け取った言語: {language}")
 
         # プロンプトを作成
         prompt = self._create_theme_options_prompt(
             protagonist_name, protagonist_type, setting_place, 
-            tone, target_age, reading_level
+            tone, target_age, reading_level, language
         )
 
         # プロンプト全文をターミナルに表示
@@ -159,10 +167,10 @@ class ThemeGenerator:
                     raise
 
     def _create_theme_options_prompt(self, protagonist_name: str, protagonist_type: str, 
-                                    setting_place: str, tone: str, target_age: str, reading_level: str) -> str:
+                                    setting_place: str, tone: str, target_age: str, reading_level: str, language: str = "ja") -> str:
         """テーマ案生成用のプロンプトを作成（プロンプトファイルから読み込み）"""
         return generate_theme_prompt(
-            protagonist_name, protagonist_type, setting_place, tone, target_age, reading_level
+            protagonist_name, protagonist_type, setting_place, tone, target_age, reading_level, language
         )
 
     def _parse_theme_options_response(self, response_text: str) -> Dict[str, Any]:

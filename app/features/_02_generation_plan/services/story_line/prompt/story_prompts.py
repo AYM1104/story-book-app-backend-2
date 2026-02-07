@@ -2,6 +2,25 @@
 
 from app.core.prompt.constants import TONE_DESCRIPTIONS, AGE_DESCRIPTIONS, READING_LEVEL_DESCRIPTIONS
 
+# 英語版の定数マッピング
+TONE_DESCRIPTIONS_EN = {
+    "gentle": "gentle and warm",
+    "heartwarming": "heartwarming",
+    "adventure": "adventurous",
+    "brave": "brave and courageous",
+    "mystery": "mysterious and exciting",
+    "fun": "fun and playful",
+    "dreamy": "dreamy and magical",
+    "magical": "magical and fantastical"
+}
+
+AGE_DESCRIPTIONS_EN = {
+    "infant": "for infants (0-2 years)",
+    "toddler": "for toddlers (2-3 years)",
+    "preschool": "for preschoolers (3-6 years)",
+    "early_elementary": "for early elementary (6-8 years)"
+}
+
 
 def create_single_story_prompt(
     protagonist_name: str,
@@ -11,7 +30,8 @@ def create_single_story_prompt(
     target_age: str,
     reading_level: str,
     selected_theme: str,
-    story_pages: int = 5
+    story_pages: int = 5,
+    language: str = "ja"
 ) -> str:
     """単一ストーリー生成用のプロンプトを作成
     
@@ -24,10 +44,36 @@ def create_single_story_prompt(
         reading_level: 読みやすさレベル
         selected_theme: 選択されたテーマのタイトル
         story_pages: 生成するページ数（3, 5, 7, 10のいずれか）
+        language: 出力言語 ("ja" または "en")
         
     Returns:
         プロンプト文字列
     """
+    
+    # 言語に応じてプロンプトを生成
+    if language == "en":
+        return _create_single_story_prompt_en(
+            protagonist_name, protagonist_type, setting_place,
+            tone, target_age, reading_level, selected_theme, story_pages
+        )
+    else:
+        return _create_single_story_prompt_ja(
+            protagonist_name, protagonist_type, setting_place,
+            tone, target_age, reading_level, selected_theme, story_pages
+        )
+
+
+def _create_single_story_prompt_ja(
+    protagonist_name: str,
+    protagonist_type: str,
+    setting_place: str,
+    tone: str,
+    target_age: str,
+    reading_level: str,
+    selected_theme: str,
+    story_pages: int = 5
+) -> str:
+    """日本語版ストーリー生成プロンプト"""
     
     # ページ数に応じた「構成テンプレート（物語の波）」を定義
     # ここが物語の面白さを決める「設計図」になります
@@ -246,3 +292,106 @@ def create_single_story_prompt(
 
     return prompt
 
+
+def _create_single_story_prompt_en(
+    protagonist_name: str,
+    protagonist_type: str,
+    setting_place: str,
+    tone: str,
+    target_age: str,
+    reading_level: str,
+    selected_theme: str,
+    story_pages: int = 5
+) -> str:
+    """英語版ストーリー生成プロンプト"""
+    
+    # ページ数に応じた構成ガイド（英語版）
+    structure_guide = ""
+    
+    if story_pages == 3:
+        structure_guide = """
+        【3-Page Structure (Short)】
+        - page_1: [Introduction] Introduce the protagonist and set up the situation.
+        - page_2: [Action] The protagonist uses their special trait to do something.
+        - page_3: [Resolution] Happy ending and resolution.
+        """
+    elif story_pages == 5:
+        structure_guide = """
+        【5-Page Structure (Standard)】
+        - page_1: [Introduction] Daily life. What is the protagonist doing?
+        - page_2: [Incident] Something strange or problematic happens.
+        - page_3: [Challenge] They try to solve it but face a difficulty.
+        - page_4: [Climax] The protagonist's best quality helps solve the problem!
+        - page_5: [Ending] Everyone smiles. Happy ending.
+        """
+    elif story_pages == 7:
+        structure_guide = """
+        【7-Page Structure (Dramatic)】
+        - page_1: [Introduction] Peaceful daily life.
+        - page_2: [Incident] An invitation to adventure or a problem occurs.
+        - page_3: [Journey/Trial] Heading toward the goal or first attempt.
+        - page_4: [Trouble] Things don't go well. Facing difficulties.
+        - page_5: [Turning Point] Unexpected help or a new idea.
+        - page_6: [Resolution] Overcoming the problem and achieving the goal.
+        - page_7: [Return] Coming back home or returning to normal life safely.
+        """
+    elif story_pages == 10:
+        structure_guide = """
+        【10-Page Structure (Grand Adventure)】
+        - page_1: [Prologue] Careful introduction of protagonist and setting.
+        - page_2: [End of Normal] Incident occurs. Reason to go on adventure.
+        - page_3: [Beginning] Exciting departure.
+        - page_4: [Meeting] Encountering new friends or items.
+        - page_5: [Minor Trouble] Small mistake or detour (humor).
+        - page_6: [Greatest Challenge] A strong enemy or big obstacle appears.
+        - page_7: [Setback and Recovery] Almost giving up, but getting encouraged.
+        - page_8: [Climax] Breaking through with the protagonist's special power!
+        - page_9: [Celebration] Moment of joy and achievement.
+        - page_10: [Epilogue] Returning to daily life, having grown. Lingering feeling.
+        """
+    
+    tone_en = TONE_DESCRIPTIONS_EN.get(tone, "gentle and warm")
+    age_en = AGE_DESCRIPTIONS_EN.get(target_age, "for preschoolers (3-6 years)")
+    
+    prompt = f"""
+You are an expert picture book author who captivates children's hearts.
+
+Based on the following settings and structure guide, please create a picture book titled "{selected_theme}".
+
+【Basic Settings】
+- Protagonist: {protagonist_name}
+- Character traits: {protagonist_type} (use this trait as a key element in the story)
+- Setting: {setting_place}
+- Mood: {tone_en}
+- Target age: {age_en}
+
+【Structure Guide (Story Flow)】
+Follow this flow to create the rhythm of the story:
+{structure_guide}
+
+【Important: Writing Rules】
+1. **Show, don't tell**: Express through dialogue, sounds, and visuals rather than explanations.
+2. **Sound effects required**: Include at least one sound effect (like "Whoosh!", "Splash!", "Crackle!") on every page.
+3. **For 10 pages**: Keep each page's text short enough that children won't get bored.
+4. **Background connection**: Make the `background_prompt` detailed, showing how scenery and colors change with the story.
+   **Important**: The `background_prompt` should focus ONLY on background, environment, and scenery. 
+   Do NOT include character details (age, name, clothing, physical features). 
+   Only describe location, time, weather, colors, atmosphere, and background elements (buildings, nature, objects).
+
+【Output Format】
+Output only in the following JSON format (no Markdown):
+
+{{
+  "title": "Story title (simple, easy to read)",
+  "story_pages": [
+    {{
+      "page_no": 1,
+      "story_text": "Story text in English...",
+      "background_prompt": "English prompt for image generation..." 
+    }},
+    ... (repeat for {story_pages} pages)
+  ]
+}}
+"""
+
+    return prompt

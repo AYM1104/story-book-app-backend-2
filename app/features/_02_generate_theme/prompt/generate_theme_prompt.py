@@ -6,6 +6,25 @@ from app.core.prompt.constants import (
     READING_LEVEL_DESCRIPTIONS
 )
 
+# 英語版の定数マッピング
+TONE_DESCRIPTIONS_EN = {
+    "gentle": "gentle and warm",
+    "heartwarming": "heartwarming",
+    "adventure": "adventurous",
+    "brave": "brave and courageous",
+    "mystery": "mysterious and exciting",
+    "fun": "fun and playful",
+    "dreamy": "dreamy and magical",
+    "magical": "magical and fantastical"
+}
+
+AGE_DESCRIPTIONS_EN = {
+    "infant": "for infants (0-2 years)",
+    "toddler": "for toddlers (2-3 years)",
+    "preschool": "for preschoolers (3-6 years)",
+    "early_elementary": "for early elementary (6-8 years)"
+}
+
 
 def generate_theme_prompt(
     protagonist_name: str,
@@ -13,7 +32,8 @@ def generate_theme_prompt(
     setting_place: str,
     tone: str,
     target_age: str,
-    reading_level: str
+    reading_level: str,
+    language: str = "ja"
 ) -> str:
     """テーマ案生成用のプロンプトを作成
     
@@ -24,6 +44,7 @@ def generate_theme_prompt(
         tone: 雰囲気の種類
         target_age: 対象年齢
         reading_level: 読みやすさレベル
+        language: 出力言語 ("ja" または "en")
         
     Returns:
         プロンプト文字列
@@ -71,6 +92,31 @@ def generate_theme_prompt(
             "theme3": "discovery"
         }
     
+    # 言語に応じたプロンプトを生成
+    if language == "en":
+        prompt = _generate_theme_prompt_en(
+            protagonist_name, protagonist_type, setting_place,
+            tone, target_age, reading_level_desc, theme_ids
+        )
+    else:
+        prompt = _generate_theme_prompt_ja(
+            protagonist_name, protagonist_type, setting_place,
+            tone, target_age, reading_level_desc, theme_ids
+        )
+    
+    return prompt
+
+
+def _generate_theme_prompt_ja(
+    protagonist_name: str,
+    protagonist_type: str,
+    setting_place: str,
+    tone: str,
+    target_age: str,
+    reading_level_desc: str,
+    theme_ids: dict
+) -> str:
+    """日本語版テーマ生成プロンプト"""
     prompt = f"""
 あなたは、子供の想像力をかき立てるプロの絵本作家です。
 ユーザーが選んだ「{TONE_DESCRIPTIONS.get(tone)}」という雰囲気に合わせて、
@@ -128,6 +174,77 @@ def generate_theme_prompt(
 
 必ずJSON形式で出力し、他の説明文は含めないでください。
 """
-    
     return prompt
 
+
+def _generate_theme_prompt_en(
+    protagonist_name: str,
+    protagonist_type: str,
+    setting_place: str,
+    tone: str,
+    target_age: str,
+    reading_level_desc: str,
+    theme_ids: dict
+) -> str:
+    """英語版テーマ生成プロンプト"""
+    tone_en = TONE_DESCRIPTIONS_EN.get(tone, "gentle and warm")
+    age_en = AGE_DESCRIPTIONS_EN.get(target_age, "for preschoolers (3-6 years)")
+    
+    prompt = f"""
+You are a professional picture book author who sparks children's imagination.
+Based on the "{tone_en}" mood the user selected, 
+please suggest 3 exciting story themes for children.
+
+【Basic Settings】
+- Protagonist: {protagonist_name}
+- Character traits: {protagonist_type}
+  ※This trait must be used as a key element in the story development
+- Setting: {setting_place}
+- Mood: {tone_en}
+- Target age: {age_en}
+
+【3 Themes to Create】
+Create three different theme variations using the following theme_ids:
+
+1. variation_type: "classic" / theme_id: "{theme_ids['theme1']}"
+   - A straightforward story that captures the mood perfectly
+2. variation_type: "character_driven" / theme_id: "{theme_ids['theme2']}"
+   - A unique story that only works because of "{protagonist_type}"
+3. variation_type: "unique_twist" / theme_id: "{theme_ids['theme3']}"
+   - A story with an unexpected or whimsical twist
+
+【Requirements】
+- Use simple, clear language appropriate for young children
+- Include one educational element while prioritizing fun
+- Stay true to the selected mood
+- Keep titles short (under 6 words) and easy to understand
+- Write all story content in English
+
+【Output Format】
+Output in the following JSON format:
+{{
+  "theme_options": {{
+    "theme1": {{
+      "theme_id": "{theme_ids['theme1']}",
+      "title": "Title",
+      "description": "Story summary (2-3 sentences)",
+      "keywords": ["keyword1", "keyword2", "keyword3"]
+    }},
+    "theme2": {{
+      "theme_id": "{theme_ids['theme2']}",
+      "title": "Title",
+      "description": "Story summary (2-3 sentences)",  
+      "keywords": ["keyword1", "keyword2", "keyword3"]
+    }},
+    "theme3": {{
+      "theme_id": "{theme_ids['theme3']}",
+      "title": "Title",
+      "description": "Story summary (2-3 sentences)",
+      "keywords": ["keyword1", "keyword2", "keyword3"]
+    }}
+  }}
+}}
+
+Output only valid JSON, no additional text.
+"""
+    return prompt

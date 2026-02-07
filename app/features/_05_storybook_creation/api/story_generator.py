@@ -21,6 +21,7 @@ class ThemeSelectionRequest(BaseModel):
     story_setting_id: int
     selected_theme: str
     story_pages: int = 5  # 物語ページ数（3, 5, 7, 10のいずれか、デフォルトは5）
+    language: str = "ja"  # 出力言語（デフォルトは日本語）
 
 # ストーリー生成サービス
 story_generator_service = StoryGeneratorService()
@@ -127,13 +128,14 @@ async def supabase_select_theme(
             )
         
         # Gemini APIで選択されたテーマの物語本文を生成（動的ページ数）
-        print(f"🤖 Gemini API呼び出し開始（テーマ「{theme_title}」の物語生成、{request.story_pages}ページ）")
+        print(f"🤖 Gemini API呼び出し開始（テーマ「{theme_title}」の物語生成、{request.story_pages}ページ、言語: {request.language}）")
         gemini_start = time.time()
         
         story_data = story_generator_service.generate_single_story(
             story_setting_dict, 
             theme_title,
-            story_pages=request.story_pages
+            story_pages=request.story_pages,
+            language=request.language
         )
         
         gemini_time = time.time() - gemini_start

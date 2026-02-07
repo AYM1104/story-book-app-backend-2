@@ -18,17 +18,18 @@ class StoryGeneratorService:
         # Gemini APIの設定（共通のユーティリティ関数を使用）
         self.model = initialize_gemini_model_2_5_flash('gemini-2.5-flash')
 
-    def generate_single_story(self, story_setting: Dict[str, Any], selected_theme: str, story_pages: int = 5) -> Dict[str, Any]:
+    def generate_single_story(self, story_setting: Dict[str, Any], selected_theme: str, story_pages: int = 5, language: str = "ja") -> Dict[str, Any]:
         """選択されたテーマの物語本文を生成
         
         Args:
             story_setting: ストーリー設定の辞書
             selected_theme: 選択されたテーマのタイトル
             story_pages: 生成するページ数（3, 5, 7, 10のいずれか、デフォルトは5）
+            language: 出力言語 ("ja" または "en")
         """
         
-        # デバッグ: 受け取ったページ数を確認
-        print(f"🔍 generate_single_story 受け取ったページ数: {story_pages}")
+        # デバッグ: 受け取ったページ数と言語を確認
+        print(f"🔍 generate_single_story 受け取ったページ数: {story_pages}, 言語: {language}")
         
         protagonist_name = story_setting.get("protagonist_name", "主人公")
         protagonist_type = story_setting.get("protagonist_type", "子供")
@@ -40,7 +41,7 @@ class StoryGeneratorService:
         # プロンプトを作成
         prompt = create_single_story_prompt(
             protagonist_name, protagonist_type, setting_place, 
-            tone, target_age, reading_level, selected_theme, story_pages
+            tone, target_age, reading_level, selected_theme, story_pages, language
         )
 
         try:
@@ -75,12 +76,12 @@ class StoryGeneratorService:
             print(f"❌ Gemini API エラー（ValueError）: {ve}")
             print(f"エラーのトレースバック: {traceback.format_exc()}")
             # エラー時はフォールバック
-            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme, story_pages)
+            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme, story_pages, language)
         except Exception as e:
             print(f"❌ Gemini API エラー（予期しないエラー）: {e}")
             print(f"エラーのトレースバック: {traceback.format_exc()}")
             # エラー時はフォールバック
-            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme, story_pages)
+            return self._generate_fallback_single_story(protagonist_name, protagonist_type, setting_place, selected_theme, story_pages, language)
 
 
 
@@ -182,31 +183,50 @@ class StoryGeneratorService:
         return self._parse_complete_story_response(response_text)
 
 
-    def _generate_fallback_single_story(self, protagonist_name: str, protagonist_type: str, setting_place: str, selected_theme: str, story_pages: int = 5) -> Dict[str, Any]:
+    def _generate_fallback_single_story(self, protagonist_name: str, protagonist_type: str, setting_place: str, selected_theme: str, story_pages: int = 5, language: str = "ja") -> Dict[str, Any]:
         """エラー時のフォールバック用単一ストーリー"""
         # ページ数に応じたデフォルトストーリーを生成
         fallback_pages = []
-        fallback_texts = [
-            f"むかしむかし、{protagonist_name}が{setting_place}で遊んでいました。",
-            "そこで素敵な出来事が起こりました。",
-            "主人公は勇気を出して立ち向かいました。",
-            "友達と協力して問題を解決しました。",
-            "大切なことを学んで成長しました。",
-            "新しい冒険が始まりました。",
-            "困難を乗り越えて、さらに成長しました。",
-            "周りの人たちに感謝の気持ちを伝えました。",
-            "たくさんのことを学び、心が豊かになりました。",
-            "そして、毎日が楽しくなりました。"
-        ]
+        
+        if language == "en":
+            fallback_texts = [
+                f"Once upon a time, {protagonist_name} was playing at the {setting_place}.",
+                "Something wonderful happened there.",
+                "The hero bravely faced the challenge.",
+                "With the help of friends, the problem was solved.",
+                "An important lesson was learned and growth happened.",
+                "A new adventure began.",
+                "Overcoming difficulties, they grew even more.",
+                "Gratitude was shared with everyone around.",
+                "So much was learned, and hearts became richer.",
+                "And every day became more joyful."
+            ]
+            title = f"{protagonist_name}'s {selected_theme}"
+            continuation_text = "The story continues."
+        else:
+            fallback_texts = [
+                f"むかしむかし、{protagonist_name}が{setting_place}で遊んでいました。",
+                "そこで素敵な出来事が起こりました。",
+                "主人公は勇気を出して立ち向かいました。",
+                "友達と協力して問題を解決しました。",
+                "大切なことを学んで成長しました。",
+                "新しい冒険が始まりました。",
+                "困難を乗り越えて、さらに成長しました。",
+                "周りの人たちに感謝の気持ちを伝えました。",
+                "たくさんのことを学び、心が豊かになりました。",
+                "そして、毎日が楽しくなりました。"
+            ]
+            title = f"{protagonist_name}の{selected_theme}"
+            continuation_text = "物語が続きます。"
         
         for i in range(1, min(story_pages + 1, 11)):
             if i <= len(fallback_texts):
                 fallback_pages.append({f"page_{i}": fallback_texts[i - 1]})
             else:
-                fallback_pages.append({f"page_{i}": "物語が続きます。"})
+                fallback_pages.append({f"page_{i}": continuation_text})
         
         return {
-            "title": f"{protagonist_name}の{selected_theme}",
+            "title": title,
             "story_pages": fallback_pages
         }
 

@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/story", tags=["theme-generation"])
 # スキーマ定義
 class StoryGenerationRequest(BaseModel):
     story_setting_id: int
+    language: str = "ja"  # デフォルトは日本語
 
 # テーマ案を生成して保存するエンドポイント
 @router.post("/story_generator", response_model=Dict[str, Any])
@@ -74,11 +75,11 @@ async def supabase_story_generator(
         convert_time = time.time() - convert_start
         
         # Gemini 2.5 Flashで3つのテーマ案を生成
-        print("3つのテーマ案を生成開始（Gemini）")
+        print(f"3つのテーマ案を生成開始（Gemini） 言語: {request.language}")
         gemini_start = time.time()
         
         # theme_generatorで3つのテーマ案を生成
-        theme_data = theme_generator.generate_theme_options_only(story_setting_dict)
+        theme_data = theme_generator.generate_theme_options_only(story_setting_dict, request.language)
         
         gemini_time = time.time() - gemini_start
         print(f"⏱️ Gemini API処理時間（テーマ生成のみ）: {gemini_time:.3f}秒")
