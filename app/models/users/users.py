@@ -21,5 +21,6 @@ class Users(SupabaseBase):
     subscription = relationship("Subscription", back_populates="user", cascade="all, delete-orphan", uselist=False)
     app_store_transactions = relationship("AppStoreTransaction", back_populates="user", cascade="all, delete-orphan")
     upload_images = relationship("UploadImages", back_populates="user", cascade="all, delete-orphan")
+    device_tokens = relationship("DeviceToken", back_populates="user", cascade="all, delete-orphan")
     
 

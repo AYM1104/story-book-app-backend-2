@@ -24,3 +24,10 @@ GCS_CREDENTIALS_PATH = os.getenv("GCS_CREDENTIALS_PATH", "app/secrets/ayu1104-94
 
 # ストレージ設定（GCS固定）
 STORAGE_TYPE = "gcs"  # GCS固定
+
+# APNs (Apple Push Notification service) 設定
+APNS_KEY_ID = os.getenv("APNS_KEY_ID")
+APNS_TEAM_ID = os.getenv("APNS_TEAM_ID")
+APNS_AUTH_KEY_PATH = os.getenv("APNS_AUTH_KEY_PATH", "certs/apns_auth_key.p8")
+APNS_BUNDLE_ID = os.getenv("APNS_BUNDLE_ID", "com.showheysas.ehonnotane") # Default to likely bundle ID, user should confirm
+APNS_USE_SANDBOX = os.getenv("APNS_USE_SANDBOX", "false").lower() == "true"

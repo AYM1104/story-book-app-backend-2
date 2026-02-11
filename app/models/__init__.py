@@ -16,3 +16,4 @@ from .story.story_plot import StoryPlot
 from .story.story_book import StoryBook
 from .credits.credit_ledger import CreditLedger
 from .credits.subscription import Subscription
+from .device_token import DeviceToken

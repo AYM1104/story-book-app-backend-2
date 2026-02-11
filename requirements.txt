@@ -25,3 +25,5 @@ cryptography==41.0.7
 sqlalchemy-cockroachdb==2.0.3
 # Cloud Tasks（バックグラウンドジョブ処理）
 google-cloud-tasks==2.15.0
+# APNsプッシュ通知用（HTTP/2対応）
+httpx[http2]==0.25.2

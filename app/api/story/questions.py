@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
@@ -11,9 +11,17 @@ router = APIRouter(prefix="/api/story", tags=["story-questions"])
 @router.get("/story_settings/{story_setting_id}/questions", response_model=QuestionResponse)
 async def get_supabase_questions_for_story_setting(
     story_setting_id: int,
-    db: Session = Depends(get_supabase_db)
+    db: Session = Depends(get_supabase_db),
+    accept_language: str = Header(default="ja", alias="Accept-Language")
 ):
     """物語設定の不足情報に対して質問を生成するエンドポイント"""
+    
+    # 言語コードを抽出（例: "en-US,en;q=0.9,ja;q=0.8" -> "en"）
+    lang = accept_language.split(",")[0].split("-")[0].lower() if accept_language else "ja"
+    if lang not in ["en", "ja"]:
+        lang = "ja"  # 対応していない言語は日本語にフォールバック
+    
+    print(f"📝 Accept-Language: {accept_language} -> Using: {lang}")
     
     # 処理時間計測開始
     start_time = time.time()
@@ -57,7 +65,7 @@ async def get_supabase_questions_for_story_setting(
     # 質問を生成
     print(f"質問を生成: {story_setting_id}")
     question_start = time.time()
-    questions = question_generator_service.generate_questions_for_missing_info(story_setting_dict)
+    questions = question_generator_service.generate_questions_for_missing_info(story_setting_dict, lang=lang)
     question_time = time.time() - question_start
     print(f"⏱️ 質問生成時間: {question_time:.3f}秒")
     
@@ -70,7 +78,7 @@ async def get_supabase_questions_for_story_setting(
     return QuestionResponse(
         questions=questions,
         story_setting_id=story_setting_id,
-        message=f"物語設定を完成させるために{len(questions)}つの質問があります",
+        message=f"{len(questions)} questions to complete story settings" if lang == "en" else f"物語設定を完成させるために{len(questions)}つの質問があります",
         processing_time_ms=processing_time_ms
     )
 

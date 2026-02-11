@@ -86,6 +86,24 @@ def execute_image_generation_task(payload: Dict[str, Any]) -> Dict[str, Any]:
         
         print(f"✅ 画像生成タスク完了: storybook_id={storybook_id}")
         
+        # プッシュ通知を送信
+        try:
+            from app.service.push_notification_service import push_notification_service
+            
+            # ストーリーブックのタイトルを取得
+            storybook_title = storybook.title if hasattr(storybook, 'title') and storybook.title else None
+            
+            push_notification_service.send_storybook_complete_notification(
+                db=db,
+                user_id=user_id,
+                storybook_id=storybook_id,
+                storybook_title=storybook_title
+            )
+            print(f"📬 プッシュ通知を送信しました")
+        except Exception as push_error:
+            # プッシュ通知の失敗は画像生成の成功に影響しない
+            print(f"⚠️ プッシュ通知送信エラー: {push_error}")
+        
         return {
             "success": True,
             "storybook_id": storybook_id,

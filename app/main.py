@@ -288,6 +288,17 @@ except Exception as e:
     def webhooks_test():
         return {"message": "Webhooks router not available", "error": str(e)}
 
+# デバイストークン管理API（プッシュ通知用）
+try:
+    from app.api.device_tokens import router as device_tokens_router
+    app.include_router(device_tokens_router)
+    print("✅ Device tokens router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load device_tokens_router: {e}")
+    @app.get("/api/device-tokens/test")
+    def device_tokens_test():
+        return {"message": "Device tokens router not available", "error": str(e)}
+
 
 @app.get("/api/routes")
 def list_routes():
