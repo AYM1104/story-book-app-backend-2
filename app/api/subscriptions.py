@@ -216,7 +216,7 @@ async def verify_transaction(
         CreditsService.add_credits(
             db=db,
             user_id=current_user.id,
-            delta=credits_to_grant,
+            amount=credits_to_grant,
             reason="subscription_started",
             transaction_id=transaction_data.id
         )
