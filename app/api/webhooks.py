@@ -266,7 +266,7 @@ async def handle_subscribed(
     
     subscription = Subscription(
         user_id=user_id,
-        plan_type=plan_type,
+        plan=plan_type,
         original_transaction_id=original_transaction_id,
         latest_transaction_id=transaction_id,
         product_id=product_id,
@@ -280,9 +280,8 @@ async def handle_subscribed(
     CreditsService.add_credits(
         db=db,
         user_id=user_id,
-        delta=credits_to_grant,
-        reason="subscription_started",
-        transaction_id=transaction_id
+        amount=credits_to_grant,
+        reason="subscription_started"
     )
     
     logger.info(f"🆕 新規サブスクリプション: user={user_id}, plan={plan_type}, credits={credits_to_grant}")
@@ -313,9 +312,8 @@ async def handle_did_renew(
     CreditsService.add_credits(
         db=db,
         user_id=user_id,
-        delta=credits_to_grant,
-        reason="subscription_renewed",
-        transaction_id=transaction_id
+        amount=credits_to_grant,
+        reason="subscription_renewed"
     )
     
     logger.info(f"♻️ サブスクリプション更新: user={user_id}, credits={credits_to_grant}")
@@ -361,6 +359,7 @@ async def handle_expired(db: Session, subscription: Optional[Subscription]):
         return
     
     subscription.auto_renew_status = False
+    subscription.plan = PlanType.FREE
     logger.info(f"⏰ サブスクリプション期限切れ: user={subscription.user_id}")
 
 
@@ -373,7 +372,7 @@ async def handle_refund(db: Session, user_id: str, transaction_id: str, product_
     CreditsService.spend_credits(
         db=db,
         user_id=user_id,
-        delta=credits_to_deduct,
+        amount=credits_to_deduct,
         reason=f"refund_{transaction_id}"
     )
     
@@ -386,5 +385,6 @@ async def handle_revoke(db: Session, subscription: Optional[Subscription]):
         return
     
     subscription.auto_renew_status = False
+    subscription.plan = PlanType.FREE
     subscription.cancellation_date = datetime.utcnow()
     logger.warning(f"🚫 サブスクリプション取り消し: user={subscription.user_id}")
