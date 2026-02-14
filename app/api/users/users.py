@@ -5,7 +5,7 @@ from app.models.users.users import Users
 from app.models.credits.subscription import Subscription, PlanType
 from app.schemas.users.users import UserCreate, UserRead, UserUpdate
 from app.service.credits import CreditsService
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -107,7 +107,7 @@ def get_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
         # 有効期限内かチェック
         is_active = True
         if subscription.expires_at:
-            is_active = subscription.expires_at > datetime.utcnow()
+            is_active = subscription.expires_at > datetime.now(timezone.utc)
         
         # アクティブなサブスクのプランと Users.subscription_plan が不一致の場合は同期
         expected_plan = subscription.plan if is_active else PlanType.FREE

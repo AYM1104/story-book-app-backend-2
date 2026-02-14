@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from app.database.supabase_session import get_supabase_db
@@ -313,7 +313,7 @@ async def get_subscription_status(
             # 有効期限チェック
             is_active = True
             if subscription.expires_at:
-                is_active = subscription.expires_at > datetime.utcnow()
+                is_active = subscription.expires_at > datetime.now(timezone.utc)
             
             subscription_response = SubscriptionResponse(
                 id=subscription.id,
