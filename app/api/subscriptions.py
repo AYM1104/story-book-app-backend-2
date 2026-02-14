@@ -191,6 +191,7 @@ async def verify_transaction(
         
         if not subscription:
             # 新規サブスクリプション
+            should_grant_credits = True
             subscription = Subscription(
                 user_id=current_user.id,
                 plan=plan_type,
@@ -205,20 +206,40 @@ async def verify_transaction(
             logger.info(f"📝 新規サブスクリプション作成: user_id={current_user.id}, plan={plan_type}")
         else:
             # 既存サブスクリプション更新
+            new_expires_at = datetime.fromisoformat(transaction_data.expiresDate.replace('Z', '+00:00')) if transaction_data.expiresDate else None
+            
+            # クレジット付与判定：有効期限が延長された or プランが変更された場合のみ付与
+            plan_changed = subscription.plan != plan_type
+            expires_extended = False
+            if new_expires_at and subscription.expires_at:
+                expires_extended = new_expires_at > subscription.expires_at
+            elif new_expires_at and not subscription.expires_at:
+                expires_extended = True  # 初回設定
+            
+            should_grant_credits = plan_changed or expires_extended
+            
             subscription.plan = plan_type
             subscription.latest_transaction_id = transaction_data.id
             subscription.product_id = transaction_data.productId
-            subscription.expires_at = datetime.fromisoformat(transaction_data.expiresDate.replace('Z', '+00:00')) if transaction_data.expiresDate else None
-            subscription.last_credit_grant_date = datetime.utcnow()
-            logger.info(f"♻️ サブスクリプション更新: user_id={current_user.id}, plan={plan_type}")
+            subscription.expires_at = new_expires_at
+            
+            if should_grant_credits:
+                subscription.last_credit_grant_date = datetime.utcnow()
+                logger.info(f"♻️ サブスクリプション更新（クレジット付与あり）: user_id={current_user.id}, plan={plan_type}, plan_changed={plan_changed}, expires_extended={expires_extended}")
+            else:
+                logger.info(f"ℹ️ サブスクリプション確認（クレジット付与なし）: user_id={current_user.id}, plan={plan_type}, 有効期限延長なし・プラン変更なし")
         
-        # クレジット付与
-        CreditsService.add_credits(
-            db=db,
-            user_id=current_user.id,
-            amount=credits_to_grant,
-            reason="subscription_started"
-        )
+        # クレジット付与（should_grant_credits が True の場合のみ）
+        if should_grant_credits:
+            CreditsService.add_credits(
+                db=db,
+                user_id=current_user.id,
+                amount=credits_to_grant,
+                reason="subscription_started"
+            )
+        else:
+            credits_to_grant = 0
+            logger.info(f"⏭️ クレジット付与スキップ: user_id={current_user.id}")
         
         # 変更をコミット
         db.commit()
