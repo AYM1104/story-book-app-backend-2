@@ -51,7 +51,11 @@ class BaseImageGenerator:
         return f"{prefix}_{timestamp}_{unique_id}.{extension}"
 
     def save_image_to_storage(self, image_data: bytes, filename: str, user_id: str, story_id: Optional[int] = None, content_type: str = "image/png", page_index: Optional[int] = None) -> Dict[str, Any]:
-        """画像をGoogle Cloud Storageに保存"""
+        """画像をGoogle Cloud Storageに保存（保存前に0.62アスペクト比にクロップリサイズ）"""
+        # 保存前にUIのアスペクト比（0.62）に合わせてクロップ＋リサイズ
+        from app.utils.image_utils import crop_and_resize_to_aspect_ratio
+        image_data = crop_and_resize_to_aspect_ratio(image_data, 1240, 2000)
+        
         return self.gcs_service.upload_generated_image(
             file_content=image_data,
             filename=filename,

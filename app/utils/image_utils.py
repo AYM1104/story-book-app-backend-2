@@ -87,6 +87,76 @@ def resize_image_to_aspect_ratio(image_data: bytes, target_width: int = 1280, ta
     return resize_image_to_fixed_size(image_data, target_width, target_height)
 
 
+def crop_and_resize_to_aspect_ratio(
+    image_data: bytes, 
+    target_width: int = 1240, 
+    target_height: int = 2000
+) -> bytes:
+    """
+    画像を指定サイズに中央クロップ＋リサイズする（絵本画像用）
+    
+    レターボックス方式（透明余白を追加）ではなく、画像の端を切り取って
+    正確なアスペクト比に合わせる方式。絵本の画像に黒帯や余白が出ない。
+    
+    Args:
+        image_data: 元画像のバイトデータ
+        target_width: 目標幅（デフォルト: 1240）
+        target_height: 目標高さ（デフォルト: 2000）
+        ※ 1240/2000 = 0.62 → iOS UIのアスペクト比に一致
+    
+    Returns:
+        クロップ＋リサイズされた画像のバイトデータ
+    """
+    try:
+        image = Image.open(io.BytesIO(image_data))
+        original_w, original_h = image.size
+        target_ratio = target_width / target_height  # 0.62
+        original_ratio = original_w / original_h
+        
+        print(f"📐 クロップリサイズ開始: 元={original_w}x{original_h} (ratio={original_ratio:.4f}) → 目標={target_width}x{target_height} (ratio={target_ratio:.4f})")
+        
+        # RGBモードに変換
+        if image.mode not in ('RGB', 'RGBA'):
+            image = image.convert('RGB')
+        
+        # 中央クロップ: アスペクト比に合わせて切り取り
+        if original_ratio > target_ratio:
+            # 元画像が横長 → 左右を切る
+            new_w = int(original_h * target_ratio)
+            new_h = original_h
+            left = (original_w - new_w) // 2
+            top = 0
+        else:
+            # 元画像が縦長 → 上下を切る
+            new_w = original_w
+            new_h = int(original_w / target_ratio)
+            left = 0
+            top = (original_h - new_h) // 2
+        
+        # クロップ実行
+        cropped = image.crop((left, top, left + new_w, top + new_h))
+        
+        # 目標サイズにリサイズ
+        resized = cropped.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        
+        # PNG出力
+        output_buffer = io.BytesIO()
+        if resized.mode == 'RGBA':
+            resized.save(output_buffer, format='PNG', optimize=True)
+        else:
+            resized = resized.convert('RGB')
+            resized.save(output_buffer, format='PNG', optimize=True)
+        
+        result_data = output_buffer.getvalue()
+        print(f"📐 クロップリサイズ完了: {target_width}x{target_height} ({len(result_data)} bytes)")
+        
+        return result_data
+        
+    except Exception as e:
+        print(f"❌ クロップリサイズエラー: {str(e)}")
+        return image_data
+
+
 def get_image_info(image_data: bytes) -> dict:
     """
     画像の情報を取得する
