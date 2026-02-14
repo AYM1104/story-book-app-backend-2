@@ -107,11 +107,6 @@ async def supabase_story_generator(
                 selected_theme=theme_key,
                 keywords=theme_info.get("keywords", []),
                 generated_stories={},  # 空のまま（テーマ選択後に生成）
-                page_1="",  # 空のまま（テーマ選択後に生成）
-                page_2="",
-                page_3="",
-                page_4="",
-                page_5="",
                 current_page=1,
                 conversation_context={}
             )
