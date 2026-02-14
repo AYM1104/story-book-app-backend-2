@@ -217,8 +217,7 @@ async def verify_transaction(
             db=db,
             user_id=current_user.id,
             amount=credits_to_grant,
-            reason="subscription_started",
-            transaction_id=transaction_data.id
+            reason="subscription_started"
         )
         
         # 変更をコミット
