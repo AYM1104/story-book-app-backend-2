@@ -222,6 +222,8 @@ async def verify_transaction(
             subscription.latest_transaction_id = transaction_data.id
             subscription.product_id = transaction_data.productId
             subscription.expires_at = new_expires_at
+            if not subscription.original_transaction_id:
+                subscription.original_transaction_id = transaction_data.originalTransactionId
             
             if should_grant_credits:
                 subscription.last_credit_grant_date = datetime.utcnow()
