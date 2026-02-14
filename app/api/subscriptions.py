@@ -1,6 +1,7 @@
 """
 サブスクリプション関連のAPIエンドポイント
 """
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -112,22 +113,44 @@ async def verify_transaction(
         
         transaction_data = request.transaction
         
-        # JWS検証
+        # JWS検証（またはXcode/Sandbox環境のJSON直接パース）
+        jws_data = transaction_data.jwsRepresentation
+        jws_payload = None
+        
+        # JWSかJSONかを判定：JWSは "header.payload.signature" 形式（ドットで3分割）
+        # Xcode/Sandbox環境ではjsonRepresentationがそのまま送信される（JSON文字列）
+        is_raw_json = False
         try:
-            jws_payload = JWSVerificationService.verify_jws(
-                transaction_data.jwsRepresentation
-            )
-            logger.info(f"✅ JWS検証成功: transaction_id={transaction_data.id}")
-        except ValueError as e:
-            logger.error(f"❌ JWS検証失敗: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "code": "INVALID_TRANSACTION",
-                    "message": "トランザクションの検証に失敗しました",
-                    "details": str(e)
-                }
-            )
+            parsed = json.loads(jws_data)
+            if isinstance(parsed, dict):
+                is_raw_json = True
+        except (json.JSONDecodeError, TypeError):
+            pass
+        
+        if is_raw_json:
+            # JSON直接パース（Xcode/Sandbox環境）
+            jws_payload = parsed
+            environment = jws_payload.get("environment", "Unknown")
+            
+            if environment not in ("Xcode", "Sandbox"):
+                logger.warning(f"⚠️ 非本番環境のJSONトランザクション: environment={environment}")
+            
+            logger.info(f"✅ JSONトランザクション検証（{environment}環境）: transaction_id={transaction_data.id}")
+        else:
+            # JWS検証（本番環境）
+            try:
+                jws_payload = JWSVerificationService.verify_jws(jws_data)
+                logger.info(f"✅ JWS検証成功: transaction_id={transaction_data.id}")
+            except ValueError as e:
+                logger.error(f"❌ JWS検証失敗: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "INVALID_TRANSACTION",
+                        "message": "トランザクションの検証に失敗しました",
+                        "details": str(e)
+                    }
+                )
         
         # トランザクション重複チェック
         existing_transaction = db.query(AppStoreTransaction).filter(
