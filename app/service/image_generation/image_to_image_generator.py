@@ -73,7 +73,13 @@ class ImageToImageGenerator(BaseImageGenerator):
                 f"CHARACTER CONSISTENCY REQUIREMENTS:\n"
                 f"- Keep the EXACT SAME character appearance as shown in the reference image\n"
                 f"- Maintain identical: facial features, body proportions, costume/clothing details, colors, and overall style\n"
-                f"- Adapt the character to the new scene while preserving all visual characteristics"
+                f"- Adapt the character to the new scene while preserving all visual characteristics\n\n"
+                
+                # テキスト除外の指示（最優先）: 画像内にテキストを一切含めない
+                f"TEXT-FREE REQUIREMENTS (HIGHEST PRIORITY):\n"
+                f"- ABSOLUTELY NO text, letters, words, numbers, symbols, signs, labels, captions, speech bubbles, or any written language\n"
+                f"- Do NOT render any text from the story content into the image\n"
+                f"- This must be a completely text-free visual illustration with ONLY visual elements"
             )
             
             # プロンプト全文をターミナルに表示

@@ -24,7 +24,7 @@ class StoryBookGenerator(BaseImageGenerator):
             
             # 絵本風のプロンプトを作成（2:3アスペクト比指定）
             prompt = (
-                f"Create a beautiful children's book illustration for: {page_content}. "
+                f"Create a beautiful children's book illustration depicting the scene described here (DO NOT render this text in the image): {page_content}. "
                 f"Style: children's book illustration, warm and friendly, bright colors, "
                 f"simple and clean design, suitable for children. "
                 f"{page_info}"
@@ -179,7 +179,7 @@ class StoryBookGenerator(BaseImageGenerator):
             
             # 絵本風のプロンプトを作成
             enhanced_prompt = (
-                f"Create a beautiful children's book illustration for: {page_content}. "
+                f"Create a beautiful children's book illustration depicting the scene described here (DO NOT render this text in the image): {page_content}. "
                 f"Style: children's book illustration, warm and friendly, bright colors, "
                 f"simple and clean design, suitable for children. "
                 f"Character: {protagonist_name} (a {protagonist_type}). "
@@ -614,25 +614,15 @@ class StoryBookGenerator(BaseImageGenerator):
             raise e
 
     def _get_total_pages(self, story_plot) -> int:
-        """StoryPlotから実際に存在するページ数を取得（最大10ページまで）"""
-        for i in range(10, 0, -1):
-            page_content = getattr(story_plot, f'page_{i}', None)
-            if page_content and page_content.strip():
-                return i
+        """StoryPlotから実際に存在するページ数を取得（PlotPage リレーション経由）"""
+        if story_plot.pages:
+            return len([p for p in story_plot.pages if p.content and p.content.strip()])
         return 5  # デフォルトは5ページ
 
     def _get_page_content(self, story_plot, page_number: int) -> str:
-        """指定されたページの内容を取得（最大10ページまで対応）"""
-        page_map = {
-            1: story_plot.page_1,
-            2: story_plot.page_2,
-            3: story_plot.page_3,
-            4: story_plot.page_4,
-            5: story_plot.page_5,
-            6: getattr(story_plot, 'page_6', None),
-            7: getattr(story_plot, 'page_7', None),
-            8: getattr(story_plot, 'page_8', None),
-            9: getattr(story_plot, 'page_9', None),
-            10: getattr(story_plot, 'page_10', None),
-        }
-        return page_map.get(page_number, "") or ""
+        """指定されたページの内容を取得（PlotPage リレーション経由）"""
+        for page in story_plot.pages:
+            if page.page_number == page_number:
+                return page.content or ""
+        return ""
+

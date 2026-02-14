@@ -114,27 +114,16 @@ class StoryPlotGenerator(ImageToImageGenerator):
             raise e
 
     def _get_page_content(self, story_plot: StoryPlot, page_number: int) -> str:
-        """指定されたページの内容を取得（最大10ページまで対応）"""
-        page_map = {
-            1: story_plot.page_1,
-            2: story_plot.page_2,
-            3: story_plot.page_3,
-            4: story_plot.page_4,
-            5: story_plot.page_5,
-            6: getattr(story_plot, 'page_6', None),
-            7: getattr(story_plot, 'page_7', None),
-            8: getattr(story_plot, 'page_8', None),
-            9: getattr(story_plot, 'page_9', None),
-            10: getattr(story_plot, 'page_10', None),
-        }
-        return page_map.get(page_number, "") or ""  # バリデーションはエンドポイント層で行う
-
+        """指定されたページの内容を取得（PlotPage リレーション経由）"""
+        for page in story_plot.pages:
+            if page.page_number == page_number:
+                return page.content or ""
+        return ""
+    
     def _get_total_pages(self, story_plot: StoryPlot) -> int:
-        """StoryPlotから実際に存在するページ数を取得（最大10ページまで）"""
-        for i in range(10, 0, -1):
-            page_content = getattr(story_plot, f'page_{i}', None)
-            if page_content and page_content.strip():
-                return i
+        """StoryPlotから実際に存在するページ数を取得（PlotPage リレーション経由）"""
+        if story_plot.pages:
+            return len([p for p in story_plot.pages if p.content and p.content.strip()])
         return 5  # デフォルトは5ページ
 
     def _create_storyplot_prompt(
@@ -348,10 +337,9 @@ class StoryPlotGenerator(ImageToImageGenerator):
             
             # 完了ページ数を計算（未指定の場合）
             if completed_pages is None:
-                completed_pages = sum([
-                    1 if storybook.cover_image_url else 0,
-                    *[1 if getattr(storybook, f"page_{i}_image_url", None) else 0 for i in range(1, 11)]
-                ])
+                completed_pages = (1 if storybook.cover_image_url else 0) + sum(
+                    1 for page in storybook.pages if page.image_url
+                )
                 # 現在処理中のページが完了している場合は除外
                 if current_step == "completed":
                     completed_pages = max(0, completed_pages - 1)
@@ -381,7 +369,7 @@ class StoryPlotGenerator(ImageToImageGenerator):
             db.rollback()
     
     def _save_image_url_to_storybook(self, db: Session, story_plot_id: int, page_number: int, image_url: str, user_id: str = None):
-        """生成された画像URLをSupabaseのstory_booksテーブルに保存（最大10ページまで対応）"""
+        """生成された画像URLを StoryPage テーブルに保存"""
         try:
             if not image_url:
                 print(f"⚠️ 画像URLが空のためスキップ: story_plot_id={story_plot_id}, page={page_number}")
@@ -396,24 +384,17 @@ class StoryPlotGenerator(ImageToImageGenerator):
                 print(f"⚠️ StoryBookが見つかりません: story_plot_id={story_plot_id}")
                 return
             
-            # ページ番号に応じてURLを更新（最大10ページまで対応）
-            page_image_url_map = {
-                1: 'page_1_image_url',
-                2: 'page_2_image_url',
-                3: 'page_3_image_url',
-                4: 'page_4_image_url',
-                5: 'page_5_image_url',
-                6: 'page_6_image_url',
-                7: 'page_7_image_url',
-                8: 'page_8_image_url',
-                9: 'page_9_image_url',
-                10: 'page_10_image_url',
-            }
+            # StoryPage を page_number で検索して image_url を更新
+            from app.models.story.story_page import StoryPage
+            story_page = db.query(StoryPage).filter(
+                StoryPage.story_book_id == storybook.id,
+                StoryPage.page_number == page_number
+            ).first()
             
-            if page_number in page_image_url_map:
-                setattr(storybook, page_image_url_map[page_number], image_url)
+            if story_page:
+                story_page.image_url = image_url
             else:
-                print(f"⚠️ 無効なページ番号: {page_number}")
+                print(f"⚠️ StoryPage が見つかりません: storybook_id={storybook.id}, page={page_number}")
                 return
             
             # 画像生成状態を更新
@@ -428,7 +409,7 @@ class StoryPlotGenerator(ImageToImageGenerator):
             raise e
 
     def _save_all_images_to_storybook(self, db: Session, story_plot_id: int, generated_images: List[Dict], user_id: str = None):
-        """全ページの画像URLをSupabaseのstory_booksテーブルに一括保存"""
+        """全ページの画像URLを StoryPage テーブルに一括保存"""
         try:
             if not generated_images:
                 print(f"⚠️ 生成された画像が空のためスキップ: story_plot_id={story_plot_id}")
@@ -443,21 +424,8 @@ class StoryPlotGenerator(ImageToImageGenerator):
                 print(f"⚠️ StoryBookが見つかりません: story_plot_id={story_plot_id}")
                 return
             
-            # 各画像のURLを保存（最大10ページまで対応）
+            from app.models.story.story_page import StoryPage
             updated_pages = []
-            page_image_url_map = {
-                0: 'cover_image_url',
-                1: 'page_1_image_url',
-                2: 'page_2_image_url',
-                3: 'page_3_image_url',
-                4: 'page_4_image_url',
-                5: 'page_5_image_url',
-                6: 'page_6_image_url',
-                7: 'page_7_image_url',
-                8: 'page_8_image_url',
-                9: 'page_9_image_url',
-                10: 'page_10_image_url',
-            }
             
             for image_info in generated_images:
                 page_number = image_info.get('page_number')
@@ -466,15 +434,21 @@ class StoryPlotGenerator(ImageToImageGenerator):
                 if page_number is None or not image_url:
                     continue
                 
-                # ページ番号に応じてURLを更新
-                if page_number in page_image_url_map:
-                    setattr(storybook, page_image_url_map[page_number], image_url)
-                    if page_number == 0:
-                        updated_pages.append("cover")
-                    else:
-                        updated_pages.append(f"page_{page_number}")
+                if page_number == 0:
+                    # 表紙画像
+                    storybook.cover_image_url = image_url
+                    updated_pages.append("cover")
                 else:
-                    print(f"⚠️ 無効なページ番号: {page_number}")
+                    # ページ画像 → StoryPage の image_url を更新
+                    story_page = db.query(StoryPage).filter(
+                        StoryPage.story_book_id == storybook.id,
+                        StoryPage.page_number == page_number
+                    ).first()
+                    if story_page:
+                        story_page.image_url = image_url
+                        updated_pages.append(f"page_{page_number}")
+                    else:
+                        print(f"⚠️ StoryPage が見つかりません: storybook_id={storybook.id}, page={page_number}")
             
             # 画像生成状態を完了に更新
             if updated_pages:

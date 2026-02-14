@@ -136,33 +136,18 @@ async def get_supabase_book_detail(
                 detail=f"絵本 ID {book_id} が見つかりません"
             )
         
-        # 最大10ページの情報を配列形式に変換
+        # StoryPage リレーションからページ情報を構築
         pages = []
-        page_texts = [
-            storybook.page_1, storybook.page_2, storybook.page_3, storybook.page_4, storybook.page_5,
-            getattr(storybook, 'page_6', None), getattr(storybook, 'page_7', None),
-            getattr(storybook, 'page_8', None), getattr(storybook, 'page_9', None),
-            getattr(storybook, 'page_10', None)
-        ]
-        page_image_urls = [
-            storybook.page_1_image_url, storybook.page_2_image_url, storybook.page_3_image_url,
-            storybook.page_4_image_url, storybook.page_5_image_url,
-            getattr(storybook, 'page_6_image_url', None), getattr(storybook, 'page_7_image_url', None),
-            getattr(storybook, 'page_8_image_url', None), getattr(storybook, 'page_9_image_url', None),
-            getattr(storybook, 'page_10_image_url', None)
-        ]
-        
-        for i, (text, image_url) in enumerate(zip(page_texts, page_image_urls), 1):
-            if text:  # テキストが存在するページのみ追加
-                # 画像URLをWebアクセス可能な形式に変換
-                web_image_url = convert_file_path_to_url(image_url) if image_url else None
+        for page in storybook.pages:
+            if page.content:  # テキストが存在するページのみ追加
+                web_image_url = convert_file_path_to_url(page.image_url) if page.image_url else None
                 
                 pages.append(PageResponse(
-                    id=book_id * 100 + i,  # 一意のIDを生成
-                    page_no=i,
+                    id=book_id * 100 + page.page_number,
+                    page_no=page.page_number,
                     image_url=web_image_url,
-                    alt=f"{storybook.title} - ページ{i}",
-                    text=text
+                    alt=f"{storybook.title} - ページ{page.page_number}",
+                    text=page.content
                 ))
         
         book_detail = BookDetailResponse(

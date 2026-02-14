@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
 
@@ -9,6 +9,26 @@ class ImageGenerationStatus(str, Enum):
     GENERATING = "generating"
     COMPLETED = "completed"
     FAILED = "failed"
+
+# --- ページ関連スキーマ ---
+
+class PageContent(BaseModel):
+    """ページ内容（作成・保存用）"""
+    page_number: int
+    content: str
+
+class PageResponse(BaseModel):
+    """ページレスポンス（content + image_url）"""
+    page_number: int
+    content: str
+    image_url: Optional[str] = None
+
+class PageImageUpdate(BaseModel):
+    """ページ画像URL更新用"""
+    page_number: int
+    image_url: str
+
+# --- リクエスト・レスポンス ---
 
 class ThemeConfirmationRequest(BaseModel):
     """テーマ選択確認リクエスト"""
@@ -23,24 +43,14 @@ class StoryBookCreate(BaseModel):
     title: str
     description: Optional[str] = None
     keywords: Optional[list] = None
-    story_content: str
-    page_1: str
-    page_2: str
-    page_3: str
-    page_4: str
-    page_5: str
-    page_6: Optional[str] = None
-    page_7: Optional[str] = None
-    page_8: Optional[str] = None
-    page_9: Optional[str] = None
-    page_10: Optional[str] = None
+    pages: List[PageContent]  # 正規化されたページ配列
 
 class StoryBookResponse(BaseModel):
-    """StoryBookレスポンス用スキーマ（worksテーブルの機能を統合）"""
+    """StoryBookレスポンス用スキーマ"""
     id: int
     story_plot_id: int
     user_id: str  # Supabaseでは文字列型（Auth0のユーザーID）
-    child_id: Optional[int]
+    child_id: Optional[int] = None
     title: str
     description: Optional[str] = None
     keywords: Optional[list] = None
@@ -49,28 +59,11 @@ class StoryBookResponse(BaseModel):
     is_favorite: bool = False
     visibility: Dict[str, bool] = {"private": True, "shared": False}
     total_views: int = 0
-    story_content: str
-    page_1: str
-    page_2: str
-    page_3: str
-    page_4: str
-    page_5: str
-    page_6: Optional[str] = None
-    page_7: Optional[str] = None
-    page_8: Optional[str] = None
-    page_9: Optional[str] = None
-    page_10: Optional[str] = None
+    # 表紙画像
     cover_image_url: Optional[str] = None
-    page_1_image_url: Optional[str] = None
-    page_2_image_url: Optional[str] = None
-    page_3_image_url: Optional[str] = None
-    page_4_image_url: Optional[str] = None
-    page_5_image_url: Optional[str] = None
-    page_6_image_url: Optional[str] = None
-    page_7_image_url: Optional[str] = None
-    page_8_image_url: Optional[str] = None
-    page_9_image_url: Optional[str] = None
-    page_10_image_url: Optional[str] = None
+    # 正規化されたページ配列
+    pages: List[PageResponse] = []
+    # 画像生成状態
     image_generation_status: str
     created_at: datetime
     updated_at: datetime
@@ -82,16 +75,7 @@ class StorybookImageUrlUpdateRequest(BaseModel):
     """ストーリーブック画像URL更新リクエスト"""
     storybook_id: int
     cover_image_url: Optional[str] = None
-    page_1_image_url: Optional[str] = None
-    page_2_image_url: Optional[str] = None
-    page_3_image_url: Optional[str] = None
-    page_4_image_url: Optional[str] = None
-    page_5_image_url: Optional[str] = None
-    page_6_image_url: Optional[str] = None
-    page_7_image_url: Optional[str] = None
-    page_8_image_url: Optional[str] = None
-    page_9_image_url: Optional[str] = None
-    page_10_image_url: Optional[str] = None
+    page_images: List[PageImageUpdate] = []  # 正規化されたページ画像配列
 
 class StorybookImageUrlUpdateResponse(BaseModel):
     """ストーリーブック画像URL更新レスポンス"""

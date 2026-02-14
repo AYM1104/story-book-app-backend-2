@@ -136,28 +136,18 @@ async def get_book_detail(
                 detail=f"絵本 ID {book_id} が見つかりません"
             )
         
-        # 5ページの情報を配列形式に変換
+        # StoryPage リレーションからページ情報を構築
         pages = []
-        page_texts = [storybook.page_1, storybook.page_2, storybook.page_3, storybook.page_4, storybook.page_5]
-        page_image_urls = [
-            storybook.page_1_image_url, 
-            storybook.page_2_image_url, 
-            storybook.page_3_image_url, 
-            storybook.page_4_image_url, 
-            storybook.page_5_image_url
-        ]
-        
-        for i, (text, image_url) in enumerate(zip(page_texts, page_image_urls), 1):
-            if text:  # テキストが存在するページのみ追加
-                # 画像URLをWebアクセス可能な形式に変換
-                web_image_url = convert_file_path_to_url(image_url)
+        for page in storybook.pages:
+            if page.content:
+                web_image_url = convert_file_path_to_url(page.image_url) if page.image_url else None
                 
                 pages.append(PageResponse(
-                    id=book_id * 100 + i,  # 一意のIDを生成
-                    page_no=i,
+                    id=book_id * 100 + page.page_number,
+                    page_no=page.page_number,
                     image_url=web_image_url,
-                    alt=f"{storybook.title} - ページ{i}",
-                    text=text
+                    alt=f"{storybook.title} - ページ{page.page_number}",
+                    text=page.content
                 ))
         
         book_detail = BookDetailResponse(

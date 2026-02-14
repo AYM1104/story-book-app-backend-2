@@ -83,9 +83,9 @@ def product_id_to_plan_type(product_id: str) -> PlanType:
 def plan_type_to_credits(plan_type: PlanType) -> int:
     """PlanTypeから付与するクレジット数を取得"""
     mapping = {
-        PlanType.STARTER: 350,
-        PlanType.PLUS: 700,
-        PlanType.PREMIUM: 1200,
+        PlanType.STARTER: 600,
+        PlanType.PLUS: 1000,
+        PlanType.PREMIUM: 1500,
     }
     return mapping.get(plan_type, 0)
 

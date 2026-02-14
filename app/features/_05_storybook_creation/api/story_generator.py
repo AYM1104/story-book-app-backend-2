@@ -4,6 +4,7 @@ from app.database.supabase_session import get_supabase_db
 from app.models.story.story_setting import StorySetting
 from app.models.story.story_plot import StoryPlot
 from app.models.story.story_book import StoryBook
+from app.models.story.plot_page import PlotPage
 from app.features._02_generation_plan.services.story_line.story_line_generator import StoryGeneratorService
 from app.service.credits import CreditsService, PricingService
 from app.core.dependencies.plan_validator import validate_story_plan, PlanValidationResult
@@ -147,30 +148,30 @@ async def supabase_select_theme(
         print(f"デバッグ: story_pagesの長さ = {len(story_pages)}")
         print(f"デバッグ: リクエストされたページ数 = {request.story_pages}")
 
-        # ページ数をリセット（空文字で初期化、最大10ページまで）
-        for i in range(1, 11):
-            page_key = f"page_{i}"
-            if hasattr(story_plot, page_key):
-                setattr(story_plot, page_key, "")
+
+        # 既存のPlotPageを削除して新しいページを保存
+        for existing_page in story_plot.pages:
+            db.delete(existing_page)
+        db.flush()
         
-        # 生成されたページ数に応じて保存（最大10ページまで）
-        max_save_pages = min(len(story_pages), 10)
-        for i, page_data in enumerate(story_pages[:max_save_pages], 1):
-            page_key = f"page_{i}"
-            if hasattr(story_plot, page_key):
-                # 新しい形式（page_no, story_text, background_prompt）に対応
-                if isinstance(page_data, dict):
-                    if "story_text" in page_data:
-                        # 新しい形式: {"page_no": 1, "story_text": "...", "background_prompt": "..."}
-                        setattr(story_plot, page_key, page_data["story_text"])
-                    elif page_key in page_data:
-                        # 旧形式との互換性: {"page_1": "..."}
-                        setattr(story_plot, page_key, page_data[page_key])
-                    elif f"page_{page_data.get('page_no', i)}" == page_key:
-                        # page_noを使用した新しい形式
-                        setattr(story_plot, page_key, page_data.get("story_text", ""))
+        # 生成されたページを PlotPage として保存
+        for i, page_data in enumerate(story_pages, 1):
+            page_content = ""
+            if isinstance(page_data, dict):
+                if "story_text" in page_data:
+                    page_content = page_data["story_text"]
+                elif f"page_{i}" in page_data:
+                    page_content = page_data[f"page_{i}"]
+            
+            if page_content:
+                plot_page = PlotPage(
+                    story_plot_id=story_plot.id,
+                    page_number=i,
+                    content=page_content
+                )
+                db.add(plot_page)
         
-        print(f"✅ ページ保存完了（{max_save_pages}ページ保存）")
+        print(f"✅ ページ保存完了（{len(story_pages)}ページ保存）")
         
         # データベース保存
         db_save_start = time.time()
@@ -203,9 +204,9 @@ async def supabase_select_theme(
             "message": f"テーマ「{story_plot.title}」の物語を生成して保存しました。",
             "story_pages": request.story_pages,
             "pages": [
-                {f"page_{i}": getattr(story_plot, f"page_{i}", None) or ""}
-                for i in range(1, 11)
-                if getattr(story_plot, f"page_{i}", None)
+                {"page_number": page.page_number, "content": page.content}
+                for page in story_plot.pages
+                if page.content
             ],
             "next_step": "story_completed",
             "processing_time_ms": processing_time_ms,
@@ -260,9 +261,9 @@ async def get_supabase_story_plot(
         "keywords": story_plot.keywords,
         "theme_options": story_plot.theme_options,
         "story_pages": [
-            {f"page_{i}": getattr(story_plot, f"page_{i}", None) or ""}
-            for i in range(1, 11)
-            if getattr(story_plot, f"page_{i}", None)
+            {"page_number": page.page_number, "content": page.content}
+            for page in story_plot.pages
+            if page.content
         ],
         "created_at": story_plot.created_at.isoformat(),
         "updated_at": story_plot.updated_at.isoformat()

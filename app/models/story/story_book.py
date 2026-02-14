@@ -5,7 +5,8 @@ from app.database.supabase_base import SupabaseBase
 class StoryBook(SupabaseBase):
     """えほんモデル（worksテーブルの機能を統合）
     
-    SupabaseBaseを継承してcreated_atとupdated_atを自動管理
+    SupabaseBaseを継承してcreated_atとupdated_atを自動管理。
+    ページデータは StoryPage テーブルで正規化管理。
     """
     __tablename__ = "story_books"
 
@@ -25,34 +26,8 @@ class StoryBook(SupabaseBase):
     visibility = Column(JSON, nullable=False, server_default='{"private": true, "shared": false}', comment="公開設定")
     total_views = Column(Integer, nullable=False, default=0, comment="閲覧数")
     
-    # 生成された物語本文（選択されたテーマのみ）
-    content = Column(Text, nullable=False, comment="物語本文（メイン）")
-    story_content = Column(Text, nullable=True, comment="物語本文（詳細）")
-    
-    # 最大10ページの内容
-    page_1 = Column(Text, nullable=False, comment="1ページ目の内容")
-    page_2 = Column(Text, nullable=False, comment="2ページ目の内容")
-    page_3 = Column(Text, nullable=False, comment="3ページ目の内容")
-    page_4 = Column(Text, nullable=False, comment="4ページ目の内容")
-    page_5 = Column(Text, nullable=False, comment="5ページ目の内容")
-    page_6 = Column(Text, nullable=True, comment="6ページ目の内容")
-    page_7 = Column(Text, nullable=True, comment="7ページ目の内容")
-    page_8 = Column(Text, nullable=True, comment="8ページ目の内容")
-    page_9 = Column(Text, nullable=True, comment="9ページ目の内容")
-    page_10 = Column(Text, nullable=True, comment="10ページ目の内容")
-    
-    # 生成された画像のURL（生成後に更新）
+    # 表紙画像URL
     cover_image_url = Column(String(512), nullable=True, comment="表紙の画像URL")
-    page_1_image_url = Column(String(512), nullable=True, comment="1ページ目の画像URL")
-    page_2_image_url = Column(String(512), nullable=True, comment="2ページ目の画像URL")
-    page_3_image_url = Column(String(512), nullable=True, comment="3ページ目の画像URL")
-    page_4_image_url = Column(String(512), nullable=True, comment="4ページ目の画像URL")
-    page_5_image_url = Column(String(512), nullable=True, comment="5ページ目の画像URL")
-    page_6_image_url = Column(String(512), nullable=True, comment="6ページ目の画像URL")
-    page_7_image_url = Column(String(512), nullable=True, comment="7ページ目の画像URL")
-    page_8_image_url = Column(String(512), nullable=True, comment="8ページ目の画像URL")
-    page_9_image_url = Column(String(512), nullable=True, comment="9ページ目の画像URL")
-    page_10_image_url = Column(String(512), nullable=True, comment="10ページ目の画像URL")
     
     # 画像生成の状態管理
     image_generation_status = Column(Enum("pending", "generating", "completed", "failed", name="image_generation_status_enum"), 
@@ -64,3 +39,5 @@ class StoryBook(SupabaseBase):
     user = relationship("Users", back_populates="storybooks")
     credit_ledger = relationship("CreditLedger", back_populates="work")
     child = relationship("Child", back_populates="storybooks")
+    pages = relationship("StoryPage", back_populates="story_book", order_by="StoryPage.page_number", cascade="all, delete-orphan")
+
