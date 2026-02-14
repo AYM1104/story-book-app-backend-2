@@ -193,7 +193,7 @@ async def verify_transaction(
             # 新規サブスクリプション
             subscription = Subscription(
                 user_id=current_user.id,
-                plan_type=plan_type,
+                plan=plan_type,
                 original_transaction_id=transaction_data.originalTransactionId,
                 latest_transaction_id=transaction_data.id,
                 product_id=transaction_data.productId,
@@ -205,7 +205,7 @@ async def verify_transaction(
             logger.info(f"📝 新規サブスクリプション作成: user_id={current_user.id}, plan={plan_type}")
         else:
             # 既存サブスクリプション更新
-            subscription.plan_type = plan_type
+            subscription.plan = plan_type
             subscription.latest_transaction_id = transaction_data.id
             subscription.product_id = transaction_data.productId
             subscription.expires_at = datetime.fromisoformat(transaction_data.expiresDate.replace('Z', '+00:00')) if transaction_data.expiresDate else None
@@ -234,7 +234,7 @@ async def verify_transaction(
             subscription=SubscriptionResponse(
                 id=subscription.id,
                 userId=subscription.user_id,
-                planType=subscription.plan_type.value,
+                planType=subscription.plan.value,
                 productId=subscription.product_id,
                 status="active",
                 expiresAt=subscription.expires_at.isoformat() if subscription.expires_at else None,
@@ -288,14 +288,14 @@ async def get_subscription_status(
             subscription_response = SubscriptionResponse(
                 id=subscription.id,
                 userId=subscription.user_id,
-                planType=subscription.plan_type.value,
+                planType=subscription.plan.value,
                 productId=subscription.product_id or "",
                 status="active" if is_active else "expired",
                 expiresAt=subscription.expires_at.isoformat() if subscription.expires_at else None,
                 autoRenewStatus=subscription.auto_renew_status or False
             )
             
-            monthly_allocation = plan_type_to_credits(subscription.plan_type)
+            monthly_allocation = plan_type_to_credits(subscription.plan)
             next_grant_date = subscription.expires_at.isoformat() if subscription.expires_at else None
         else:
             subscription_response = None
