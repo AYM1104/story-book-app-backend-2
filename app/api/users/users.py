@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.supabase_session import get_supabase_db
 from app.models.users.users import Users
+from app.models.credits.subscription import Subscription, PlanType
 from app.schemas.users.users import UserCreate, UserRead, UserUpdate
 from app.service.credits import CreditsService
-from app.models.credits.subscription import PlanType
+from datetime import datetime
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -96,6 +97,23 @@ def get_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
             user.user_name = user.email.split("@")[0]
         else:
             user.user_name = f"ユーザー_{user.id[-8:]}"  # IDの最後8文字を使用
+    
+    # Subscriptionテーブルからアクティブなプランを確認し、不整合があれば自動同期
+    subscription = db.query(Subscription).filter(
+        Subscription.user_id == user_id
+    ).first()
+    
+    if subscription:
+        # 有効期限内かチェック
+        is_active = True
+        if subscription.expires_at:
+            is_active = subscription.expires_at > datetime.utcnow()
+        
+        # アクティブなサブスクのプランと Users.subscription_plan が不一致の場合は同期
+        expected_plan = subscription.plan if is_active else PlanType.FREE
+        if user.subscription_plan != expected_plan:
+            user.subscription_plan = expected_plan
+            db.commit()
     
     return user
 

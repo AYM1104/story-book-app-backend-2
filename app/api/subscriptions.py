@@ -14,6 +14,7 @@ from app.database.supabase_session import get_supabase_db
 from app.core.security.auth0_jwt import get_current_user_auth0, get_user_or_create
 from app.models.credits.subscription import Subscription, PlanType
 from app.models.iap.app_store_transaction import AppStoreTransaction
+from app.models.users.users import Users
 from app.service.appstore import JWSVerificationService
 from app.service.credits.credits_service import CreditsService
 
@@ -242,6 +243,12 @@ async def verify_transaction(
         else:
             credits_to_grant = 0
             logger.info(f"⏭️ クレジット付与スキップ: user_id={current_user.id}")
+        
+        # Users テーブルの subscription_plan も同期更新
+        db_user = db.query(Users).filter(Users.id == current_user.id).first()
+        if db_user:
+            db_user.subscription_plan = plan_type
+            logger.info(f"📝 Users.subscription_plan を更新: {plan_type.value}")
         
         # 変更をコミット
         db.commit()

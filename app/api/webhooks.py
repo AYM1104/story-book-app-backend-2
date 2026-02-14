@@ -13,6 +13,7 @@ import logging
 from app.database.supabase_session import get_supabase_db
 from app.models.credits.subscription import Subscription, PlanType
 from app.models.iap.app_store_transaction import AppStoreTransaction
+from app.models.users.users import Users
 from app.service.appstore import JWSVerificationService
 from app.service.credits.credits_service import CreditsService
 
@@ -284,6 +285,11 @@ async def handle_subscribed(
         reason="subscription_started"
     )
     
+    # Users テーブルの subscription_plan も同期更新
+    db_user = db.query(Users).filter(Users.id == user_id).first()
+    if db_user:
+        db_user.subscription_plan = plan_type
+    
     logger.info(f"🆕 新規サブスクリプション: user={user_id}, plan={plan_type}, credits={credits_to_grant}")
 
 
@@ -315,6 +321,11 @@ async def handle_did_renew(
         amount=credits_to_grant,
         reason="subscription_renewed"
     )
+    
+    # Users テーブルの subscription_plan も同期更新
+    db_user = db.query(Users).filter(Users.id == user_id).first()
+    if db_user:
+        db_user.subscription_plan = product_id_to_plan_type(product_id)
     
     logger.info(f"♻️ サブスクリプション更新: user={user_id}, credits={credits_to_grant}")
 
@@ -360,6 +371,12 @@ async def handle_expired(db: Session, subscription: Optional[Subscription]):
     
     subscription.auto_renew_status = False
     subscription.plan = PlanType.FREE
+    
+    # Users テーブルの subscription_plan も FREE にリセット
+    db_user = db.query(Users).filter(Users.id == subscription.user_id).first()
+    if db_user:
+        db_user.subscription_plan = PlanType.FREE
+    
     logger.info(f"⏰ サブスクリプション期限切れ: user={subscription.user_id}")
 
 
@@ -387,4 +404,10 @@ async def handle_revoke(db: Session, subscription: Optional[Subscription]):
     subscription.auto_renew_status = False
     subscription.plan = PlanType.FREE
     subscription.cancellation_date = datetime.utcnow()
+    
+    # Users テーブルの subscription_plan も FREE にリセット
+    db_user = db.query(Users).filter(Users.id == subscription.user_id).first()
+    if db_user:
+        db_user.subscription_plan = PlanType.FREE
+    
     logger.warning(f"🚫 サブスクリプション取り消し: user={subscription.user_id}")
