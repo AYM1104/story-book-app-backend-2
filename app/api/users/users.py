@@ -63,10 +63,10 @@ def get_supabase_users(db: Session = Depends(get_supabase_db)):
     """Supabase用のユーザー一覧取得エンドポイント"""
     
     users = db.query(Users).all()
-    # メールアドレスが空文字列の場合、Noneに変換（オプショナルとして扱う）
+    # メールアドレスが空文字列またはダミーメールの場合、Noneに変換
     # user_nameがNULLまたは空文字列の場合、デフォルト値を設定
     for user in users:
-        if not user.email or user.email == "":
+        if not user.email or user.email == "" or user.email.endswith("@dummy.local"):
             user.email = None
         # user_nameがNULLまたは空文字列の場合、デフォルト値を設定
         if not user.user_name or user.user_name == "":
@@ -86,8 +86,8 @@ def get_supabase_user(user_id: str, db: Session = Depends(get_supabase_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # メールアドレスが空文字列の場合、Noneに変換（オプショナルとして扱う）
-    if not user.email or user.email == "":
+    # メールアドレスが空文字列またはダミーメール（@dummy.local）の場合、Noneに変換
+    if not user.email or user.email == "" or user.email.endswith("@dummy.local"):
         user.email = None
     
     # user_nameがNULLまたは空文字列の場合、デフォルト値を設定

@@ -80,8 +80,8 @@ class UserRead(BaseModel):
     # ユーザー名
     user_name: str
 
-    # メールアドレス（未登録の場合は null）
-    email: Optional[EmailStr] = None
+    # メールアドレス（未登録の場合は null、ダミーメールの場合もあり得るため str で受け取る）
+    email: Optional[str] = None
 
     # クレジット残高（絵本生成などで消費されるポイント）
     balance: int
