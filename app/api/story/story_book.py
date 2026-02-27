@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import Response
 import json
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.database.supabase_session import get_supabase_db
 from app.models.story.story_plot import StoryPlot
+from app.models.story.story_setting import StorySetting
 from app.models.story.story_book import StoryBook
 from app.models.story.story_page import StoryPage
 from app.models.child.child import Child
@@ -182,52 +183,66 @@ async def get_supabase_storybook(
 ):
     """Supabase用のストーリーブック詳細を取得するエンドポイント"""
     
-    storybook = db.query(StoryBook).filter(
-        StoryBook.id == storybook_id
-    ).first()
+    try:
+        storybook = db.query(StoryBook).options(
+            joinedload(StoryBook.pages),
+            joinedload(StoryBook.story_plot).joinedload(StoryPlot.story_setting).joinedload(StorySetting.upload_image)
+        ).filter(
+            StoryBook.id == storybook_id
+        ).first()
+        
+        if not storybook:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"StoryBook ID {storybook_id} が見つかりません"
+            )
+        
+        # アップロード画像の情報を取得
+        uploaded_image_info = None
+        if storybook.story_plot and storybook.story_plot.story_setting:
+            story_setting = storybook.story_plot.story_setting
+            if story_setting.upload_image:
+                uploaded_image = story_setting.upload_image
+                uploaded_image_info = {
+                    "id": uploaded_image.id,
+                    "filename": uploaded_image.file_name,
+                    "file_path": uploaded_image.file_path,
+                    "public_url": uploaded_image.public_url,
+                    "uploaded_at": uploaded_image.created_at
+                }
+        
+        # ページ情報を正規化形式で構築
+        pages = _build_pages_response(storybook)
+        
+        response_data = {
+            "id": storybook.id,
+            "story_plot_id": storybook.story_plot_id,
+            "user_id": storybook.user_id,
+            "child_id": storybook.child_id,
+            "title": storybook.title,
+            "description": storybook.description,
+            "keywords": storybook.keywords,
+            "cover_image_url": storybook.cover_image_url,
+            "pages": pages,
+            "image_generation_status": storybook.image_generation_status,
+            "created_at": storybook.created_at,
+            "updated_at": storybook.updated_at
+        }
+        
+        if uploaded_image_info:
+            response_data['uploaded_image'] = uploaded_image_info
+        
+        return response_data
     
-    if not storybook:
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ストーリーブック取得エラー (ID: {storybook_id}): {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"StoryBook ID {storybook_id} が見つかりません"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ストーリーブックの取得に失敗しました: {str(e)}"
         )
-    
-    # アップロード画像の情報を取得
-    uploaded_image_info = None
-    if storybook.story_plot and storybook.story_plot.story_setting:
-        story_setting = storybook.story_plot.story_setting
-        if story_setting.upload_image:
-            uploaded_image = story_setting.upload_image
-            uploaded_image_info = {
-                "id": uploaded_image.id,
-                "filename": uploaded_image.file_name,
-                "file_path": uploaded_image.file_path,
-                "public_url": uploaded_image.public_url,
-                "uploaded_at": uploaded_image.created_at
-            }
-    
-    # ページ情報を正規化形式で構築
-    pages = _build_pages_response(storybook)
-    
-    response_data = {
-        "id": storybook.id,
-        "story_plot_id": storybook.story_plot_id,
-        "user_id": storybook.user_id,
-        "child_id": storybook.child_id,
-        "title": storybook.title,
-        "description": storybook.description,
-        "keywords": storybook.keywords,
-        "cover_image_url": storybook.cover_image_url,
-        "pages": pages,
-        "image_generation_status": storybook.image_generation_status,
-        "created_at": storybook.created_at,
-        "updated_at": storybook.updated_at
-    }
-    
-    if uploaded_image_info:
-        response_data['uploaded_image'] = uploaded_image_info
-    
-    return response_data
+
 
 
 @router.get("/user/{user_id}")
