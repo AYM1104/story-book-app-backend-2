@@ -135,7 +135,7 @@ class BasicImageGenerator(BaseImageGenerator):
                     # API処理時間計測
                     api_start_time = time.time()
                     response = self.client.models.generate_content(
-                        model="gemini-2.5-flash-image-preview",
+                        model="gemini-3.1-flash-image-preview", # modified from gemini-2.5-flash-image-preview
                         contents=[enhanced_prompt]
                     )
                     api_end_time = time.time()

@@ -42,7 +42,8 @@ def get_and_validate_api_key() -> Tuple[str, str]:
     return api_key, api_key_type
 
 
-def configure_gemini_model(api_key: str, model_name: str = 'gemini-2.5-flash') -> genai.GenerativeModel:
+# def configure_gemini_model(api_key: str, model_name: str = 'gemini-2.5-flash') -> genai.GenerativeModel:
+def configure_gemini_model(api_key: str, model_name: str = 'gemini-3-flash-preview') -> genai.GenerativeModel:
     """
     Gemini APIを設定し、モデルインスタンスを返す
     
@@ -67,7 +68,8 @@ def configure_gemini_model(api_key: str, model_name: str = 'gemini-2.5-flash') -
         raise ValueError(error_msg) from e
 
 
-def initialize_gemini_model_2_5_flash(model_name: str = 'gemini-2.5-flash') -> genai.GenerativeModel:
+# def initialize_gemini_model_2_5_flash(model_name: str = 'gemini-2.5-flash') -> genai.GenerativeModel:
+def initialize_gemini_model_2_5_flash(model_name: str = 'gemini-3-flash-preview') -> genai.GenerativeModel:
     """
     Gemini APIキーを取得・検証し、モデルを初期化する（一括処理）
     
