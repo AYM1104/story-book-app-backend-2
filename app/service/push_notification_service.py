@@ -296,6 +296,138 @@ class PushNotificationService:
         print(f"📬 通知送信完了: {len(results)}件（成功: {sum(1 for r in results if r.get('success'))}件）")
         return results
 
+    def send_live_activity_update(
+        self,
+        push_token: str,
+        progress_text: str,
+        progress_value: float,
+        status: str = "in_progress",
+        event: str = "update"
+    ) -> Dict[str, Any]:
+        """
+        Live Activity をAPNs経由で更新（同期版）
+        
+        Args:
+            push_token: Live Activity固有のプッシュトークン（Hex文字列）
+            progress_text: 進捗テキスト（例: "絵を描いています... (3/5ページ)"）
+            progress_value: 進捗値（0.0〜1.0）
+            status: 状態（"in_progress", "completed", "error"）
+            event: イベントタイプ（"update" or "end"）
+        
+        Returns:
+            送信結果
+        """
+        if not self._is_configured():
+            return {"success": False, "error": "APNs not configured"}
+        
+        try:
+            import time as _time
+            
+            jwt_token = self._generate_jwt_token()
+            
+            # Live Activity用のペイロード
+            # ContentState は GenerationActivityAttributes.ContentState と一致させる
+            payload = {
+                "aps": {
+                    "timestamp": int(_time.time()),
+                    "event": event,  # "update" or "end"
+                    "content-state": {
+                        "progressText": progress_text,
+                        "progressValue": progress_value,
+                        "estimatedEndTime": int(_time.time()) + 60,  # 仮の推定完了時間
+                        "status": status
+                    }
+                }
+            }
+            
+            # Live Activity用のAPNsリクエスト
+            url = f"{self.apns_host}/3/device/{push_token}"
+            headers = {
+                "Authorization": f"bearer {jwt_token}",
+                "apns-topic": f"{self.bundle_id}.push-type.liveactivity",
+                "apns-push-type": "liveactivity",
+                "apns-priority": "10"
+            }
+            
+            with httpx.Client(http2=True) as client:
+                response = client.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=10.0
+                )
+            
+            if response.status_code == 200:
+                print(f"✅ Live Activity更新成功: {push_token[:20]}... ({progress_text})")
+                return {"success": True}
+            else:
+                error_body = response.text
+                print(f"❌ Live Activity更新失敗: {response.status_code} - {error_body}")
+                return {"success": False, "status_code": response.status_code, "error": error_body}
+                
+        except Exception as e:
+            print(f"❌ Live Activity更新エラー: {e}")
+            return {"success": False, "error": str(e)}
+
+    def send_live_activity_progress(
+        self,
+        db: Session,
+        storybook_id: int,
+        progress_text: str,
+        progress_value: float,
+        status: str = "in_progress"
+    ) -> None:
+        """
+        指定のstorybook_idに紐づくLive Activityプッシュトークンに進捗を送信
+        
+        Args:
+            db: データベースセッション
+            storybook_id: ストーリーブックID
+            progress_text: 進捗テキスト
+            progress_value: 進捗値（0.0〜1.0）
+            status: 状態
+        """
+        try:
+            from app.models.live_activity_token import LiveActivityToken
+            
+            tokens = db.query(LiveActivityToken).filter(
+                LiveActivityToken.storybook_id == storybook_id
+            ).all()
+            
+            if not tokens:
+                # トークンが無い場合（アプリがLive Activityを使っていない等）はスキップ
+                return
+            
+            event = "end" if status in ("completed", "error") else "update"
+            
+            for token in tokens:
+                result = self.send_live_activity_update(
+                    push_token=token.push_token,
+                    progress_text=progress_text,
+                    progress_value=progress_value,
+                    status=status,
+                    event=event
+                )
+                
+                # トークンが無効な場合は削除
+                if not result.get("success") and result.get("status_code") in (400, 410):
+                    print(f"🗑️ 無効なLive Activityトークンを削除: {token.push_token[:20]}...")
+                    db.delete(token)
+                    db.commit()
+            
+            # 完了/エラー時はトークンをクリーンアップ
+            if status in ("completed", "error"):
+                for token in tokens:
+                    try:
+                        db.delete(token)
+                    except Exception:
+                        pass  # 既に削除済みの場合
+                db.commit()
+                print(f"🗑️ Live Activityトークンをクリーンアップ: storybook_id={storybook_id}")
+                
+        except Exception as e:
+            print(f"⚠️ Live Activity進捗送信エラー: {e}")
+
 
 # グローバルインスタンス（シングルトン）
 push_notification_service = PushNotificationService()

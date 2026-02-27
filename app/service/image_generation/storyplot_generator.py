@@ -364,6 +364,40 @@ class StoryPlotGenerator(ImageToImageGenerator):
             
             db.commit()
             
+            # Live Activity APNs更新を送信（バックグラウンドでもDynamic Islandを更新）
+            try:
+                from app.service.push_notification_service import push_notification_service
+                
+                # 進捗率を計算（0.0〜1.0）
+                # 15%〜95%の範囲にマッピング（フロントエンドと同じ計算）
+                if total_pages > 0:
+                    raw_progress = completed_pages / total_pages
+                else:
+                    raw_progress = 0.0
+                mapped_progress = 0.15 + (0.80 * raw_progress)
+                mapped_progress = min(mapped_progress, 0.95)
+                
+                # ステップに応じたメッセージ
+                la_status = "in_progress"
+                if current_step == "completed" and completed_pages + 1 >= total_pages:
+                    progress_text = "絵本が完成しました！"
+                    la_status = "completed"
+                    mapped_progress = 1.0
+                elif current_page == 0:
+                    progress_text = "表紙を描いています..."
+                else:
+                    progress_text = f"絵を描いています... ({current_page}/{total_pages}ページ)"
+                
+                push_notification_service.send_live_activity_progress(
+                    db=db,
+                    storybook_id=storybook.id,
+                    progress_text=progress_text,
+                    progress_value=mapped_progress,
+                    status=la_status
+                )
+            except Exception as la_error:
+                print(f"⚠️ Live Activity APNs送信エラー（進捗更新は継続）: {la_error}")
+            
         except Exception as e:
             print(f"⚠️ 進捗更新エラー: {e}")
             db.rollback()

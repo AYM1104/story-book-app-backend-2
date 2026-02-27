@@ -86,6 +86,21 @@ def execute_image_generation_task(payload: Dict[str, Any]) -> Dict[str, Any]:
         
         print(f"✅ 画像生成タスク完了: storybook_id={storybook_id}")
         
+        # Live Activity APNs更新を送信（完了通知）
+        try:
+            from app.service.push_notification_service import push_notification_service
+            
+            push_notification_service.send_live_activity_progress(
+                db=db,
+                storybook_id=storybook_id,
+                progress_text="絵本が完成しました！🎉",
+                progress_value=1.0,
+                status="completed"
+            )
+            print(f"📬 Live Activity完了通知を送信しました")
+        except Exception as la_error:
+            print(f"⚠️ Live Activity完了通知エラー: {la_error}")
+        
         # プッシュ通知を送信
         try:
             from app.service.push_notification_service import push_notification_service

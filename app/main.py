@@ -299,6 +299,17 @@ except Exception as e:
     def device_tokens_test():
         return {"message": "Device tokens router not available", "error": str(e)}
 
+# Live Activityトークン管理API（ActivityKit Push Notifications用）
+try:
+    from app.api.live_activity_tokens import router as live_activity_tokens_router
+    app.include_router(live_activity_tokens_router)
+    print("✅ Live activity tokens router loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to load live_activity_tokens_router: {e}")
+    @app.get("/api/live-activity-tokens/test")
+    def live_activity_tokens_test():
+        return {"message": "Live activity tokens router not available", "error": str(e)}
+
 
 @app.get("/api/routes")
 def list_routes():
